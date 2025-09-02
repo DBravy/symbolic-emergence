@@ -1,0 +1,18 @@
+Progressive Selection Training Log
+==================================================
+Task: Puzzle Selection (5 candidates)
+Distractor strategy: random
+Similarity metric: cosine
+Expansion every 100000 cycles
+==================================================
+
+Cycle 1: Loss=3.2190, Vocab=5, Sel_Acc1=0.200, Sel_Acc2=0.200, Conf1=0.200, Conf2=0.200
+Cycle 2: Loss=3.2187, Vocab=5, Sel_Acc1=0.400, Sel_Acc2=0.200, Conf1=0.200, Conf2=0.200
+Cycle 3: Loss=3.2159, Vocab=5, Sel_Acc1=0.200, Sel_Acc2=0.200, Conf1=0.201, Conf2=0.200
+Cycle 4: Loss=3.2186, Vocab=5, Sel_Acc1=0.200, Sel_Acc2=0.200, Conf1=0.200, Conf2=0.200
+Cycle 5: Loss=3.2228, Vocab=5, Sel_Acc1=0.000, Sel_Acc2=0.200, Conf1=0.199, Conf2=0.200
+Cycle 6: Loss=3.2194, Vocab=5, Sel_Acc1=0.000, Sel_Acc2=0.200, Conf1=0.200, Conf2=0.200
+Cycle 7: Loss=3.2159, Vocab=5, Sel_Acc1=0.200, Sel_Acc2=0.200, Conf1=0.201, Conf2=0.200
+Cycle 8: Loss=3.2137, Vocab=5, Sel_Acc1=0.400, Sel_Acc2=0.200, Conf1=0.201, Conf2=0.200
+Cycle 9: Loss=3.2108, Vocab=5, Sel_Acc1=0.400, Sel_Acc2=0.400, Conf1=0.201, Conf2=0.201
+Cycle 10: Loss=3.2163, Vocab=5, Sel_Acc1=0.400, Sel_Acc2=0.200, Conf1=0.200, Conf2=0.200

@@ -1,0 +1,24 @@
+{
+  "plateau": {
+    "plateau_cycles": 100,
+    "plateau_threshold": 0.2,
+    "min_cycles_before_detection": 100,
+    "patience_multiplier": 1.0
+  },
+  "symbols": {
+    "initial_total_symbols": 12,
+    "puzzle_symbols": 10,
+    "max_total_symbols": 20,
+    "initial_seq_length": 1,
+    "max_seq_length": 5,
+    "initial_comm_symbols": 2,
+    "max_comm_symbols": 10
+  },
+  "training": {
+    "total_cycles": 1000,
+    "learning_rate": 0.001,
+    "plot_frequency": 50,
+    "debug_frequency": 100,
+    "log_file": "training_log_dynamic.txt"
+  }
+}
