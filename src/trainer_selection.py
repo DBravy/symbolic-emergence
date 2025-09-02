@@ -2,11 +2,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Set
 from agent_selection import ProgressiveSelectionAgent
 from puzzle import Puzzle
 import numpy as np
 import random
+from collections import defaultdict, Counter
 
 class ProgressiveSelectionTrainer:
     def __init__(
@@ -15,22 +16,27 @@ class ProgressiveSelectionTrainer:
         agent2: ProgressiveSelectionAgent,
         learning_rate: float = 1e-4,
         device: str = 'cuda' if torch.cuda.is_available() else 'cpu',
-        expansion_frequency: int = 200,  # Expand every N cycles
-        symbols_per_expansion: int = 2,   # Add N symbols per expansion
-        length_per_expansion: int = 1,    # Add N sequence length per expansion
         sync_frequency: int = 50,         # Synchronize every N cycles
         num_distractors: int = 3,         # Number of distractor puzzles
-        distractor_strategy: str = 'random'  # 'random', 'similar_size', 'hard'
+        distractor_strategy: str = 'random',  # 'random', 'similar_size', 'hard'
+        training_cycles: int = 200,       # Cycles per training phase
+        consolidation_tests: int = 5,     # Number of test cycles in consolidation
+        puzzles_per_addition: int = 5     # Puzzles to add each addition phase
     ):
         self.agent1 = agent1.to(device)
         self.agent2 = agent2.to(device)
         self.device = device
         
-        # Progressive training parameters
-        self.expansion_frequency = expansion_frequency
-        self.symbols_per_expansion = symbols_per_expansion
-        self.length_per_expansion = length_per_expansion
+        # Phase-based training parameters
+        self.training_cycles = training_cycles
+        self.consolidation_tests = consolidation_tests
+        self.puzzles_per_addition = puzzles_per_addition
         self.cycle_count = 0
+        
+        # Current phase tracking
+        self.current_phase = "pretraining"  # pretraining, training, consolidation, addition
+        self.phase_cycle = 0  # Cycle within current phase
+        self.global_phase_count = 0  # Which iteration of the full cycle we're on
         
         # Synchronization parameters
         self.sync_frequency = sync_frequency
@@ -76,20 +82,109 @@ class ProgressiveSelectionTrainer:
         # Training mode tracking
         self.training_mode = "joint"
         
-        # Store puzzle dataset for distractor sampling
-        self.puzzle_dataset = []
+        # Puzzle and symbol management
+        self.active_puzzles = []  # Currently active puzzles
+        self.available_arc_puzzles = []  # Full ARC dataset
+        self.puzzle_symbol_mapping = {}  # puzzle_idx -> symbol_idx
+        self.symbol_puzzle_mapping = {}  # symbol_idx -> puzzle_idx
+        self.next_available_symbol = None  # Track next symbol to assign
+        
+        # Consolidation tracking
+        self.consolidation_results = []
+        self.removed_symbols = set()
     
     def set_puzzle_dataset(self, puzzles: List[Puzzle]):
-        """Set the puzzle dataset for distractor sampling"""
-        self.puzzle_dataset = puzzles
-        print(f"Loaded {len(puzzles)} puzzles for distractor sampling")
+        """Set the full ARC puzzle dataset"""
+        self.available_arc_puzzles = puzzles
+        print(f"Loaded {len(puzzles)} total ARC puzzles for iterative training")
+    
+    def initialize_first_puzzles(self, initial_count: int = 5):
+        """Initialize the first set of active puzzles with symbol assignments"""
+        if len(self.available_arc_puzzles) < initial_count:
+            raise ValueError(f"Need at least {initial_count} puzzles to start")
+        
+        # Take first puzzles
+        self.active_puzzles = self.available_arc_puzzles[:initial_count]
+        
+        # Create symbol assignments starting from puzzle_symbols
+        self.puzzle_symbol_mapping = {}
+        self.symbol_puzzle_mapping = {}
+        
+        start_symbol = self.agent1.puzzle_symbols
+        for i, puzzle in enumerate(self.active_puzzles):
+            symbol_idx = start_symbol + i
+            self.puzzle_symbol_mapping[i] = symbol_idx
+            self.symbol_puzzle_mapping[symbol_idx] = i
+        
+        self.next_available_symbol = start_symbol + len(self.active_puzzles)
+        
+        # Update agent vocabularies
+        self.agent1.current_comm_symbols = len(self.active_puzzles)
+        self.agent2.current_comm_symbols = len(self.active_puzzles)
+        self.agent1.current_total_symbols = self.agent1.puzzle_symbols + len(self.active_puzzles)
+        self.agent2.current_total_symbols = self.agent2.puzzle_symbols + len(self.active_puzzles)
+        
+        print(f"Initialized with {len(self.active_puzzles)} puzzles")
+        print(f"Symbol assignments: {self.puzzle_symbol_mapping}")
+        print(f"Next available symbol: {self.next_available_symbol}")
     
     def should_synchronize(self) -> bool:
         """Check if it's time to synchronize agent parameters"""
         return (self.cycle_count > 0 and 
                 self.cycle_count - self.last_sync_cycle >= self.sync_frequency)
     
-    def _sync_module_recursive(self, module1, module2, module_name=""):
+    def synchronize_agents(self):
+        """Synchronize ALL agent parameters from agent1 to agent2."""
+        print(f"\n{'='*40}")
+        print(f"SYNCHRONIZING AGENTS")
+        print(f"{'='*40}")
+        
+        with torch.no_grad():
+            total_synced_params = 0
+            
+            # 1. Synchronize puzzle embedding system
+            total_synced_params += self._sync_module_recursive(
+                self.agent1.embedding_system, 
+                self.agent2.embedding_system
+            )
+            
+            # 2. Synchronize encoder
+            total_synced_params += self._sync_module_recursive(
+                self.agent1.encoder, 
+                self.agent2.encoder
+            )
+            
+            # 3. Synchronize message pooling
+            total_synced_params += self._sync_module_recursive(
+                self.agent1.message_pooling,
+                self.agent2.message_pooling
+            )
+            
+            # 4. Synchronize similarity MLP if it exists
+            if hasattr(self.agent1, 'similarity_mlp') and hasattr(self.agent2, 'similarity_mlp'):
+                total_synced_params += self._sync_module_recursive(
+                    self.agent1.similarity_mlp,
+                    self.agent2.similarity_mlp
+                )
+            
+            # 5. Synchronize communication embeddings (active symbols only)
+            current_comm_symbols = self.agent1.current_comm_symbols
+            if current_comm_symbols > 0:
+                start_idx = self.agent1.puzzle_symbols
+                end_idx = start_idx + current_comm_symbols
+                
+                self.agent2.communication_embedding.weight[start_idx:end_idx].copy_(
+                    self.agent1.communication_embedding.weight[start_idx:end_idx]
+                )
+                comm_params = current_comm_symbols * self.agent1.communication_embedding.embedding_dim
+                total_synced_params += comm_params
+            
+            # Update sync tracking
+            self.last_sync_cycle = self.cycle_count
+            
+            print(f"Synchronized {total_synced_params:,} parameters")
+    
+    def _sync_module_recursive(self, module1, module2):
         """Recursively synchronize all parameters in a module"""
         synced_count = 0
         
@@ -101,7 +196,7 @@ class ProgressiveSelectionTrainer:
                     param2.copy_(param1)
                     synced_count += param1.numel()
         
-        # Sync buffers (like running means in batch norm)
+        # Sync buffers
         for name, buffer1 in module1.named_buffers(recurse=False):
             if hasattr(module2, name.split('.')[-1]):
                 buffer2 = getattr(module2, name.split('.')[-1])
@@ -113,144 +208,9 @@ class ProgressiveSelectionTrainer:
         for name, child1 in module1.named_children():
             if hasattr(module2, name):
                 child2 = getattr(module2, name)
-                synced_count += self._sync_module_recursive(child1, child2, f"{module_name}.{name}")
+                synced_count += self._sync_module_recursive(child1, child2)
         
         return synced_count
-
-    def synchronize_agents(self):
-        """Synchronize ALL agent parameters from agent1 to agent2."""
-        print(f"\n{'='*60}")
-        print(f"SYNCHRONIZING AGENTS AT CYCLE {self.cycle_count}")
-        print(f"{'='*60}")
-        
-        with torch.no_grad():
-            total_synced_params = 0
-            
-            # 1. Synchronize puzzle embedding system
-            print("Synchronizing puzzle embedding system...")
-            embedding_params = self._sync_module_recursive(
-                self.agent1.embedding_system, 
-                self.agent2.embedding_system, 
-                "embedding_system"
-            )
-            total_synced_params += embedding_params
-            print(f"  ✓ Puzzle embedding system synchronized ({embedding_params:,} parameters)")
-            
-            # 2. Synchronize encoder
-            print("Synchronizing encoder...")
-            encoder_params = self._sync_module_recursive(
-                self.agent1.encoder, 
-                self.agent2.encoder, 
-                "encoder"
-            )
-            total_synced_params += encoder_params
-            print(f"  ✓ Encoder synchronized ({encoder_params:,} parameters)")
-            
-            # 3. Synchronize message pooling
-            print("Synchronizing message pooling...")
-            pooling_params = self._sync_module_recursive(
-                self.agent1.message_pooling,
-                self.agent2.message_pooling,
-                "message_pooling"
-            )
-            total_synced_params += pooling_params
-            print(f"  ✓ Message pooling synchronized ({pooling_params:,} parameters)")
-            
-            # 4. Synchronize similarity MLP if it exists
-            if hasattr(self.agent1, 'similarity_mlp') and hasattr(self.agent2, 'similarity_mlp'):
-                print("Synchronizing similarity MLP...")
-                similarity_params = self._sync_module_recursive(
-                    self.agent1.similarity_mlp,
-                    self.agent2.similarity_mlp,
-                    "similarity_mlp"
-                )
-                total_synced_params += similarity_params
-                print(f"  ✓ Similarity MLP synchronized ({similarity_params:,} parameters)")
-            
-            # 5. Synchronize communication embeddings (current vocabulary only)
-            print("Synchronizing communication embeddings...")
-            current_comm_symbols = self.agent1.current_comm_symbols
-            if current_comm_symbols > 0:
-                start_idx = self.agent1.puzzle_symbols
-                end_idx = start_idx + current_comm_symbols
-                
-                self.agent2.communication_embedding.weight[start_idx:end_idx].copy_(
-                    self.agent1.communication_embedding.weight[start_idx:end_idx]
-                )
-                comm_params = current_comm_symbols * self.agent1.communication_embedding.embedding_dim
-                total_synced_params += comm_params
-                print(f"  ✓ Communication embeddings synchronized ({current_comm_symbols} symbols, {comm_params:,} parameters)")
-            
-            # Update sync tracking
-            self.last_sync_cycle = self.cycle_count
-            
-            print(f"\nSynchronization complete!")
-            print(f"Total synchronized parameters: {total_synced_params:,}")
-            print(f"Next synchronization in {self.sync_frequency} cycles")
-            print(f"{'='*60}")
-    
-    def should_expand_vocabulary(self) -> bool:
-        """Check if it's time to expand the vocabulary"""
-        return (self.cycle_count > 0 and 
-                self.cycle_count % self.expansion_frequency == 0 and
-                self._can_expand())
-    
-    def _can_expand(self) -> bool:
-        """Check if agents can still expand their vocabularies"""
-        agent1_can_expand = (
-            self.agent1.current_comm_symbols < self.agent1.max_num_symbols - self.agent1.puzzle_symbols or
-            self.agent1.current_seq_length < self.agent1.max_seq_length
-        )
-        agent2_can_expand = (
-            self.agent2.current_comm_symbols < self.agent2.max_num_symbols - self.agent2.puzzle_symbols or
-            self.agent2.current_seq_length < self.agent2.max_seq_length
-        )
-        return agent1_can_expand and agent2_can_expand
-    
-    def expand_vocabularies(self):
-        """Expand vocabularies for both agents"""
-        print(f"\n{'='*60}")
-        print(f"EXPANDING VOCABULARIES AT CYCLE {self.cycle_count}")
-        print(f"{'='*60}")
-        
-        # Show current state
-        print("\nBefore expansion:")
-        self.agent1.print_position_symbol_mapping()
-        self.agent2.print_position_symbol_mapping()
-        
-        # Expand both agents
-        self.agent1.expand_vocabulary(
-            additional_symbols=self.symbols_per_expansion,
-            additional_length=self.length_per_expansion
-        )
-        self.agent2.expand_vocabulary(
-            additional_symbols=self.symbols_per_expansion,
-            additional_length=self.length_per_expansion
-        )
-        
-        # Show new state
-        print("\nAfter expansion:")
-        self.agent1.print_position_symbol_mapping()
-        self.agent2.print_position_symbol_mapping()
-        
-        # Synchronize communication embeddings for new symbols
-        self._synchronize_new_embeddings()
-        
-        print(f"{'='*60}")
-    
-    def _synchronize_new_embeddings(self):
-        """Synchronize communication embeddings between agents for newly added symbols."""
-        with torch.no_grad():
-            # Get the range of newly added symbols
-            old_total = self.agent1.current_total_symbols - self.symbols_per_expansion
-            new_total = self.agent1.current_total_symbols
-            
-            if old_total < new_total:
-                # Copy new embeddings from agent1 to agent2
-                new_embeddings = self.agent1.communication_embedding.weight[old_total:new_total].clone()
-                self.agent2.communication_embedding.weight[old_total:new_total] = new_embeddings
-                
-                print(f"Synchronized embeddings for symbols {old_total} to {new_total-1}")
     
     def set_training_mode(self, mode: str):
         """Set the training mode to control which components are trainable."""
@@ -277,8 +237,6 @@ class ProgressiveSelectionTrainer:
         
         if hasattr(self.agent2, 'similarity_mlp'):
             self._set_component_trainable(self.agent2, "similarity_mlp", mode in ["joint", "selection_only"])
-        
-        print(f"Set training mode to: {mode}")
     
     def _set_component_trainable(self, agent, component_name, trainable):
         """Helper method to set requires_grad for a component's parameters"""
@@ -288,123 +246,312 @@ class ProgressiveSelectionTrainer:
                 param.requires_grad = trainable
 
     def sample_distractors(self, target_puzzle: torch.Tensor, target_idx: int) -> List[torch.Tensor]:
-        """
-        Sample distractor puzzles based on the specified strategy.
-        
-        Args:
-            target_puzzle: [batch_size, height, width] - target puzzle
-            target_idx: index of target puzzle in dataset
-            
-        Returns:
-            List of distractor puzzle tensors
-        """
-        if len(self.puzzle_dataset) < self.num_distractors + 1:
-            raise ValueError(f"Need at least {self.num_distractors + 1} puzzles for selection task")
+        """Modified to sample from ALL active puzzles, not just mapped ones"""
+        if len(self.active_puzzles) < self.num_distractors + 1:
+            raise ValueError(f"Need at least {self.num_distractors + 1} active puzzles for selection task")
         
         distractors = []
-        available_indices = list(range(len(self.puzzle_dataset)))
-        available_indices.remove(target_idx)  # Don't sample the target
+        available_indices = list(range(len(self.active_puzzles)))
+        available_indices.remove(target_idx)
         
         if self.distractor_strategy == 'random':
-            # Simple random sampling
             distractor_indices = random.sample(available_indices, self.num_distractors)
-            
         elif self.distractor_strategy == 'similar_size':
-            # Sample puzzles with similar dimensions
+            # Similar size sampling
             target_height, target_width = target_puzzle.shape[1], target_puzzle.shape[2]
-            
-            # Calculate size differences
             size_diffs = []
             for idx in available_indices:
-                puzzle = self.puzzle_dataset[idx]
+                puzzle = self.active_puzzles[idx]
                 puzzle_tensor = torch.tensor(puzzle.test_input, dtype=torch.long)
                 h_diff = abs(puzzle_tensor.shape[0] - target_height)
                 w_diff = abs(puzzle_tensor.shape[1] - target_width)
                 size_diff = h_diff + w_diff
                 size_diffs.append((size_diff, idx))
             
-            # Sort by size similarity and take closest ones
             size_diffs.sort(key=lambda x: x[0])
             distractor_indices = [idx for _, idx in size_diffs[:self.num_distractors]]
-            
-        elif self.distractor_strategy == 'hard':
-            # TODO: Implement hard negative sampling based on embedding similarity
-            # For now, fall back to random
-            distractor_indices = random.sample(available_indices, self.num_distractors)
-            
         else:
-            raise ValueError(f"Unknown distractor strategy: {self.distractor_strategy}")
+            distractor_indices = random.sample(available_indices, self.num_distractors)
         
-        # Convert to tensors
+        # Convert to tensors - include ALL puzzles as potential distractors
         for idx in distractor_indices:
-            puzzle = self.puzzle_dataset[idx]
+            puzzle = self.active_puzzles[idx]
             distractor_tensor = torch.tensor(
                 puzzle.test_input, 
                 dtype=torch.long, 
                 device=self.device
-            ).unsqueeze(0)  # Add batch dimension
+            ).unsqueeze(0)
             distractors.append(distractor_tensor)
         
         return distractors
 
+    def run_consolidation_test(self) -> Dict[str, List]:
+        """
+        Run consolidation tests to identify recessive symbols.
+        Returns confusion matrix data for analysis.
+        """
+        print(f"\n{'='*50}")
+        print(f"CONSOLIDATION PHASE - Testing Symbol Accuracy")
+        print(f"{'='*50}")
+        
+        # Set agents to eval mode
+        self.agent1.eval()
+        self.agent2.eval()
+        
+        # Track results for each test
+        confusion_data = defaultdict(list)  # symbol -> [predicted_symbols_list]
+        
+        with torch.no_grad():
+            for test_round in range(self.consolidation_tests):
+                print(f"\nConsolidation Test Round {test_round + 1}/{self.consolidation_tests}")
+                
+                round_results = {}
+                
+                mapped_puzzle_indices = list(self.puzzle_symbol_mapping.keys())
+                print(f"Testing {len(mapped_puzzle_indices)} puzzles with symbol mappings")
+                print(f"Skipping {len(self.active_puzzles) - len(mapped_puzzle_indices)} puzzles without mappings")
+
+                if len(mapped_puzzle_indices) == 0:
+                    print("No puzzles with symbol mappings to test!")
+                    return {}
+
+                for puzzle_idx in mapped_puzzle_indices:
+                    puzzle = self.active_puzzles[puzzle_idx]
+                    puzzle_tensor = torch.tensor(
+                        puzzle.test_input, 
+                        dtype=torch.long, 
+                        device=self.device
+                    ).unsqueeze(0)
+                    
+                    assigned_symbol = self.puzzle_symbol_mapping[puzzle_idx]
+                    
+                    # Agent1 encodes the puzzle
+                    symbols, _, _ = self.agent1.encode_puzzle_to_message(
+                        puzzle_tensor, temperature=0.1, deterministic=True
+                    )
+                    
+                    # Create candidates with all active puzzles
+                    candidates = []
+                    for other_puzzle in self.active_puzzles:
+                        candidate_tensor = torch.tensor(
+                            other_puzzle.test_input,
+                            dtype=torch.long,
+                            device=self.device
+                        ).unsqueeze(0)
+                        candidates.append(candidate_tensor)
+                    
+                    # Agent2 selects from all puzzles
+                    selection_probs, selection_logits, _ = self.agent2.select_from_candidates(
+                        symbols, candidates, temperature=0.1
+                    )
+                    
+                    predicted_idx = selection_logits.argmax(dim=-1).item()
+                    predicted_symbol = self.puzzle_symbol_mapping[predicted_idx]
+                    
+                    # Record the result
+                    confusion_data[assigned_symbol].append(predicted_symbol)
+                    round_results[assigned_symbol] = predicted_symbol
+                    
+                    correct = "✓" if predicted_idx == puzzle_idx else "✗"
+                    symbol_info = f"Symbol {predicted_symbol}" if predicted_symbol != -1 else "No symbol"
+                    print(f"  Puzzle {puzzle_idx} (Symbol {assigned_symbol}): "
+                        f"Predicted {predicted_idx} ({symbol_info}) {correct}")
+        
+        return dict(confusion_data)
+    
+    def identify_recessive_symbols(self, confusion_data: Dict[int, List[int]]) -> Set[int]:
+        """
+        Identify symbols that are consistently misinterpreted.
+        A symbol is considered recessive if it's never predicted correctly
+        across all test rounds.
+        """
+        recessive_symbols = set()
+        
+        print(f"\n{'='*50}")
+        print(f"ANALYZING SYMBOL PERFORMANCE")
+        print(f"{'='*50}")
+        
+        for symbol, predictions in confusion_data.items():
+            correct_predictions = sum(1 for pred in predictions if pred == symbol)
+            accuracy = correct_predictions / len(predictions)
+            
+            print(f"Symbol {symbol}: {correct_predictions}/{len(predictions)} correct ({accuracy:.2f})")
+            
+            # Consider symbol recessive if accuracy is below threshold
+            if accuracy == 0.0:  # Never predicted correctly
+                recessive_symbols.add(symbol)
+                print(f"  → RECESSIVE: Symbol {symbol} never predicted correctly")
+            
+            # Show what this symbol was confused with
+            if accuracy < 1.0:
+                confusion_counter = Counter(predictions)
+                most_common = confusion_counter.most_common(2)
+                print(f"  → Most often confused with: {most_common}")
+        
+        return recessive_symbols
+    
+    def remove_recessive_symbols(self, recessive_symbols: Set[int]):
+        """Remove recessive symbols but keep their associated puzzles"""
+        if not recessive_symbols:
+            print("No recessive symbols to remove")
+            return
+        
+        print(f"\n{'='*50}")
+        print(f"REMOVING RECESSIVE SYMBOLS: {recessive_symbols}")
+        print(f"{'='*50}")
+        
+        # Find puzzles that will lose their symbol mappings
+        orphaned_puzzles = []
+        for symbol in recessive_symbols:
+            if symbol in self.symbol_puzzle_mapping:
+                puzzle_idx = self.symbol_puzzle_mapping[symbol]
+                orphaned_puzzles.append(puzzle_idx)
+        
+        print(f"Puzzles that will lose symbol mappings: {orphaned_puzzles}")
+        print(f"These puzzles will remain active but won't have dedicated symbols")
+        
+        # Remove symbol mappings for recessive symbols
+        for symbol in recessive_symbols:
+            if symbol in self.symbol_puzzle_mapping:
+                puzzle_idx = self.symbol_puzzle_mapping[symbol]
+                print(f"Removing symbol mapping: Puzzle {puzzle_idx} <-> Symbol {symbol}")
+                
+                # Remove from both mappings
+                del self.symbol_puzzle_mapping[symbol]
+                del self.puzzle_symbol_mapping[puzzle_idx]
+        
+        # Compact remaining symbol mappings to be sequential
+        # This ensures communication symbols are contiguous
+        remaining_mapped_puzzles = list(self.puzzle_symbol_mapping.keys())
+        remaining_mapped_puzzles.sort()
+        
+        new_puzzle_mapping = {}
+        new_symbol_mapping = {}
+        new_symbol_idx = self.agent1.puzzle_symbols
+        
+        for puzzle_idx in remaining_mapped_puzzles:
+            new_puzzle_mapping[puzzle_idx] = new_symbol_idx
+            new_symbol_mapping[new_symbol_idx] = puzzle_idx
+            new_symbol_idx += 1
+        
+        self.puzzle_symbol_mapping = new_puzzle_mapping
+        self.symbol_puzzle_mapping = new_symbol_mapping
+        
+        # Update agent vocabularies based on remaining mapped symbols
+        self.agent1.current_comm_symbols = len(self.puzzle_symbol_mapping)
+        self.agent2.current_comm_symbols = len(self.puzzle_symbol_mapping)
+        self.agent1.current_total_symbols = self.agent1.puzzle_symbols + len(self.puzzle_symbol_mapping)
+        self.agent2.current_total_symbols = self.agent2.puzzle_symbols + len(self.puzzle_symbol_mapping)
+        
+        # Track removed symbols
+        self.removed_symbols.update(recessive_symbols)
+        
+        print(f"Results:")
+        print(f"  Total puzzles (unchanged): {len(self.active_puzzles)}")
+        print(f"  Puzzles with symbol mappings: {len(self.puzzle_symbol_mapping)}")
+        print(f"  Puzzles without symbol mappings: {len(self.active_puzzles) - len(self.puzzle_symbol_mapping)}")
+        print(f"  Active communication symbols: {self.agent1.current_comm_symbols}")
+        print(f"  New symbol mapping: {self.puzzle_symbol_mapping}")
+    
+    def add_new_puzzles(self):
+        """Add new puzzles from the ARC dataset"""
+        print(f"\n{'='*50}")
+        print(f"ADDITION PHASE - Adding {self.puzzles_per_addition} new puzzles")
+        print(f"{'='*50}")
+        
+        # Find puzzles not yet used
+        used_puzzle_count = len(self.active_puzzles) + len(self.removed_symbols)
+        if used_puzzle_count + self.puzzles_per_addition > len(self.available_arc_puzzles):
+            actual_addition = len(self.available_arc_puzzles) - used_puzzle_count
+            print(f"Only {actual_addition} puzzles available to add")
+            self.puzzles_per_addition = actual_addition
+        
+        if self.puzzles_per_addition <= 0:
+            print("No more puzzles to add!")
+            return []
+        
+        # Add new puzzles
+        start_idx = len(self.active_puzzles)
+        new_puzzles = []
+        
+        for i in range(self.puzzles_per_addition):
+            puzzle_idx = used_puzzle_count + i
+            if puzzle_idx < len(self.available_arc_puzzles):
+                new_puzzle = self.available_arc_puzzles[puzzle_idx]
+                self.active_puzzles.append(new_puzzle)
+                new_puzzles.append(new_puzzle)
+                
+                # Assign symbol
+                active_puzzle_idx = len(self.active_puzzles) - 1
+                symbol_idx = self.agent1.puzzle_symbols + active_puzzle_idx
+                self.puzzle_symbol_mapping[active_puzzle_idx] = symbol_idx
+                self.symbol_puzzle_mapping[symbol_idx] = active_puzzle_idx
+                
+                print(f"Added puzzle {puzzle_idx} as active puzzle {active_puzzle_idx} with symbol {symbol_idx}")
+        
+        # Update agent vocabularies
+        self.agent1.current_comm_symbols = len(self.active_puzzles)
+        self.agent2.current_comm_symbols = len(self.active_puzzles)
+        self.agent1.current_total_symbols = self.agent1.puzzle_symbols + len(self.active_puzzles)
+        self.agent2.current_total_symbols = self.agent2.puzzle_symbols + len(self.active_puzzles)
+        
+        print(f"Total active puzzles: {len(self.active_puzzles)}")
+        print(f"New symbol mapping: {self.puzzle_symbol_mapping}")
+        
+        return new_puzzles
+    
+    def advance_phase(self):
+        """Advance to the next phase in the cycle"""
+        if self.current_phase == "pretraining":
+            self.current_phase = "training"
+        elif self.current_phase == "training":
+            self.current_phase = "consolidation"
+        elif self.current_phase == "consolidation":
+            self.current_phase = "addition"
+        elif self.current_phase == "addition":
+            self.current_phase = "pretraining"
+            self.global_phase_count += 1
+        
+        self.phase_cycle = 0
+        print(f"\n{'='*60}")
+        print(f"ADVANCING TO {self.current_phase.upper()} PHASE")
+        if self.current_phase == "pretraining" and self.global_phase_count > 0:
+            print(f"Global Phase Cycle: {self.global_phase_count}")
+        print(f"{'='*60}")
+
     def train_bidirectional_step(
         self,
         puzzle: torch.Tensor,
-        puzzle_idx: int,  # NEW: Index of puzzle in dataset for distractor sampling
-        num_exchanges: int = 5,
+        puzzle_idx: int,
+        num_exchanges: int = 1,
         temperature: float = 1.0,
         initial_phase: bool = False
     ) -> List[Dict[str, float]]:
+        
+        # Check if this puzzle has a symbol mapping
+        has_symbol_mapping = puzzle_idx in self.puzzle_symbol_mapping
         
         # Check if it's time to synchronize agents
         if self.should_synchronize():
             self.synchronize_agents()
         
-        # Check if it's time to expand vocabulary
-        if self.should_expand_vocabulary():
-            self.expand_vocabularies()
-        
         # Increment cycle count
         self.cycle_count += 1
+        self.phase_cycle += 1
         
         metrics_history = []
         
-        # Set components to train/eval mode based on training_mode
-        if self.training_mode == "encoder_only":
-            self.agent1.encoder.train()
-            self.agent1.embedding_system.train()
-            self.agent1.message_pooling.eval()
-            if hasattr(self.agent1, 'similarity_mlp'):
-                self.agent1.similarity_mlp.eval()
-                
-            self.agent2.encoder.train()
-            self.agent2.embedding_system.train()
-            self.agent2.message_pooling.eval()
-            if hasattr(self.agent2, 'similarity_mlp'):
-                self.agent2.similarity_mlp.eval()
-                
-        elif self.training_mode == "selection_only":
-            self.agent1.encoder.eval()
-            self.agent1.embedding_system.eval()
-            self.agent1.message_pooling.train()
-            if hasattr(self.agent1, 'similarity_mlp'):
-                self.agent1.similarity_mlp.train()
-                
-            self.agent2.encoder.eval()
-            self.agent2.embedding_system.eval()
-            self.agent2.message_pooling.train()
-            if hasattr(self.agent2, 'similarity_mlp'):
-                self.agent2.similarity_mlp.train()
-                
-        else:  # joint training
-            self.agent1.train()
-            self.agent2.train()
+        # Set training mode based on phase
+        if self.current_phase == "pretraining":
+            self.set_training_mode("encoder_only")
+        else:
+            self.set_training_mode("joint")
         
         for exchange in range(num_exchanges):
             self.opt1.zero_grad()
             self.opt2.zero_grad()
             
-            # Sample distractors for this exchange
+            # Sample distractors for this exchange (from ALL active puzzles)
             distractors = self.sample_distractors(puzzle, puzzle_idx)
             
             # Agent1 encodes, Agent2 selects
@@ -447,7 +594,8 @@ class ProgressiveSelectionTrainer:
             total_loss = selection_loss1 + selection_loss2
             
             # Add symbol entropy regularization when training encoders
-            if self.training_mode in ["encoder_only", "joint"]:
+            # But only if this puzzle has a symbol mapping
+            if self.training_mode in ["encoder_only", "joint"] and has_symbol_mapping:
                 entropy1 = self._calculate_symbol_entropy(symbols1)
                 entropy2 = self._calculate_symbol_entropy(symbols2)
                 
@@ -461,7 +609,7 @@ class ProgressiveSelectionTrainer:
             
             # Compute accuracies
             with torch.no_grad():
-                # Selection accuracy (did the agent choose the correct puzzle?)
+                # Selection accuracy
                 pred1 = selection_logits1.argmax(dim=-1)
                 pred2 = selection_logits2.argmax(dim=-1)
                 
@@ -469,11 +617,14 @@ class ProgressiveSelectionTrainer:
                 acc2 = (pred2 == target_idx[0]).float().mean().item()
                 
                 # Confidence in correct selection
-                correct_confidence1 = selection_probs1[0, 0].item()  # Probability of target
+                correct_confidence1 = selection_probs1[0, 0].item()
                 correct_confidence2 = selection_probs2[0, 0].item()
             
             metrics = {
                 'cycle': self.cycle_count,
+                'phase': self.current_phase,
+                'phase_cycle': self.phase_cycle,
+                'global_phase_count': self.global_phase_count,
                 'total_loss': total_loss.item(),
                 'selection_loss1': selection_loss1.item(),
                 'selection_loss2': selection_loss2.item(),
@@ -500,15 +651,11 @@ class ProgressiveSelectionTrainer:
                 # Selection task specific
                 'num_candidates': len(candidates1),
                 'distractor_strategy': self.distractor_strategy,
+                'active_puzzles': len(self.active_puzzles),
+                'mapped_puzzles': len(self.puzzle_symbol_mapping),
+                'unmapped_puzzles': len(self.active_puzzles) - len(self.puzzle_symbol_mapping),
+                'target_has_mapping': has_symbol_mapping
             }
-            
-            # If training encoders, add symbol distribution metrics
-            if self.training_mode in ["encoder_only", "joint"]:
-                _, max_symbol1 = symbols1.max(dim=-1)
-                _, max_symbol2 = symbols2.max(dim=-1)
-                
-                metrics['encoder1_symbol'] = max_symbol1[0, 0].item()
-                metrics['encoder2_symbol'] = max_symbol2[0, 0].item()
             
             metrics_history.append(metrics)
             
@@ -523,17 +670,23 @@ class ProgressiveSelectionTrainer:
         entropy = -torch.sum(probs * torch.log(probs), dim=-1)
         return entropy.mean()
 
-    def get_vocabulary_status(self) -> Dict[str, Dict[str, int]]:
-        """Get current vocabulary status for both agents"""
+    def get_phase_status(self) -> Dict[str, any]:
+        """Get current phase and vocabulary status"""
         return {
-            'agent1': self.agent1.get_vocabulary_info(),
-            'agent2': self.agent2.get_vocabulary_info(),
-            'cycle_count': self.cycle_count,
-            'next_expansion_at': ((self.cycle_count // self.expansion_frequency) + 1) * self.expansion_frequency,
-            'next_sync_at': self.last_sync_cycle + self.sync_frequency,
+            'current_phase': self.current_phase,
+            'phase_cycle': self.phase_cycle,
+            'global_phase_count': self.global_phase_count,
+            'active_puzzles': len(self.active_puzzles),
+            'removed_symbols': len(self.removed_symbols),
+            'agent1_vocab': self.agent1.get_vocabulary_info(),
+            'agent2_vocab': self.agent2.get_vocabulary_info(),
+            'puzzle_symbol_mapping': self.puzzle_symbol_mapping,
             'selection_config': {
                 'num_distractors': self.num_distractors,
-                'distractor_strategy': self.distractor_strategy
+                'distractor_strategy': self.distractor_strategy,
+                'training_cycles': self.training_cycles,
+                'consolidation_tests': self.consolidation_tests,
+                'puzzles_per_addition': self.puzzles_per_addition
             }
         }
 

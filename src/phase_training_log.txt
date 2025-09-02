@@ -1,0 +1,40 @@
+Phase-Based Training Log
+==================================================
+Phase cycle: pretraining → training → consolidation → addition
+Training cycles per phase: 200
+Consolidation tests: 5
+Puzzles per addition: 5
+==================================================
+
+
+============================================================
+GLOBAL PHASE 1 - PRETRAINING
+============================================================
+
+============================================================
+GLOBAL PHASE 1 - TRAINING
+============================================================
+Training completed:
+  Final Agent1 accuracy: 0.450
+  Final Agent2 accuracy: 0.250
+  Average loss (last 50): 2.9800
+
+============================================================
+GLOBAL PHASE 1 - CONSOLIDATION
+============================================================
+Consolidation completed:
+  Tested symbols: 5
+  Removed symbols: 2
+  Remaining puzzles: 5
+  Removed: {10, 13}
+
+============================================================
+GLOBAL PHASE 1 - ADDITION
+============================================================
+Addition completed:
+  Added puzzles: 5
+  Total active puzzles: 10
+
+============================================================
+GLOBAL PHASE 2 - PRETRAINING
+============================================================

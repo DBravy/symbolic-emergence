@@ -10,6 +10,7 @@ import json
 import os
 import torch.nn.functional as F
 from collections import deque
+import random
 
 class MovingAverage:
     def __init__(self, window_size=100):
@@ -74,101 +75,155 @@ def load_arc_puzzles(file_path):
     print(f"Extracted {len(all_examples)} total examples from {len(data)} puzzles")
     return all_examples
 
-def pretrain_cross_agent_communication_selection(agent1, agent2, puzzles, device, 
-                    encoder_epochs=None,   
-                    decoder_epochs=None,   # Not used in selection task but kept for compatibility
-                    learning_rate=0.001, 
-                    diversity_weight=0.1,
-                    regularization_weight=0.001,
-                    visualization_frequency=50,
-                    num_distractors=3):
+def run_pretraining_phase(trainer, target_puzzles=None, epochs=50):
     """
-    Simplified pre-training for selection task: Train Agent1's encoder, then copy to Agent2.
-    Focus on encoder training since we don't need decoder reconstruction.
+    Modified pretraining to only train on puzzles that have symbol mappings
+    NOW USES GLOBAL INDICES CONSISTENTLY
     """
-    import torch.nn.functional as F
-    
-    # Handle epoch parameters
-    if encoder_epochs is None:
-        encoder_epochs = 200  # Default for selection task
-    
-    print(f"\n===== Starting Selection Task Pre-training =====")
-    
-    num_comm_symbols = agent1.current_comm_symbols
-    print(f"Using {num_comm_symbols} communication symbols for pretraining")
-    print(f"Selection task with {num_distractors} distractors per target")
-    
-    # Convert puzzles to tensors
-    puzzle_tensors = [
-        torch.tensor(puzzle.test_input, dtype=torch.long, device=device).unsqueeze(0)
-        for puzzle in puzzles[:20]  # Limit for efficiency
-    ]
-    
-    # Assign target symbols to puzzles for encoder training
-    targets = {}
-    for i, _ in enumerate(puzzle_tensors):
-        targets[i] = i % min(num_comm_symbols, len(puzzle_tensors))
-    
-    print(f"Assigned {len(set(targets.values()))} unique target symbols to {len(puzzle_tensors)} puzzles")
-    
-    # Training history
-    history = {
-        'encoder_loss': [],
-        'encoder_accuracy': [],
-        'selection_accuracy': [],  # NEW: Track selection performance
-        'phase': []
-    }
-    
-    print(f"\nSelection Pre-training Schedule:")
-    print(f"Phase 1: Training Agent1 encoder for {encoder_epochs} epochs")
-    print(f"Phase 2: Copy Agent1 weights to Agent2")
-    print(f"Phase 3: Test cross-agent selection")
-    
-    # =================================================================
-    # PHASE 1: TRAIN Agent1 ENCODER ONLY
-    # =================================================================
     print(f"\n{'='*60}")
-    print(f"PHASE 1: Agent1 ENCODER TRAINING ({encoder_epochs} epochs)")
+    print(f"PRETRAINING PHASE - Encoder Training ({epochs} epochs)")
     print(f"{'='*60}")
     
-    # Set up encoder-only training for Agent1
+    if target_puzzles is None:
+        target_puzzles = trainer.active_puzzles
+    
+    agent1, agent2 = trainer.agent1, trainer.agent2
+    device = trainer.device
+    
+    # Filter target puzzles to only include those with symbol mappings
+    mapped_puzzles = []
+    mapped_puzzle_indices = []
+    
+    for i, puzzle in enumerate(target_puzzles):
+        # Find this puzzle's index in active_puzzles
+        try:
+            active_idx = trainer.active_puzzles.index(puzzle)
+            if active_idx in trainer.puzzle_symbol_mapping:
+                mapped_puzzles.append(puzzle)
+                mapped_puzzle_indices.append(active_idx)
+        except ValueError:
+            # Puzzle not in active list - skip
+            continue
+    
+    print(f"Training on {len(mapped_puzzles)} puzzles with symbol mappings")
+    print(f"Skipping {len(target_puzzles) - len(mapped_puzzles)} puzzles without mappings")
+    
+    if len(mapped_puzzles) == 0:
+        print("No puzzles with symbol mappings to train on!")
+        return {'loss': [], 'accuracy': [], 'epochs': []}
+    
+    # Show current vocabulary state
+    print(f"\nCurrent Vocabulary State:")
+    print(f"  Agent1 communication symbols: {agent1.current_comm_symbols}")
+    print(f"  Agent1 total symbols: {agent1.current_total_symbols}")
+    print(f"  Puzzle symbols range: 0-{agent1.puzzle_symbols-1}")
+    print(f"  Communication symbols range: {agent1.puzzle_symbols}-{agent1.current_total_symbols-1}")
+    
+    # Show existing symbol mappings
+    print(f"\nCurrent Puzzle-Symbol Mappings:")
+    for puzzle_idx, symbol_idx in trainer.puzzle_symbol_mapping.items():
+        print(f"  Puzzle {puzzle_idx} → Symbol {symbol_idx}")
+    
+    # Convert puzzles to tensors and assign target symbols
+    # NOW USING GLOBAL INDICES AS KEYS
+    puzzle_tensors = {}  # global_idx -> tensor
+    targets = {}         # global_idx -> target_symbol
+    global_to_local = {} # global_idx -> position in processing order
+    
+    print(f"\nPuzzle-Symbol Assignments for Pretraining:")
+    for local_pos, (puzzle, global_idx) in enumerate(zip(mapped_puzzles, mapped_puzzle_indices)):
+        puzzle_tensor = torch.tensor(
+            puzzle.test_input, 
+            dtype=torch.long, 
+            device=device
+        ).unsqueeze(0)
+        
+        # Store using global index
+        puzzle_tensors[global_idx] = puzzle_tensor
+        global_to_local[global_idx] = local_pos
+        
+        # Get the symbol mapping
+        target_symbol = trainer.puzzle_symbol_mapping[global_idx]
+        comm_symbol_idx = target_symbol - agent1.puzzle_symbols
+        targets[global_idx] = comm_symbol_idx
+        
+        print(f"  Global Puzzle {global_idx}: Symbol {target_symbol} (Comm #{comm_symbol_idx})")
+        print(f"    Grid shape: {puzzle_tensor.shape[1:]} - {puzzle_tensor[0].cpu().numpy()[:3, :3]}...")
+    
+    print(f"\nSymbol Assignment Summary:")
+    print(f"  Puzzles with symbol mappings: {len(mapped_puzzles)}")
+    print(f"  Global indices: {sorted(mapped_puzzle_indices)}")
+    print(f"  Training mapping: {dict(sorted(targets.items()))}")
+    
+    # Show what we're training
+    print(f"\nTraining Configuration:")
+    print(f"  Encoder components: encoder, embedding_system, message_pooling")
+    print(f"  Target symbols: {sorted(list(set(targets.values())))}")
+    print(f"  Agent2 disabled during pretraining")
+    
+    # Training setup
     encoder_params = []
+    component_counts = {'encoder': 0, 'embedding_system': 0, 'message_pooling': 0}
+    
     for name, param in agent1.named_parameters():
         if any(component in name for component in ['encoder', 'embedding_system', 'message_pooling']):
             encoder_params.append(param)
             param.requires_grad = True
+            
+            # Count parameters by component
+            for component in component_counts:
+                if component in name:
+                    component_counts[component] += param.numel()
         else:
             param.requires_grad = False
     
-    # Disable Agent2 entirely during this phase
+    print(f"\nTrainable Parameters:")
+    for component, count in component_counts.items():
+        print(f"  {component}: {count:,} parameters")
+    print(f"  Total trainable: {sum(component_counts.values()):,} parameters")
+    
+    # Disable Agent2 during pretraining
     for param in agent2.parameters():
         param.requires_grad = False
     
-    encoder_optimizer = torch.optim.Adam(encoder_params, lr=learning_rate)
+    encoder_optimizer = torch.optim.Adam(encoder_params, lr=0.001)
     
-    for epoch in range(encoder_epochs):
+    history = {
+        'loss': [],
+        'accuracy': [],
+        'epochs': []
+    }
+    
+    visualization_frequency = max(1, epochs // 5)  # Show details 5 times during training
+    
+    for epoch in range(epochs):
         total_loss = 0.0
         correct = 0
+        epoch_predictions = {}  # Track what each puzzle predicted
         
-        indices = torch.randperm(len(puzzle_tensors))
+        # Create randomized order of global indices
+        global_indices = list(mapped_puzzle_indices)
+        random.shuffle(global_indices)
         
-        show_visualization = (epoch % visualization_frequency == 0) or (epoch == encoder_epochs - 1)
-        if show_visualization:
-            print(f"\n--- Phase 1 Encoder Visualization (Epoch {epoch+1}) ---")
+        show_details = (epoch % visualization_frequency == 0) or (epoch == epochs - 1)
+        if show_details:
+            print(f"\n--- Pretraining Epoch {epoch+1} Details ---")
         
-        for idx in indices:
-            i = idx.item()
-            puzzle_tensor = puzzle_tensors[i]
+        for global_idx in global_indices:
+            puzzle_tensor = puzzle_tensors[global_idx]
             
             encoder_optimizer.zero_grad()
             
             # Forward pass through Agent1's encoder
             symbols, symbol_logits, _ = agent1.encode_puzzle_to_message(
-                puzzle_tensor, temperature=0.1
+                puzzle_tensor, temperature=0.1, deterministic=True
             )
             
             pred_symbol = symbols[0, 0].argmax().item()
-            target = torch.tensor([targets[i]], device=device)
+            target = torch.tensor([targets[global_idx]], device=device)
+            
+            # Store prediction for visualization
+            epoch_predictions[global_idx] = pred_symbol
             
             # Symbol prediction loss
             symbol_loss = F.cross_entropy(symbol_logits[0, 0].unsqueeze(0), target)
@@ -178,106 +233,118 @@ def pretrain_cross_agent_communication_selection(agent1, agent2, puzzles, device
             for param in encoder_params:
                 reg_loss += param.pow(2.0).sum()
             
-            total_loss_item = symbol_loss + regularization_weight * reg_loss
+            total_loss_item = symbol_loss + 0.001 * reg_loss
             
             total_loss_item.backward()
             torch.nn.utils.clip_grad_norm_(encoder_params, 1.0)
             encoder_optimizer.step()
             
             # Track metrics
-            if pred_symbol == targets[i]:
+            if pred_symbol == targets[global_idx]:
                 correct += 1
             total_loss += total_loss_item.item()
             
-            # Show encoder learning during visualization
-            if show_visualization and i < 3:
-                print(f"\nPuzzle {i} (Encoder Learning):")
-                print(f"  Target symbol: {targets[i]}, Predicted: {pred_symbol} {'✓' if pred_symbol == targets[i] else '✗'}")
+            # Show detailed learning for first few puzzles during visualization epochs
+            if show_details and global_to_local[global_idx] < min(3, len(mapped_puzzles)):
+                correct_symbol = "✓" if pred_symbol == targets[global_idx] else "✗"
+                confidence = F.softmax(symbol_logits[0, 0], dim=0)[targets[global_idx]].item()
+                print(f"  Global Puzzle {global_idx}: Target {targets[global_idx]} → Predicted {pred_symbol} {correct_symbol} (conf: {confidence:.3f})")
         
         # Calculate epoch metrics
-        avg_loss = total_loss / len(puzzle_tensors)
-        accuracy = correct / len(puzzle_tensors)
+        avg_loss = total_loss / len(mapped_puzzles)
+        accuracy = correct / len(mapped_puzzles)
         
-        history['encoder_loss'].append(avg_loss)
-        history['encoder_accuracy'].append(accuracy)
-        history['selection_accuracy'].append(0.0)  # Placeholder
-        history['phase'].append('encoder')
+        history['loss'].append(avg_loss)
+        history['accuracy'].append(accuracy)
+        history['epochs'].append(epoch + 1)
         
-        if (epoch + 1) % 20 == 0 or epoch == 0:
-            print(f"Encoder Epoch {epoch+1}/{encoder_epochs}: Loss={avg_loss:.4f}, Accuracy={accuracy:.3f}")
+        if show_details:
+            print(f"  Epoch {epoch+1} Summary: Loss={avg_loss:.4f}, Accuracy={accuracy:.3f}")
+            
+            # Show symbol prediction distribution
+            symbol_counts = {}
+            for global_puzzle_idx, pred in epoch_predictions.items():
+                if pred not in symbol_counts:
+                    symbol_counts[pred] = []
+                symbol_counts[pred].append(global_puzzle_idx)
+            
+            print(f"  Symbol predictions this epoch:")
+            for symbol in sorted(symbol_counts.keys()):
+                global_puzzles = symbol_counts[symbol]
+                correct_count = sum(1 for p in global_puzzles if targets[p] == symbol)
+                print(f"    Symbol {symbol}: {len(global_puzzles)} puzzles ({correct_count} correct) - global puzzles {sorted(global_puzzles)}")
+        
+        elif (epoch + 1) % 10 == 0 or epoch == 0:
+            print(f"Pretraining Epoch {epoch+1}/{epochs}: Loss={avg_loss:.4f}, Accuracy={accuracy:.3f}")
     
-    print(f"\nPhase 1 complete. Final encoder accuracy: {accuracy:.3f}")
-
-    # =================================================================
-    # PHASE 2: COPY Agent1's weights to Agent2
-    # =================================================================
-    print(f"\n{'='*60}")
-    print(f"PHASE 2: COPYING Agent1 WEIGHTS TO Agent2")
-    print(f"{'='*60}")
+    # Final symbol assignment verification
+    print(f"\n{'='*40}")
+    print(f"PRETRAINING VERIFICATION")
+    print(f"{'='*40}")
+    
+    agent1.eval()
+    with torch.no_grad():
+        print(f"Final symbol assignments (verification):")
+        for global_idx in sorted(mapped_puzzle_indices):
+            puzzle_tensor = puzzle_tensors[global_idx]
+            symbols, symbol_logits, _ = agent1.encode_puzzle_to_message(
+                puzzle_tensor, temperature=0.1, deterministic=True
+            )
+            pred_symbol = symbols[0, 0].argmax().item()
+            target_symbol = targets[global_idx]
+            confidence = F.softmax(symbol_logits[0, 0], dim=0)[target_symbol].item()
+            
+            status = "✓" if pred_symbol == target_symbol else "✗"
+            print(f"  Global Puzzle {global_idx}: Target {target_symbol} → Final {pred_symbol} {status} (conf: {confidence:.3f})")
+    
+    agent1.train()
+    
+    # Copy Agent1's weights to Agent2
+    print(f"\n{'='*40}")
+    print(f"COPYING WEIGHTS Agent1 → Agent2")
+    print(f"{'='*40}")
     
     with torch.no_grad():
-        total_copied_params = 0
+        total_copied = 0
         
-        # Copy encoder weights
-        print("Copying encoder weights...")
-        encoder_params_copied = 0
+        # Copy encoder
+        encoder_copied = 0
         for (name1, param1), (name2, param2) in zip(agent1.encoder.named_parameters(), agent2.encoder.named_parameters()):
             if param1.shape == param2.shape:
                 param2.copy_(param1)
-                encoder_params_copied += param1.numel()
+                encoder_copied += param1.numel()
+        print(f"  ✓ Encoder: {encoder_copied:,} parameters")
+        total_copied += encoder_copied
         
-        print(f"  ✓ Encoder weights copied ({encoder_params_copied:,} parameters)")
-        total_copied_params += encoder_params_copied
-        
-        # Copy embedding system weights
-        print("Copying embedding system weights...")
-        embedding_params_copied = 0
+        # Copy embedding system
+        embedding_copied = 0
         for (name1, param1), (name2, param2) in zip(agent1.embedding_system.named_parameters(), agent2.embedding_system.named_parameters()):
             if param1.shape == param2.shape:
                 param2.copy_(param1)
-                embedding_params_copied += param1.numel()
+                embedding_copied += param1.numel()
+        print(f"  ✓ Embedding system: {embedding_copied:,} parameters")
+        total_copied += embedding_copied
         
-        print(f"  ✓ Embedding system weights copied ({embedding_params_copied:,} parameters)")
-        total_copied_params += embedding_params_copied
-        
-        # Copy message pooling weights
-        print("Copying message pooling weights...")
-        pooling_params_copied = 0
+        # Copy message pooling
+        pooling_copied = 0
         for (name1, param1), (name2, param2) in zip(agent1.message_pooling.named_parameters(), agent2.message_pooling.named_parameters()):
             if param1.shape == param2.shape:
                 param2.copy_(param1)
-                pooling_params_copied += param1.numel()
-        
-        print(f"  ✓ Message pooling weights copied ({pooling_params_copied:,} parameters)")
-        total_copied_params += pooling_params_copied
+                pooling_copied += param1.numel()
+        print(f"  ✓ Message pooling: {pooling_copied:,} parameters")
+        total_copied += pooling_copied
         
         # Copy communication embeddings
         start_idx = agent1.puzzle_symbols
         end_idx = start_idx + agent1.current_comm_symbols
-        
         agent2.communication_embedding.weight[start_idx:end_idx].copy_(
             agent1.communication_embedding.weight[start_idx:end_idx]
         )
+        comm_copied = agent1.current_comm_symbols * agent1.communication_embedding.embedding_dim
+        print(f"  ✓ Communication embeddings: {comm_copied:,} parameters (symbols {start_idx}-{end_idx-1})")
+        total_copied += comm_copied
         
-        comm_params_copied = agent1.current_comm_symbols * agent1.communication_embedding.embedding_dim
-        print(f"  ✓ Communication embeddings copied ({comm_params_copied:,} parameters)")
-        total_copied_params += comm_params_copied
-        
-        # Sync vocabulary states
-        agent2.current_comm_symbols = agent1.current_comm_symbols
-        agent2.current_seq_length = agent1.current_seq_length
-        agent2.current_total_symbols = agent1.current_total_symbols
-        agent2.communication_vocabulary = agent1.communication_vocabulary.copy()
-        
-        print(f"\nWeight copying complete! Total parameters: {total_copied_params:,}")
-        print(f"{'='*60}")
-    
-    # =================================================================
-    # PHASE 3: TEST CROSS-AGENT SELECTION
-    # =================================================================
-    print(f"\n{'='*60}")
-    print(f"PHASE 3: CROSS-AGENT SELECTION EVALUATION")
-    print(f"{'='*60}")
+        print(f"Total parameters copied: {total_copied:,}")
     
     # Re-enable all parameters
     for param in agent1.parameters():
@@ -285,153 +352,144 @@ def pretrain_cross_agent_communication_selection(agent1, agent2, puzzles, device
     for param in agent2.parameters():
         param.requires_grad = True
     
-    agent1_to_agent2_correct = 0
-    agent2_to_agent1_correct = 0
-    
-    print(f"\nTesting cross-agent selection with {num_distractors} distractors:")
-    for i, puzzle in enumerate(puzzle_tensors):
-        if i >= 10:  # Limit output
-            break
-            
-        with torch.no_grad():
-            # Test Agent1 → Agent2 communication
-            symbols1, _, _ = agent1.encode_puzzle_to_message(puzzle, temperature=0.1)
-            
-            # Create candidates: target + random distractors
-            candidates = [puzzle]
-            available_puzzles = [p for j, p in enumerate(puzzle_tensors) if j != i]
-            distractor_indices = np.random.choice(len(available_puzzles), 
-                                                min(num_distractors, len(available_puzzles)), 
-                                                replace=False)
-            for idx in distractor_indices:
-                candidates.append(available_puzzles[idx])
-            
-            # Agent2 selects
-            selection_probs1, selection_logits1, _ = agent2.select_from_candidates(
-                symbols1, candidates, temperature=0.1
-            )
-            
-            pred1 = selection_logits1.argmax(dim=-1).item()
-            if pred1 == 0:  # Target is at index 0
-                agent1_to_agent2_correct += 1
-            
-            # Test Agent2 → Agent1 communication (reverse)
-            symbols2, _, _ = agent2.encode_puzzle_to_message(puzzle, temperature=0.1)
-            
-            # Create different set of candidates
-            candidates2 = [puzzle]
-            distractor_indices2 = np.random.choice(len(available_puzzles), 
-                                                 min(num_distractors, len(available_puzzles)), 
-                                                 replace=False)
-            for idx in distractor_indices2:
-                candidates2.append(available_puzzles[idx])
-            
-            selection_probs2, selection_logits2, _ = agent1.select_from_candidates(
-                symbols2, candidates2, temperature=0.1
-            )
-            
-            pred2 = selection_logits2.argmax(dim=-1).item()
-            if pred2 == 0:
-                agent2_to_agent1_correct += 1
-            
-            print(f"Puzzle {i}:")
-            print(f"  Agent1→Agent2: Selected {pred1} {'✓' if pred1 == 0 else '✗'} (conf: {selection_probs1[0, 0]:.3f})")
-            print(f"  Agent2→Agent1: Selected {pred2} {'✓' if pred2 == 0 else '✗'} (conf: {selection_probs2[0, 0]:.3f})")
-    
-    test_count = min(10, len(puzzle_tensors))
-    
-    print(f"\nFinal Cross-Agent Selection Results:")
-    print(f"  Agent1→Agent2: {agent1_to_agent2_correct}/{test_count} = {agent1_to_agent2_correct/test_count:.3f}")
-    print(f"  Agent2→Agent1: {agent2_to_agent1_correct}/{test_count} = {agent2_to_agent1_correct/test_count:.3f}")
-    
-    # Plot results
-    plot_selection_pretraining_results(history, encoder_epochs)
+    print(f"\n{'='*40}")
+    print(f"PRETRAINING COMPLETE")
+    print(f"{'='*40}")
+    print(f"Final accuracy: {accuracy:.3f}")
+    print(f"Trained on {len(mapped_puzzles)} puzzles with symbol mappings")
+    print(f"Global puzzle indices: {sorted(mapped_puzzle_indices)}")
+    print(f"Both agents now have synchronized encoders")
     
     return history
 
-def plot_selection_pretraining_results(history, encoder_epochs):
-    """Plot results from selection pre-training"""
-    plt.figure(figsize=(15, 10))
+def run_training_phase(trainer, cycles=200):
+    """Run the main training phase"""
+    print(f"\n{'='*60}")
+    print(f"TRAINING PHASE - Joint Training ({cycles} cycles)")
+    print(f"{'='*60}")
     
-    epochs = len(history['encoder_loss'])
-    epoch_nums = list(range(1, epochs + 1))
+    trainer.set_training_mode("joint")
     
-    # Plot encoder loss
-    plt.subplot(2, 2, 1)
-    encoder_losses = [loss for loss, phase in zip(history['encoder_loss'], history['phase']) if phase == 'encoder']
-    encoder_x = list(range(1, len(encoder_losses) + 1))
+    # Initialize tracking
+    metrics_history = []
+    acc1_selection_history = []
+    acc2_selection_history = []
+    conf1_correct_history = []
+    conf2_correct_history = []
     
-    plt.plot(encoder_x, encoder_losses, label='Encoder Loss', linewidth=2, color='blue')
-    plt.title('Selection Task: Encoder Training Loss')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.grid(True)
+    # Moving averages
+    ma_window = 20
+    acc1_selection_ma = MovingAverage(ma_window)
+    acc2_selection_ma = MovingAverage(ma_window)
+    conf1_correct_ma = MovingAverage(ma_window)
+    conf2_correct_ma = MovingAverage(ma_window)
     
-    # Plot encoder accuracy
-    plt.subplot(2, 2, 2)
-    encoder_accs = [acc for acc, phase in zip(history['encoder_accuracy'], history['phase']) if phase == 'encoder']
+    for cycle in range(cycles):
+        print(f"\nTraining Cycle {cycle + 1}/{cycles}")
+        
+        # Train on each active puzzle
+        cycle_metrics = []
+        for puzzle_idx, puzzle in enumerate(trainer.active_puzzles):
+            puzzle_tensor = torch.tensor(
+                puzzle.test_input, 
+                dtype=torch.long, 
+                device=trainer.device
+            ).unsqueeze(0)
+            
+            step_metrics = trainer.train_bidirectional_step(
+                puzzle_tensor, 
+                puzzle_idx,
+                num_exchanges=1,
+                temperature=1.0,
+                initial_phase=False
+            )
+            
+            cycle_metrics.extend(step_metrics)
+        
+        # Update metrics
+        metrics_history.extend(cycle_metrics)
+        
+        for metrics in cycle_metrics:
+            acc1_selection_ma.update(metrics['agent1_selection_accuracy'])
+            acc2_selection_ma.update(metrics['agent2_selection_accuracy'])
+            conf1_correct_ma.update(metrics['agent1_correct_confidence'])
+            conf2_correct_ma.update(metrics['agent2_correct_confidence'])
+            
+            acc1_selection_history.append(acc1_selection_ma.get_average())
+            acc2_selection_history.append(acc2_selection_ma.get_average())
+            conf1_correct_history.append(conf1_correct_ma.get_average())
+            conf2_correct_history.append(conf2_correct_ma.get_average())
+        
+        # Show progress
+        if cycle_metrics:
+            avg_acc1 = acc1_selection_ma.get_average()
+            avg_acc2 = acc2_selection_ma.get_average()
+            avg_loss = np.mean([m['total_loss'] for m in cycle_metrics if not np.isnan(m['total_loss'])])
+            print(f"  Avg Loss: {avg_loss:.4f}, Acc1: {avg_acc1:.3f}, Acc2: {avg_acc2:.3f}")
     
-    plt.plot(encoder_x, encoder_accs, label='Encoder Accuracy', linewidth=2, color='blue')
-    plt.title('Selection Task: Symbol Assignment Accuracy')
-    plt.xlabel('Epoch')
-    plt.ylabel('Accuracy')
-    plt.ylim(0, 1.1)
-    plt.legend()
-    plt.grid(True)
+    accuracies_history = {
+        'acc1_selection': acc1_selection_history,
+        'acc2_selection': acc2_selection_history,
+        'conf1_correct': conf1_correct_history,
+        'conf2_correct': conf2_correct_history
+    }
     
-    # Task comparison
-    plt.subplot(2, 2, 3)
-    plt.text(0.5, 0.8, 'Selection Task vs Reconstruction', fontsize=14, fontweight='bold', ha='center')
-    plt.text(0.1, 0.6, 'Selection Task Benefits:', fontsize=12, fontweight='bold')
-    plt.text(0.1, 0.55, '• No pixel-perfect reconstruction needed', fontsize=10)
-    plt.text(0.1, 0.5, '• More natural communication task', fontsize=10)
-    plt.text(0.1, 0.45, '• Easier to evaluate and interpret', fontsize=10)
-    plt.text(0.1, 0.4, '• Adjustable difficulty via distractors', fontsize=10)
-    
-    plt.text(0.1, 0.3, 'Architecture Changes:', fontsize=12, fontweight='bold')
-    plt.text(0.1, 0.25, '• Symmetric encoding (both agents encode)', fontsize=10)
-    plt.text(0.1, 0.2, '• Similarity-based selection', fontsize=10)
-    plt.text(0.1, 0.15, '• Classification loss instead of reconstruction', fontsize=10)
-    
-    plt.xlim(0, 1)
-    plt.ylim(0, 1)
-    plt.axis('off')
-    
-    # Summary statistics
-    plt.subplot(2, 2, 4)
-    plt.text(0.1, 0.8, f'Training Summary:', fontsize=14, fontweight='bold')
-    plt.text(0.1, 0.7, f'Encoder Epochs: {encoder_epochs}', fontsize=12)
-    
-    if encoder_accs:
-        plt.text(0.1, 0.6, f'Final Encoder Acc: {encoder_accs[-1]:.3f}', fontsize=12)
-    
-    plt.text(0.1, 0.4, f'Task: Puzzle Selection', fontsize=12)
-    plt.text(0.1, 0.3, f'Loss: Cross-Entropy Classification', fontsize=12)
-    
-    plt.text(0.1, 0.1, f'Ready for joint training!', fontsize=12, style='italic', color='green')
-    plt.xlim(0, 1)
-    plt.ylim(0, 1)
-    plt.axis('off')
-    
-    plt.tight_layout()
-    plt.savefig('selection_pretraining.png', dpi=150, bbox_inches='tight')
-    plt.close()
+    return metrics_history, accuracies_history
 
-# Updated plotting function for selection metrics
-def plot_training_metrics_selection(metrics_history, accuracies_history, vocab_history=None, title="Selection Training Metrics"):
-    """
-    Plot training metrics for selection task (updated for selection accuracies)
-    """
-    plt.figure(figsize=(20, 15) if vocab_history else (15, 12))
+def run_consolidation_phase(trainer):
+    """Run consolidation phase to remove recessive symbols"""
+    print(f"\n{'='*60}")
+    print(f"CONSOLIDATION PHASE")
+    print(f"{'='*60}")
     
-    num_plots = 4 if vocab_history else 3
+    # Run consolidation tests
+    confusion_data = trainer.run_consolidation_test()
+    
+    # Identify recessive symbols
+    recessive_symbols = trainer.identify_recessive_symbols(confusion_data)
+    
+    # Remove recessive symbols
+    trainer.remove_recessive_symbols(recessive_symbols)
+    
+    return confusion_data, recessive_symbols
+
+def run_addition_phase(trainer):
+    """Run addition phase to add new puzzles"""
+    print(f"\n{'='*60}")
+    print(f"ADDITION PHASE")
+    print(f"{'='*60}")
+    
+    new_puzzles = trainer.add_new_puzzles()
+    return new_puzzles
+
+# Updated plotting function for phase-based training
+def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info, title="Phase-Based Training Metrics"):
+    """Plot training metrics for phase-based training"""
+    plt.figure(figsize=(20, 12))
+    
+    # Separate metrics by phase
+    phases = ['pretraining', 'training', 'consolidation', 'addition']
+    phase_colors = {'pretraining': 'blue', 'training': 'green', 'consolidation': 'orange', 'addition': 'red'}
     
     # Plot loss
-    plt.subplot(num_plots, 1, 1)
+    plt.subplot(3, 2, 1)
     losses = [m['total_loss'] for m in metrics_history if not np.isnan(m['total_loss'])]
-    plt.plot(losses, label='Total Loss')
-    plt.title(f'{title} - Loss')
+    phase_markers = [m.get('phase', 'training') for m in metrics_history if not np.isnan(m['total_loss'])]
+    
+    current_phase = None
+    start_idx = 0
+    
+    for i, phase in enumerate(phase_markers + ['END']):
+        if phase != current_phase or i == len(phase_markers):
+            if current_phase is not None and start_idx < i:
+                plt.plot(range(start_idx, i), losses[start_idx:i], 
+                        label=f'{current_phase.title()} Loss', 
+                        color=phase_colors.get(current_phase, 'gray'),
+                        alpha=0.7)
+            current_phase = phase
+            start_idx = i
+    
+    plt.title(f'{title} - Loss by Phase')
     plt.xlabel('Step')
     plt.ylabel('Loss')
     plt.yscale('log')
@@ -439,7 +497,7 @@ def plot_training_metrics_selection(metrics_history, accuracies_history, vocab_h
     plt.legend()
     
     # Plot selection accuracies
-    plt.subplot(num_plots, 1, 2)
+    plt.subplot(3, 2, 2)
     plt.plot(accuracies_history['acc1_selection'], label='Agent1 Selection Acc', alpha=0.8, linewidth=2)
     plt.plot(accuracies_history['acc2_selection'], label='Agent2 Selection Acc', alpha=0.8, linewidth=2)
     plt.title(f'{title} - Selection Accuracies')
@@ -449,8 +507,8 @@ def plot_training_metrics_selection(metrics_history, accuracies_history, vocab_h
     plt.grid(True)
     plt.legend()
     
-    # Plot confidence in correct selection
-    plt.subplot(num_plots, 1, 3)
+    # Plot confidence
+    plt.subplot(3, 2, 3)
     plt.plot(accuracies_history['conf1_correct'], label='Agent1 Correct Confidence', alpha=0.7)
     plt.plot(accuracies_history['conf2_correct'], label='Agent2 Correct Confidence', alpha=0.7)
     plt.title(f'{title} - Confidence in Correct Selection')
@@ -460,61 +518,91 @@ def plot_training_metrics_selection(metrics_history, accuracies_history, vocab_h
     plt.grid(True)
     plt.legend()
     
-    # Plot vocabulary progression if available
-    if vocab_history:
-        plt.subplot(num_plots, 1, 4)
-        plt.plot(vocab_history['cycles'], vocab_history['vocab_sizes'], 'o-', 
-                label='Vocabulary Size', linewidth=2, markersize=4)
-        plt.plot(vocab_history['cycles'], vocab_history['seq_lengths'], 's-', 
-                label='Sequence Length', linewidth=2, markersize=4)
-        
-        # Add expansion markers
-        for cycle in vocab_history.get('expansion_cycles', []):
-            plt.axvline(x=cycle, color='red', linestyle='--', alpha=0.5)
-        
-        plt.title(f'{title} - Vocabulary Progression')
-        plt.xlabel('Cycle')
-        plt.ylabel('Count')
-        plt.grid(True)
-        plt.legend()
+    # Plot vocabulary size over time
+    plt.subplot(3, 2, 4)
+    vocab_sizes = [m.get('active_puzzles', 0) for m in metrics_history]
+    global_phases = [m.get('global_phase_count', 0) for m in metrics_history]
+    
+    plt.plot(vocab_sizes, label='Active Puzzles/Symbols', linewidth=2, color='purple')
+    plt.title('Vocabulary Evolution')
+    plt.xlabel('Step')
+    plt.ylabel('Count')
+    plt.grid(True)
+    plt.legend()
+    
+    # Phase information summary
+    plt.subplot(3, 2, 5)
+    phase_text = f"Current Phase: {phase_info.get('current_phase', 'unknown').title()}\n"
+    phase_text += f"Phase Cycle: {phase_info.get('phase_cycle', 0)}\n"
+    phase_text += f"Global Phase Count: {phase_info.get('global_phase_count', 0)}\n"
+    phase_text += f"Active Puzzles: {phase_info.get('active_puzzles', 0)}\n"
+    phase_text += f"Removed Symbols: {phase_info.get('removed_symbols', 0)}\n\n"
+    
+    phase_text += "Phase Cycle:\n"
+    phase_text += "1. Pretraining (new puzzles)\n"
+    phase_text += "2. Training (all puzzles)\n"
+    phase_text += "3. Consolidation (remove recessive)\n"
+    phase_text += "4. Addition (add new puzzles)\n"
+    
+    plt.text(0.1, 0.9, phase_text, fontsize=10, verticalalignment='top', 
+             bbox=dict(boxstyle="round,pad=0.3", facecolor="lightblue", alpha=0.5))
+    plt.xlim(0, 1)
+    plt.ylim(0, 1)
+    plt.axis('off')
+    plt.title('Phase Information')
+    
+    # Training configuration
+    plt.subplot(3, 2, 6)
+    config = phase_info.get('selection_config', {})
+    config_text = f"Training Configuration:\n\n"
+    config_text += f"Num Distractors: {config.get('num_distractors', 'N/A')}\n"
+    config_text += f"Distractor Strategy: {config.get('distractor_strategy', 'N/A')}\n"
+    config_text += f"Training Cycles: {config.get('training_cycles', 'N/A')}\n"
+    config_text += f"Consolidation Tests: {config.get('consolidation_tests', 'N/A')}\n"
+    config_text += f"Puzzles per Addition: {config.get('puzzles_per_addition', 'N/A')}\n"
+    
+    plt.text(0.1, 0.9, config_text, fontsize=10, verticalalignment='top',
+             bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgreen", alpha=0.5))
+    plt.xlim(0, 1)
+    plt.ylim(0, 1)
+    plt.axis('off')
+    plt.title('Configuration')
     
     plt.tight_layout()
-    plt.savefig('selection_training_metrics.png')
+    plt.savefig('phase_training_metrics.png', dpi=150, bbox_inches='tight')
     plt.close()
 
-def print_selection_debug(puzzle_tensor, sender, receiver, puzzle_dataset, puzzle_idx):
-    """
-    Debug function for selection task - shows how agents encode and select
-    """
-    print("\n  Selection Task Debug:")
+def print_selection_debug(puzzle_tensor, sender, receiver, trainer):
+    """Debug function for selection task - updated for phase training"""
+    print("\n  Phase-Based Selection Debug:")
     print_grid(puzzle_tensor[0], "Target Puzzle")
     
-    # Show vocabulary status
-    print(f"\nCurrent Vocabulary Status:")
-    print(f"  Sender: {sender.current_comm_symbols} symbols, {sender.current_seq_length} length")
-    print(f"  Receiver: {receiver.current_comm_symbols} symbols, {receiver.current_seq_length} length")
-    print(f"  Similarity metric: {sender.similarity_metric}")
+    # Show phase and vocabulary status
+    phase_info = trainer.get_phase_status()
+    print(f"\nCurrent Phase: {phase_info['current_phase']}")
+    print(f"Phase Cycle: {phase_info['phase_cycle']}")
+    print(f"Active Puzzles: {phase_info['active_puzzles']}")
+    print(f"Removed Symbols: {phase_info['removed_symbols']}")
+    
+    # Show current puzzle-symbol mapping
+    print(f"\nPuzzle-Symbol Mapping:")
+    for puzzle_idx, symbol_idx in trainer.puzzle_symbol_mapping.items():
+        print(f"  Puzzle {puzzle_idx} → Symbol {symbol_idx}")
     
     # Sender encodes message
-    print("\nSender → Receiver Selection:")
+    print(f"\nSender → Receiver Selection:")
     symbols, symbol_logits, stats = sender.encode_puzzle_to_message(puzzle_tensor, temperature=0.1)
     print_message_details(symbols, "Sender")
     
-    # Create selection candidates
-    num_distractors = 3
-    candidates = [puzzle_tensor]
-    
-    # Sample distractors
-    available_indices = [i for i in range(len(puzzle_dataset)) if i != puzzle_idx]
-    if len(available_indices) >= num_distractors:
-        distractor_indices = np.random.choice(available_indices, num_distractors, replace=False)
-        for idx in distractor_indices:
-            distractor = torch.tensor(
-                puzzle_dataset[idx].test_input, 
-                dtype=torch.long, 
-                device=puzzle_tensor.device
-            ).unsqueeze(0)
-            candidates.append(distractor)
+    # Create selection candidates from active puzzles
+    candidates = []
+    for puzzle in trainer.active_puzzles[:min(4, len(trainer.active_puzzles))]:  # Limit for display
+        candidate_tensor = torch.tensor(
+            puzzle.test_input, 
+            dtype=torch.long, 
+            device=puzzle_tensor.device
+        ).unsqueeze(0)
+        candidates.append(candidate_tensor)
     
     # Receiver selects
     selection_probs, selection_logits, debug_info = receiver.select_from_candidates(
@@ -531,30 +619,11 @@ def print_selection_debug(puzzle_tensor, sender, receiver, puzzle_dataset, puzzl
     print(f"  Selection correct: {'✓' if predicted_idx == 0 else '✗'}")
     print(f"  Confidence in target: {target_confidence:.4f}")
     
-    # NEW: Show incorrectly selected puzzle if there was a mistake
-    if predicted_idx != 0:
-        print(f"\n  ✗ INCORRECT SELECTION - Agent chose distractor {predicted_idx}:")
-        incorrect_puzzle = candidates[predicted_idx]
-        print_grid(incorrect_puzzle[0], f"Incorrectly Selected Puzzle (Distractor {predicted_idx})")
-        
-        # Show confidence comparison
-        incorrect_confidence = selection_probs[0, predicted_idx].item()
-        print(f"  Target confidence: {target_confidence:.4f}")
-        print(f"  Incorrect choice confidence: {incorrect_confidence:.4f}")
-        print(f"  Confidence difference: {incorrect_confidence - target_confidence:.4f}")
-    
     print(f"\nAll selection probabilities:")
     for i, prob in enumerate(selection_probs[0]):
-        marker = " ← target" if i == 0 else f" ← distractor {i}"
+        marker = " ← target" if i == 0 else f" ← candidate {i}"
         symbol = "✓" if i == predicted_idx else " "
         print(f"    {symbol} Candidate {i}: {prob.item():.4f}{marker}")
-    
-    # Show similarity scores
-    print(f"\nSimilarity scores (logits):")
-    for i, score in enumerate(selection_logits[0]):
-        marker = " ← target" if i == 0 else f" ← distractor {i}"
-        symbol = "✓" if i == predicted_idx else " "
-        print(f"    {symbol} Candidate {i}: {score.item():.4f}{marker}")
 
 def print_grid(grid: torch.Tensor, title: str = "Grid"):
     """Print a grid in a readable format"""
@@ -582,238 +651,203 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
-    # SELECTION MODIFICATION: Create selection agents
+    # Create selection agents
     sender = Agent(
         agent_id="sender",
         embedding_dim=512,
         hidden_dim=1024,
-        num_symbols=20,      # Maximum symbols
-        puzzle_symbols=5,
-        max_seq_length=1,    # Maximum sequence length
+        num_symbols=100,     # Increased to accommodate growth
+        puzzle_symbols=10,
+        max_seq_length=1,    
         sender_scale=1.0,
-        similarity_metric='cosine'  # Options: 'cosine', 'dot', 'learned'
+        similarity_metric='cosine'
     ).to(device)
     
     receiver = Agent(
         agent_id="receiver",
         embedding_dim=512,
         hidden_dim=1024,
-        num_symbols=20,      # Maximum symbols
-        puzzle_symbols=5,
-        max_seq_length=1,    # Maximum sequence length
+        num_symbols=100,     # Increased to accommodate growth
+        puzzle_symbols=10,
+        max_seq_length=1,    
         sender_scale=1.0,
-        similarity_metric='cosine'  # Should match sender
+        similarity_metric='cosine'
     ).to(device)
     
-    # SELECTION MODIFICATION: Create selection trainer
+    # Create phase-based trainer
     trainer = CommunicationTrainer(
         agent1=sender,
         agent2=receiver,
         learning_rate=1e-7,
         device=device,
-        expansion_frequency=100000,      # Expand every 200 cycles
-        symbols_per_expansion=5,      # Add 2 symbols per expansion
-        length_per_expansion=1,       # Add 1 to sequence length per expansion
-        sync_frequency=50,            # Synchronize every 50 cycles
-        num_distractors=4,           # NEW: Number of distractor puzzles
-        distractor_strategy='random'  # NEW: Distractor sampling strategy
+        sync_frequency=50,
+        num_distractors=4,
+        distractor_strategy='random',
+        training_cycles=200,         # Cycles per training phase
+        consolidation_tests=5,       # Test rounds in consolidation
+        puzzles_per_addition=5       # Puzzles to add each cycle
     )
     
     # Load ARC puzzles
     arc_file_path = 'arc-agi_test_challenges.json'
-    test_puzzles = load_arc_puzzles(arc_file_path)
-    print(f"\nLoaded {len(test_puzzles)} total examples from ARC dataset")
+    all_puzzles = load_arc_puzzles(arc_file_path)
+    print(f"\nLoaded {len(all_puzzles)} total examples from ARC dataset")
     
-    # Select puzzles for training (need enough for distractors)
-    min_puzzles_needed = trainer.num_distractors + 5  # Need enough for distractors + some buffer
-    if len(test_puzzles) < min_puzzles_needed:
-        raise ValueError(f"Need at least {min_puzzles_needed} puzzles for selection task with {trainer.num_distractors} distractors")
+    # Set puzzle dataset and initialize first puzzles
+    trainer.set_puzzle_dataset(all_puzzles)
+    trainer.initialize_first_puzzles(initial_count=5)
     
-    # selected_puzzles = [test_puzzles[0], test_puzzles[47]]  # Start with 2 puzzles
-    selected_puzzles = [test_puzzles[i] for i in range(0, min(50, len(test_puzzles)), 7)][:5]  # More puzzles if needed
-    print(f"Selected {len(selected_puzzles)} puzzles for training")
-    
-    # SELECTION MODIFICATION: Set puzzle dataset for distractor sampling
-    trainer.set_puzzle_dataset(selected_puzzles)
-    
-    # Show initial vocabulary state
+    # Show initial state
     print("\n" + "="*60)
-    print("INITIAL VOCABULARY STATE")
+    print("INITIAL STATE")
     print("="*60)
+    phase_info = trainer.get_phase_status()
+    print(f"Phase: {phase_info['current_phase']}")
+    print(f"Active puzzles: {phase_info['active_puzzles']}")
+    print(f"Puzzle-symbol mapping: {phase_info['puzzle_symbol_mapping']}")
     sender.print_position_symbol_mapping()
-    receiver.print_position_symbol_mapping()
     print("="*60)
-
-    # Optional pre-training phase for selection task
-    encoder_pretrain_epochs = 0   # Set to > 0 to enable pre-training
-
-    if encoder_pretrain_epochs > 0:
-        selection_history = pretrain_cross_agent_communication_selection(
-            sender, receiver, selected_puzzles, device, 
-            encoder_epochs=encoder_pretrain_epochs,
-            learning_rate=0.001,
-            diversity_weight=0.2,
-            regularization_weight=0.001,
-            num_distractors=trainer.num_distractors
-        )
-        
-        print(f"Selection pre-training completed:")
-        print(f"  Encoder trained for {encoder_pretrain_epochs} epochs")
-    
-    # Main progressive selection training
-    total_cycles = 1000
-    
-    print(f"\n--- Starting Progressive Selection Training ({total_cycles} cycles) ---")
-    print(f"Selection task: {trainer.num_distractors + 1} candidates per trial")
-    print(f"Distractor strategy: {trainer.distractor_strategy}")
-    trainer.set_training_mode("joint")
-    
-    # Initialize histories and trackers for selection metrics
-    metrics_history = []
-    acc1_selection_history = []
-    acc2_selection_history = []
-    conf1_correct_history = []
-    conf2_correct_history = []
-    
-    # Vocabulary progression tracking
-    vocab_history = {
-        'cycles': [],
-        'vocab_sizes': [],
-        'seq_lengths': [],
-        'expansion_cycles': []
-    }
-    
-    # Initialize moving averages
-    ma_window = 50
-    acc1_selection_ma = MovingAverage(ma_window)
-    acc2_selection_ma = MovingAverage(ma_window)
-    conf1_correct_ma = MovingAverage(ma_window)
-    conf2_correct_ma = MovingAverage(ma_window)
     
     # Enhanced logging
-    with open('selection_training_log.txt', 'w') as log_file:
-        log_file.write("Progressive Selection Training Log\n")
+    with open('phase_training_log.txt', 'w') as log_file:
+        log_file.write("Phase-Based Training Log\n")
         log_file.write("="*50 + "\n")
-        log_file.write(f"Task: Puzzle Selection ({trainer.num_distractors + 1} candidates)\n")
-        log_file.write(f"Distractor strategy: {trainer.distractor_strategy}\n")
-        log_file.write(f"Similarity metric: {sender.similarity_metric}\n")
-        log_file.write(f"Expansion every {trainer.expansion_frequency} cycles\n")
+        log_file.write(f"Phase cycle: pretraining → training → consolidation → addition\n")
+        log_file.write(f"Training cycles per phase: {trainer.training_cycles}\n")
+        log_file.write(f"Consolidation tests: {trainer.consolidation_tests}\n")
+        log_file.write(f"Puzzles per addition: {trainer.puzzles_per_addition}\n")
         log_file.write("="*50 + "\n\n")
         
-        for cycle in range(total_cycles):
-            print(f"\nCycle {cycle + 1}/{total_cycles}")
+        # Initialize comprehensive tracking
+        all_metrics_history = []
+        all_accuracies_history = {
+            'acc1_selection': [],
+            'acc2_selection': [],
+            'conf1_correct': [],
+            'conf2_correct': []
+        }
+        
+        # Main phase cycle loop
+        max_global_phases = 3  # Run 3 complete cycles for demonstration
+        
+        while trainer.global_phase_count < max_global_phases:
+            phase_info = trainer.get_phase_status()
+            current_phase = phase_info['current_phase']
             
-            # Track vocabulary progression
-            if cycle == 0 or cycle % 20 == 0:
-                vocab_history['cycles'].append(cycle + 1)
-                vocab_history['vocab_sizes'].append(sender.current_comm_symbols)
-                vocab_history['seq_lengths'].append(sender.current_seq_length)
+            log_file.write(f"\n{'='*60}\n")
+            log_file.write(f"GLOBAL PHASE {trainer.global_phase_count + 1} - {current_phase.upper()}\n")
+            log_file.write(f"{'='*60}\n")
+            log_file.flush()
             
-            # Check for expansion events
-            if cycle > 0 and cycle % trainer.expansion_frequency == 0:
-                vocab_history['expansion_cycles'].append(cycle + 1)
-                log_file.write(f"VOCABULARY EXPANSION at cycle {cycle + 1}\n")
-                log_file.write(f"  New vocab size: {sender.current_comm_symbols}\n")
-                log_file.write(f"  New seq length: {sender.current_seq_length}\n")
-                log_file.write("-" * 40 + "\n")
+            if current_phase == "pretraining":
+                # Pretraining phase - train encoder on newly added puzzles
+                if trainer.global_phase_count == 0:
+                    # First pretraining - use all initial puzzles
+                    pretraining_history = run_pretraining_phase(trainer, epochs=150)
+                else:
+                    # Subsequent pretraining - use only newly added puzzles
+                    # Get last 5 puzzles (newly added)
+                    new_puzzles = trainer.active_puzzles[-trainer.puzzles_per_addition:]
+                    pretraining_history = run_pretraining_phase(trainer, target_puzzles=new_puzzles, epochs=30)
+                
+                trainer.advance_phase()
+                
+            elif current_phase == "training":
+                # Training phase - full joint training
+                training_metrics, training_accuracies = run_training_phase(trainer, cycles=trainer.training_cycles)
+                
+                # Add to comprehensive tracking
+                all_metrics_history.extend(training_metrics)
+                for key in all_accuracies_history:
+                    all_accuracies_history[key].extend(training_accuracies[key])
+                
+                # Log training summary
+                if training_metrics:
+                    final_acc1 = training_accuracies['acc1_selection'][-1] if training_accuracies['acc1_selection'] else 0
+                    final_acc2 = training_accuracies['acc2_selection'][-1] if training_accuracies['acc2_selection'] else 0
+                    avg_loss = np.mean([m['total_loss'] for m in training_metrics[-50:] if not np.isnan(m['total_loss'])])
+                    
+                    log_file.write(f"Training completed:\n")
+                    log_file.write(f"  Final Agent1 accuracy: {final_acc1:.3f}\n")
+                    log_file.write(f"  Final Agent2 accuracy: {final_acc2:.3f}\n")
+                    log_file.write(f"  Average loss (last 50): {avg_loss:.4f}\n")
+                    log_file.flush()
+                
+                trainer.advance_phase()
+                
+            elif current_phase == "consolidation":
+                # Consolidation phase - test and remove recessive symbols
+                confusion_data, removed_symbols = run_consolidation_phase(trainer)
+                
+                log_file.write(f"Consolidation completed:\n")
+                log_file.write(f"  Tested symbols: {len(confusion_data)}\n")
+                log_file.write(f"  Removed symbols: {len(removed_symbols)}\n")
+                log_file.write(f"  Remaining puzzles: {len(trainer.active_puzzles)}\n")
+                if removed_symbols:
+                    log_file.write(f"  Removed: {removed_symbols}\n")
+                log_file.flush()
+                
+                trainer.advance_phase()
+                
+            elif current_phase == "addition":
+                # Addition phase - add new puzzles
+                new_puzzles = run_addition_phase(trainer)
+                
+                log_file.write(f"Addition completed:\n")
+                log_file.write(f"  Added puzzles: {len(new_puzzles)}\n")
+                log_file.write(f"  Total active puzzles: {len(trainer.active_puzzles)}\n")
+                log_file.flush()
+                
+                trainer.advance_phase()
             
-            # Train on each puzzle with its index for distractor sampling
-            cycle_metrics = []
-            for puzzle_idx, puzzle in enumerate(selected_puzzles):
+            # Plot progress after each phase
+            if all_metrics_history:
+                plot_phase_training_metrics(
+                    all_metrics_history, 
+                    all_accuracies_history,
+                    trainer.get_phase_status(),
+                    title=f"Phase-Based Training (Global Phase {trainer.global_phase_count})"
+                )
+            
+            # Show debug info periodically
+            if current_phase == "training" and len(trainer.active_puzzles) > 0:
+                print(f"\n--- Phase Debug Info ---")
+                puzzle = trainer.active_puzzles[0]
                 puzzle_tensor = torch.tensor(
                     puzzle.test_input, 
                     dtype=torch.long, 
                     device=device
                 ).unsqueeze(0)
-                
-                step_metrics = trainer.train_bidirectional_step(
-                    puzzle_tensor, 
-                    puzzle_idx,  # NEW: Pass puzzle index for distractor sampling
-                    num_exchanges=1,
-                    temperature=1.0,
-                    initial_phase=False
-                )
-                
-                cycle_metrics.extend(step_metrics)
-                
-                # Show debug info periodically
-                if cycle % 10 == 0:
-                    print(f"\n--- Visualization for Cycle {cycle}, Puzzle {puzzle_idx} ---")
-                    print_selection_debug(puzzle_tensor, sender, receiver, selected_puzzles, puzzle_idx)
+                print_selection_debug(puzzle_tensor, sender, receiver, trainer)
             
-            # Update metrics and moving averages
-            metrics_history.extend(cycle_metrics)
-            
-            for metrics in cycle_metrics:
-                acc1_selection_ma.update(metrics['agent1_selection_accuracy'])
-                acc2_selection_ma.update(metrics['agent2_selection_accuracy'])
-                conf1_correct_ma.update(metrics['agent1_correct_confidence'])
-                conf2_correct_ma.update(metrics['agent2_correct_confidence'])
-                
-                acc1_selection_history.append(acc1_selection_ma.get_average())
-                acc2_selection_history.append(acc2_selection_ma.get_average())
-                conf1_correct_history.append(conf1_correct_ma.get_average())
-                conf2_correct_history.append(conf2_correct_ma.get_average())
-            
-            # Log cycle metrics
-            if cycle_metrics:
-                avg_metrics = {
-                    'total_loss': np.mean([m['total_loss'] for m in cycle_metrics if not np.isnan(m['total_loss'])]),
-                    'selection_acc1': np.mean([m['agent1_selection_accuracy'] for m in cycle_metrics]),
-                    'selection_acc2': np.mean([m['agent2_selection_accuracy'] for m in cycle_metrics]),
-                    'conf1': np.mean([m['agent1_correct_confidence'] for m in cycle_metrics]),
-                    'conf2': np.mean([m['agent2_correct_confidence'] for m in cycle_metrics]),
-                }
-                
-                log_file.write(
-                    f"Cycle {cycle + 1}: " + 
-                    f"Loss={avg_metrics['total_loss']:.4f}, " +
-                    f"Vocab={sender.current_comm_symbols}, " +
-                    f"Sel_Acc1={avg_metrics['selection_acc1']:.3f}, " +
-                    f"Sel_Acc2={avg_metrics['selection_acc2']:.3f}, " +
-                    f"Conf1={avg_metrics['conf1']:.3f}, " +
-                    f"Conf2={avg_metrics['conf2']:.3f}\n"
-                )
-                log_file.flush()
-            
-            # Plot metrics periodically
-            if (cycle + 1) % 10 == 0:
-                accuracies_history = {
-                    'acc1_selection': acc1_selection_history,
-                    'acc2_selection': acc2_selection_history,
-                    'conf1_correct': conf1_correct_history,
-                    'conf2_correct': conf2_correct_history
-                }
-                plot_training_metrics_selection(metrics_history, accuracies_history, vocab_history, 
-                                              title=f"Progressive Selection Training (Cycle {cycle+1})")
-
+            # Safety check to prevent infinite loops
+            if trainer.global_phase_count >= max_global_phases:
+                break
+    
     # Final summary
     print("\n" + "="*60)
-    print("FINAL SELECTION TRAINING SUMMARY")
+    print("FINAL PHASE-BASED TRAINING SUMMARY")
     print("="*60)
-
-    if metrics_history:
-        recent_metrics = metrics_history[-50:]  # Last 50 steps
-        
-        final_sel_acc1 = acc1_selection_ma.get_average()
-        final_sel_acc2 = acc2_selection_ma.get_average()
-        final_conf1 = conf1_correct_ma.get_average()
-        final_conf2 = conf2_correct_ma.get_average()
-        
-        print(f"\nFinal Selection Performance:")
-        print(f"  Agent 1 - Selection Accuracy: {final_sel_acc1:.3f}, Confidence: {final_conf1:.3f}")
-        print(f"  Agent 2 - Selection Accuracy: {final_sel_acc2:.3f}, Confidence: {final_conf2:.3f}")
-        
-        print(f"\nTask Configuration:")
-        print(f"  Candidates per trial: {trainer.num_distractors + 1}")
-        print(f"  Distractor strategy: {trainer.distractor_strategy}")
-        print(f"  Similarity metric: {sender.similarity_metric}")
-
+    
+    final_phase_info = trainer.get_phase_status()
+    print(f"Completed global phases: {final_phase_info['global_phase_count']}")
+    print(f"Final active puzzles: {final_phase_info['active_puzzles']}")
+    print(f"Total removed symbols: {final_phase_info['removed_symbols']}")
+    print(f"Final puzzle-symbol mapping: {final_phase_info['puzzle_symbol_mapping']}")
+    
+    if all_metrics_history:
+        recent_metrics = all_metrics_history[-50:]  # Last 50 steps
+        final_acc1 = np.mean([m['agent1_selection_accuracy'] for m in recent_metrics])
+        final_acc2 = np.mean([m['agent2_selection_accuracy'] for m in recent_metrics])
+        print(f"\nFinal Performance:")
+        print(f"  Agent 1 Selection Accuracy: {final_acc1:.3f}")
+        print(f"  Agent 2 Selection Accuracy: {final_acc2:.3f}")
+    
     sender.print_position_symbol_mapping()
     receiver.print_position_symbol_mapping()
     print("="*60)
     
-    print("\nProgressive selection training complete! Check selection_training_log.txt for details")
+    print("\nPhase-based training complete! Check phase_training_log.txt for details")
 
 if __name__ == "__main__":
     main()

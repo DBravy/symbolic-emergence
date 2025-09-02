@@ -55,7 +55,7 @@ class ProgressiveSelectionAgent(nn.Module):
         self.puzzle_symbols = puzzle_symbols
         
         # Progressive training state - start small
-        self.current_comm_symbols = 5  # Start with 2 communication symbols
+        self.current_comm_symbols = 5  # Start with 5 communication symbols
         self.current_seq_length = 1   # Start with sequence length 1
         self.current_total_symbols = puzzle_symbols + self.current_comm_symbols
         
@@ -144,6 +144,26 @@ class ProgressiveSelectionAgent(nn.Module):
             if hasattr(self.decoder.output, 'bias') and self.decoder.output.bias.requires_grad:
                 self.decoder.output.bias.register_hook(GradientAttenuationHook(scale))
 
+    def set_vocabulary_size(self, new_comm_symbols: int):
+        """
+        Set the current vocabulary size (for phase-based training).
+        
+        Args:
+            new_comm_symbols: New number of communication symbols
+        """
+        old_comm_symbols = self.current_comm_symbols
+        
+        # Update current capacities (with bounds checking)
+        self.current_comm_symbols = min(new_comm_symbols, self.max_num_symbols - self.puzzle_symbols)
+        self.current_total_symbols = self.puzzle_symbols + self.current_comm_symbols
+        
+        # Update communication vocabulary
+        self.communication_vocabulary = set(range(self.current_total_symbols))
+        
+        print(f"[{self.agent_id}] Vocabulary updated:")
+        print(f"  Communication symbols: {old_comm_symbols} → {self.current_comm_symbols}")
+        print(f"  Total symbols: {self.puzzle_symbols + old_comm_symbols} → {self.current_total_symbols}")
+
     def expand_vocabulary(self, additional_symbols: int = 2, additional_length: int = 1):
         """
         Expand the agent's communication vocabulary and sequence length.
@@ -170,9 +190,44 @@ class ProgressiveSelectionAgent(nn.Module):
         self.communication_vocabulary = set(range(self.current_total_symbols))
         
         print(f"[{self.agent_id}] Vocabulary expanded:")
-        print(f"  Communication symbols: {old_comm_symbols} →’ {self.current_comm_symbols}")
-        print(f"  Sequence length: {old_seq_length} →’ {self.current_seq_length}")
-        print(f"  Total symbols: {self.puzzle_symbols + old_comm_symbols} →’ {self.current_total_symbols}")
+        print(f"  Communication symbols: {old_comm_symbols} → {self.current_comm_symbols}")
+        print(f"  Sequence length: {old_seq_length} → {self.current_seq_length}")
+        print(f"  Total symbols: {self.puzzle_symbols + old_comm_symbols} → {self.current_total_symbols}")
+
+    def remove_symbols(self, symbols_to_remove: Set[int]):
+        """
+        Remove specific symbols from the vocabulary.
+        
+        Args:
+            symbols_to_remove: Set of symbol indices to remove
+        """
+        print(f"[{self.agent_id}] Removing symbols: {symbols_to_remove}")
+        
+        # Filter out symbols that are not in current vocabulary
+        valid_symbols_to_remove = {s for s in symbols_to_remove 
+                                 if self.puzzle_symbols <= s < self.current_total_symbols}
+        
+        if not valid_symbols_to_remove:
+            print(f"[{self.agent_id}] No valid symbols to remove")
+            return
+        
+        # Calculate new vocabulary size
+        new_comm_symbols = self.current_comm_symbols - len(valid_symbols_to_remove)
+        
+        if new_comm_symbols < 1:
+            print(f"[{self.agent_id}] Warning: Would remove all communication symbols, keeping at least 1")
+            new_comm_symbols = 1
+        
+        # Update vocabulary size
+        old_comm_symbols = self.current_comm_symbols
+        self.current_comm_symbols = new_comm_symbols
+        self.current_total_symbols = self.puzzle_symbols + self.current_comm_symbols
+        self.communication_vocabulary = set(range(self.current_total_symbols))
+        
+        print(f"[{self.agent_id}] Symbols removed:")
+        print(f"  Removed: {valid_symbols_to_remove}")
+        print(f"  Communication symbols: {old_comm_symbols} → {self.current_comm_symbols}")
+        print(f"  Total symbols: {self.puzzle_symbols + old_comm_symbols} → {self.current_total_symbols}")
 
     def get_position_symbol_mask(self, position: int) -> torch.Tensor:
         """
@@ -525,10 +580,9 @@ class ProgressiveSelectionAgent(nn.Module):
             'similarity_metric': self.similarity_metric
         }
 
-
     def print_position_symbol_mapping(self):
         """Print which symbols are used at which positions"""
-        print(f"\n[{self.agent_id}] Position-Symbol Mapping (Selection Task):")
+        print(f"\n[{self.agent_id}] Position-Symbol Mapping (Phase-Based Selection):")
         print(f"  Similarity Metric: {self.similarity_metric}")
         print(f"  Total communication symbols: {self.current_comm_symbols}")
         print(f"  Current sequence length: {self.current_seq_length}")
@@ -539,7 +593,7 @@ class ProgressiveSelectionAgent(nn.Module):
         for pos in range(self.current_seq_length):
             print(f"  Position {pos}: symbols {comm_symbol_indices} (all comm symbols available)")
         
-        print(f"  Note: Selection task allows all communication symbols at any position")
+        print(f"  Note: Phase-based training with dynamic vocabulary management")
 
 
 # Create a factory function to replace the original Agent
