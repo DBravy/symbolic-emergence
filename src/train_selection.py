@@ -4,6 +4,8 @@ from agent_selection import ProgressiveSelectionAgent as Agent
 from trainer_selection import ProgressiveSelectionTrainer as CommunicationTrainer
 
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from matplotlib.patches import Rectangle
 from puzzle import Puzzle
 import numpy as np
 import json
@@ -11,6 +13,481 @@ import os
 import torch.nn.functional as F
 from collections import deque
 import random
+import threading
+import time
+
+# Enable interactive mode for live plotting
+plt.ion()
+
+class LiveGrapher:
+    def __init__(self, max_points=None, ma_window=50, initial_symbols=3):
+        # max_points is kept for compatibility but not used (no sliding behavior)
+        self.max_points = max_points
+        self.ma_window = ma_window
+        self.fig, self.axes = plt.subplots(2, 3, figsize=(18, 10))
+        self.fig.suptitle('Live Training Progress', fontsize=16)
+        
+        # Track active symbols count with simple addition/subtraction
+        self.active_symbols_count = initial_symbols
+        
+        # Data storage
+        self.data = {
+            'loss': [],
+            'acc1_selection': [],
+            'acc2_selection': [],
+            'conf1_correct': [],
+            'conf2_correct': [],
+            'active_symbols': [],
+            'steps': []
+        }
+        
+        # Moving averages for smoothed display
+        self.moving_averages = {
+            'acc1_selection': MovingAverage(ma_window),
+            'acc2_selection': MovingAverage(ma_window),
+            'conf1_correct': MovingAverage(ma_window),
+            'conf2_correct': MovingAverage(ma_window),
+            'loss': MovingAverage(ma_window)
+        }
+        
+        # Store moving average values for plotting
+        self.ma_data = {
+            'loss': [],
+            'acc1_selection': [],
+            'acc2_selection': [],
+            'conf1_correct': [],
+            'conf2_correct': []
+        }
+        
+        # Phase tracking
+        self.phase_markers = []
+        self.phase_colors = {
+            'pretraining': 'blue',
+            'training': 'green', 
+            'consolidation': 'orange',
+            'addition': 'red'
+        }
+        
+        # Initialize plots
+        self.setup_plots()
+        
+        # Thread safety
+        self.lock = threading.Lock()
+        
+    def setup_plots(self):
+        """Initialize all subplot configurations"""
+        # Loss plot
+        self.axes[0, 0].set_title(f'Training Loss (Log Scale, MA-{self.ma_window})')
+        self.axes[0, 0].set_xlabel('Step')
+        self.axes[0, 0].set_ylabel('Loss')
+        self.axes[0, 0].set_yscale('log')
+        self.axes[0, 0].grid(True, alpha=0.3)
+        
+        # Selection accuracies
+        self.axes[0, 1].set_title(f'Selection Accuracies (MA-{self.ma_window})')
+        self.axes[0, 1].set_xlabel('Step')
+        self.axes[0, 1].set_ylabel('Accuracy')
+        self.axes[0, 1].set_ylim(0, 1.1)
+        self.axes[0, 1].grid(True, alpha=0.3)
+        
+        # Confidence plot
+        self.axes[0, 2].set_title(f'Confidence in Correct Selection (MA-{self.ma_window})')
+        self.axes[0, 2].set_xlabel('Step')
+        self.axes[0, 2].set_ylabel('Confidence')
+        self.axes[0, 2].set_ylim(0, 1.1)
+        self.axes[0, 2].grid(True, alpha=0.3)
+        
+        # Active symbols
+        self.axes[1, 0].set_title('Active Symbols')
+        self.axes[1, 0].set_xlabel('Step')
+        self.axes[1, 0].set_ylabel('Count')
+        self.axes[1, 0].grid(True, alpha=0.3)
+        
+        # Phase timeline
+        self.axes[1, 1].set_title('Training Phases')
+        self.axes[1, 1].set_xlabel('Step')
+        self.axes[1, 1].set_ylabel('Phase')
+        self.axes[1, 1].grid(True, alpha=0.3)
+        
+        # Statistics summary
+        self.axes[1, 2].set_title('Current Statistics')
+        self.axes[1, 2].axis('off')
+        
+        plt.tight_layout()
+        
+    def add_data_point(self, step, loss=None, acc1=None, acc2=None, 
+                      conf1=None, conf2=None, phase=None):
+        """Add a new data point and update the graph"""
+        with self.lock:
+            self.data['steps'].append(step)
+            self.data['loss'].append(loss if loss is not None else np.nan)
+            self.data['acc1_selection'].append(acc1 if acc1 is not None else np.nan)
+            self.data['acc2_selection'].append(acc2 if acc2 is not None else np.nan)
+            self.data['conf1_correct'].append(conf1 if conf1 is not None else np.nan)
+            self.data['conf2_correct'].append(conf2 if conf2 is not None else np.nan)
+            self.data['active_symbols'].append(self.active_symbols_count)
+            
+            # Update moving averages and store MA values
+            if loss is not None and not np.isnan(loss):
+                self.moving_averages['loss'].update(loss)
+                self.ma_data['loss'].append(self.moving_averages['loss'].get_average())
+            else:
+                self.ma_data['loss'].append(np.nan)
+                
+            if acc1 is not None and not np.isnan(acc1):
+                self.moving_averages['acc1_selection'].update(acc1)
+                self.ma_data['acc1_selection'].append(self.moving_averages['acc1_selection'].get_average())
+            else:
+                self.ma_data['acc1_selection'].append(np.nan)
+                
+            if acc2 is not None and not np.isnan(acc2):
+                self.moving_averages['acc2_selection'].update(acc2)
+                self.ma_data['acc2_selection'].append(self.moving_averages['acc2_selection'].get_average())
+            else:
+                self.ma_data['acc2_selection'].append(np.nan)
+                
+            if conf1 is not None and not np.isnan(conf1):
+                self.moving_averages['conf1_correct'].update(conf1)
+                self.ma_data['conf1_correct'].append(self.moving_averages['conf1_correct'].get_average())
+            else:
+                self.ma_data['conf1_correct'].append(np.nan)
+                
+            if conf2 is not None and not np.isnan(conf2):
+                self.moving_averages['conf2_correct'].update(conf2)
+                self.ma_data['conf2_correct'].append(self.moving_averages['conf2_correct'].get_average())
+            else:
+                self.ma_data['conf2_correct'].append(np.nan)
+            
+            # Track phase changes
+            if phase:
+                self.phase_markers.append((step, phase))
+            
+            # Keep all data points - no sliding behavior
+            # Data will automatically scale to fit within the plot boundaries
+            
+            self.update_plots()
+    
+    def update_plots(self):
+        """Update all plots with current data"""
+        try:
+            steps = self.data['steps']
+            if not steps:
+                return
+                
+            # Clear all plots
+            for ax in self.axes.flat:
+                if ax != self.axes[1, 2]:  # Don't clear stats panel
+                    ax.clear()
+            
+            self.setup_plots()  # Reconfigure plots
+            
+            # Fix for Loss plot (axes[0, 0])
+            has_loss_labels = False
+            loss_series = self.ma_data['loss']
+            if steps and loss_series:
+                if self.phase_markers:
+                    first_labeled = False
+                    for i, (start_step, _) in enumerate(self.phase_markers):
+                        end_step = self.phase_markers[i+1][0] - 1 if i + 1 < len(self.phase_markers) else steps[-1]
+                        indices = [idx for idx, s in enumerate(steps) if s >= start_step and s <= end_step and not np.isnan(loss_series[idx])]
+                        if indices:
+                            x_seg = [steps[idx] for idx in indices]
+                            y_seg = [loss_series[idx] for idx in indices]
+                            self.axes[0, 0].plot(
+                                x_seg,
+                                y_seg,
+                                'b-',
+                                alpha=0.8,
+                                linewidth=2,
+                                label=(f'Loss (MA-{self.ma_window})' if not first_labeled else None)
+                            )
+                            first_labeled = True
+                            has_loss_labels = True
+                else:
+                    valid_idx = [i for i, y in enumerate(loss_series) if not np.isnan(y)]
+                    if valid_idx:
+                        x_all = [steps[i] for i in valid_idx]
+                        y_all = [loss_series[i] for i in valid_idx]
+                        self.axes[0, 0].plot(x_all, y_all, 'b-', alpha=0.8, linewidth=2, label=f'Loss (MA-{self.ma_window})')
+                        has_loss_labels = True
+             
+            # Also plot raw loss data as faint background
+            valid_loss_raw = [(s, l) for s, l in zip(steps, self.data['loss']) if not np.isnan(l)]
+            if valid_loss_raw:
+                loss_steps_raw, loss_vals_raw = zip(*valid_loss_raw)
+                self.axes[0, 0].plot(loss_steps_raw, loss_vals_raw, 'b-', alpha=0.2, linewidth=1, label='Raw Loss')
+                has_loss_labels = True
+ 
+            # Only add legend if there are labeled plots
+            if has_loss_labels:
+                self.axes[0, 0].legend()
+ 
+            # Fix for Accuracy plot (axes[0, 1])
+            has_acc_labels = False
+            acc1_series = self.ma_data['acc1_selection']
+            acc2_series = self.ma_data['acc2_selection']
+            if steps and acc1_series:
+                if self.phase_markers:
+                    first_label_acc1 = False
+                    for i, (start_step, _) in enumerate(self.phase_markers):
+                        end_step = self.phase_markers[i+1][0] - 1 if i + 1 < len(self.phase_markers) else steps[-1]
+                        indices = [idx for idx, s in enumerate(steps) if s >= start_step and s <= end_step and not np.isnan(acc1_series[idx])]
+                        if indices:
+                            x_seg = [steps[idx] for idx in indices]
+                            y_seg = [acc1_series[idx] for idx in indices]
+                            self.axes[0, 1].plot(
+                                x_seg,
+                                y_seg,
+                                'g-',
+                                label=(f'Agent1 (MA-{self.ma_window})' if not first_label_acc1 else None),
+                                alpha=0.8,
+                                linewidth=2
+                            )
+                            first_label_acc1 = True
+                            has_acc_labels = True
+                else:
+                    valid_idx = [i for i, y in enumerate(acc1_series) if not np.isnan(y)]
+                    if valid_idx:
+                        x_all = [steps[i] for i in valid_idx]
+                        y_all = [acc1_series[i] for i in valid_idx]
+                        self.axes[0, 1].plot(x_all, y_all, 'g-', label=f'Agent1 (MA-{self.ma_window})', alpha=0.8, linewidth=2)
+                        has_acc_labels = True
+
+            if steps and acc2_series:
+                if self.phase_markers:
+                    first_label_acc2 = False
+                    for i, (start_step, _) in enumerate(self.phase_markers):
+                        end_step = self.phase_markers[i+1][0] - 1 if i + 1 < len(self.phase_markers) else steps[-1]
+                        indices = [idx for idx, s in enumerate(steps) if s >= start_step and s <= end_step and not np.isnan(acc2_series[idx])]
+                        if indices:
+                            x_seg = [steps[idx] for idx in indices]
+                            y_seg = [acc2_series[idx] for idx in indices]
+                            self.axes[0, 1].plot(
+                                x_seg,
+                                y_seg,
+                                'r-',
+                                label=(f'Agent2 (MA-{self.ma_window})' if not first_label_acc2 else None),
+                                alpha=0.8,
+                                linewidth=2
+                            )
+                            first_label_acc2 = True
+                            has_acc_labels = True
+                else:
+                    valid_idx = [i for i, y in enumerate(acc2_series) if not np.isnan(y)]
+                    if valid_idx:
+                        x_all = [steps[i] for i in valid_idx]
+                        y_all = [acc2_series[i] for i in valid_idx]
+                        self.axes[0, 1].plot(x_all, y_all, 'r-', label=f'Agent2 (MA-{self.ma_window})', alpha=0.8, linewidth=2)
+                        has_acc_labels = True
+ 
+            # Plot raw accuracy data as faint background
+            valid_acc1_raw = [(s, a) for s, a in zip(steps, self.data['acc1_selection']) if not np.isnan(a)]
+            valid_acc2_raw = [(s, a) for s, a in zip(steps, self.data['acc2_selection']) if not np.isnan(a)]
+ 
+            if valid_acc1_raw:
+                acc1_steps_raw, acc1_vals_raw = zip(*valid_acc1_raw)
+                self.axes[0, 1].plot(acc1_steps_raw, acc1_vals_raw, 'g-', alpha=0.2, linewidth=1)
+                 
+            if valid_acc2_raw:
+                acc2_steps_raw, acc2_vals_raw = zip(*valid_acc2_raw)
+                self.axes[0, 1].plot(acc2_steps_raw, acc2_vals_raw, 'r-', alpha=0.2, linewidth=1)
+ 
+            # Only add legend if there are labeled plots    
+            if has_acc_labels:
+                self.axes[0, 1].legend()
+ 
+            # Fix for Confidence plot (axes[0, 2])
+            has_conf_labels = False
+            conf1_series = self.ma_data['conf1_correct']
+            conf2_series = self.ma_data['conf2_correct']
+            if steps and conf1_series:
+                if self.phase_markers:
+                    first_label_conf1 = False
+                    for i, (start_step, _) in enumerate(self.phase_markers):
+                        end_step = self.phase_markers[i+1][0] - 1 if i + 1 < len(self.phase_markers) else steps[-1]
+                        indices = [idx for idx, s in enumerate(steps) if s >= start_step and s <= end_step and not np.isnan(conf1_series[idx])]
+                        if indices:
+                            x_seg = [steps[idx] for idx in indices]
+                            y_seg = [conf1_series[idx] for idx in indices]
+                            self.axes[0, 2].plot(
+                                x_seg,
+                                y_seg,
+                                'g--', 
+                                label=(f'Agent1 (MA-{self.ma_window})' if not first_label_conf1 else None),
+                                alpha=0.8,
+                                linewidth=2
+                            )
+                            first_label_conf1 = True
+                            has_conf_labels = True
+                else:
+                    valid_idx = [i for i, y in enumerate(conf1_series) if not np.isnan(y)]
+                    if valid_idx:
+                        x_all = [steps[i] for i in valid_idx]
+                        y_all = [conf1_series[i] for i in valid_idx]
+                        self.axes[0, 2].plot(x_all, y_all, 'g--', label=f'Agent1 (MA-{self.ma_window})', alpha=0.8, linewidth=2)
+                        has_conf_labels = True
+
+            if steps and conf2_series:
+                if self.phase_markers:
+                    first_label_conf2 = False
+                    for i, (start_step, _) in enumerate(self.phase_markers):
+                        end_step = self.phase_markers[i+1][0] - 1 if i + 1 < len(self.phase_markers) else steps[-1]
+                        indices = [idx for idx, s in enumerate(steps) if s >= start_step and s <= end_step and not np.isnan(conf2_series[idx])]
+                        if indices:
+                            x_seg = [steps[idx] for idx in indices]
+                            y_seg = [conf2_series[idx] for idx in indices]
+                            self.axes[0, 2].plot(
+                                x_seg,
+                                y_seg,
+                                'r--', 
+                                label=(f'Agent2 (MA-{self.ma_window})' if not first_label_conf2 else None),
+                                alpha=0.8,
+                                linewidth=2
+                            )
+                            first_label_conf2 = True
+                            has_conf_labels = True
+                else:
+                    valid_idx = [i for i, y in enumerate(conf2_series) if not np.isnan(y)]
+                    if valid_idx:
+                        x_all = [steps[i] for i in valid_idx]
+                        y_all = [conf2_series[i] for i in valid_idx]
+                        self.axes[0, 2].plot(x_all, y_all, 'r--', label=f'Agent2 (MA-{self.ma_window})', alpha=0.8, linewidth=2)
+                        has_conf_labels = True
+ 
+            # Plot raw confidence data as faint background
+            valid_conf1_raw = [(s, c) for s, c in zip(steps, self.data['conf1_correct']) if not np.isnan(c)]
+            valid_conf2_raw = [(s, c) for s, c in zip(steps, self.data['conf2_correct']) if not np.isnan(c)]
+ 
+            if valid_conf1_raw:
+                conf1_steps_raw, conf1_vals_raw = zip(*valid_conf1_raw)
+                self.axes[0, 2].plot(conf1_steps_raw, conf1_vals_raw, 'g--', alpha=0.2, linewidth=1)
+                 
+            if valid_conf2_raw:
+                conf2_steps_raw, conf2_vals_raw = zip(*valid_conf2_raw)
+                self.axes[0, 2].plot(conf2_steps_raw, conf2_vals_raw, 'r--', alpha=0.2, linewidth=1)
+ 
+            # Only add legend if there are labeled plots
+            if has_conf_labels:
+                self.axes[0, 2].legend()
+            
+            # Plot active symbols
+            self.axes[1, 0].plot(steps, self.data['active_symbols'], 'purple', linewidth=2)
+            
+            # Set x-axis limits for all main plots to show all data (no sliding)
+            if steps:
+                x_min, x_max = steps[0], steps[-1]
+                for ax in [self.axes[0, 0], self.axes[0, 1], self.axes[0, 2], self.axes[1, 0]]:
+                    ax.set_xlim(x_min, x_max)
+            
+            # Add phase markers to all relevant plots
+            for step, phase in self.phase_markers:
+                color = self.phase_colors.get(phase, 'gray')
+                for ax in [self.axes[0, 0], self.axes[0, 1], self.axes[0, 2], self.axes[1, 0]]:
+                    ax.axvline(x=step, color=color, alpha=0.5, linestyle='--', linewidth=1)
+            
+            # Phase timeline
+            if self.phase_markers:
+                y_pos = 0
+                for i, (step, phase) in enumerate(self.phase_markers):
+                    color = self.phase_colors.get(phase, 'gray')
+                    next_step = self.phase_markers[i+1][0] if i+1 < len(self.phase_markers) else steps[-1]
+                    
+                    rect = Rectangle((step, y_pos), next_step - step, 1, 
+                                   facecolor=color, alpha=0.6, edgecolor='black')
+                    self.axes[1, 1].add_patch(rect)
+                    
+                    # Add phase label
+                    mid_step = (step + next_step) / 2
+                    self.axes[1, 1].text(mid_step, y_pos + 0.5, phase.title(), 
+                                       ha='center', va='center', fontsize=8, weight='bold')
+                
+                self.axes[1, 1].set_xlim(steps[0], steps[-1])
+                self.axes[1, 1].set_ylim(-0.1, 1.1)
+                self.axes[1, 1].set_yticks([0.5])
+                self.axes[1, 1].set_yticklabels(['Phases'])
+            
+            # Update statistics panel
+            self.axes[1, 2].clear()
+            self.axes[1, 2].axis('off')
+            
+            if steps:
+                recent_data = {k: [v for v in vals[-50:] if not np.isnan(v)] 
+                             for k, vals in self.data.items() if k != 'steps'}
+                
+                stats_text = f"Current Step: {steps[-1]}\n\n"
+                
+                if self.ma_data['loss'] and not np.isnan(self.ma_data['loss'][-1]):
+                    stats_text += f"Loss (MA): {self.ma_data['loss'][-1]:.4f}\n"
+                if self.ma_data['acc1_selection'] and not np.isnan(self.ma_data['acc1_selection'][-1]):
+                    stats_text += f"Agent1 Acc (MA): {self.ma_data['acc1_selection'][-1]:.3f}\n"
+                if self.ma_data['acc2_selection'] and not np.isnan(self.ma_data['acc2_selection'][-1]):
+                    stats_text += f"Agent2 Acc (MA): {self.ma_data['acc2_selection'][-1]:.3f}\n"
+                if recent_data['active_symbols']:
+                    stats_text += f"Active Symbols: {recent_data['active_symbols'][-1]}\n"
+                
+                # Add phase info
+                if self.phase_markers:
+                    current_phase = self.phase_markers[-1][1]
+                    stats_text += f"\nCurrent Phase: {current_phase.title()}\n"
+                
+                # Add raw recent values for comparison
+                stats_text += f"\nRaw Recent Values:\n"
+                if recent_data['loss']:
+                    stats_text += f"Loss (raw): {recent_data['loss'][-1]:.4f}\n"
+                if recent_data['acc1_selection']:
+                    stats_text += f"Agent1 (raw): {recent_data['acc1_selection'][-1]:.3f}\n"
+                if recent_data['acc2_selection']:
+                    stats_text += f"Agent2 (raw): {recent_data['acc2_selection'][-1]:.3f}\n"
+                
+                self.axes[1, 2].text(0.05, 0.95, stats_text, fontsize=10, 
+                                   verticalalignment='top', 
+                                   bbox=dict(boxstyle="round,pad=0.3", 
+                                           facecolor="lightblue", alpha=0.7))
+            
+            # Force update
+            self.fig.canvas.draw()
+            self.fig.canvas.flush_events()
+            plt.pause(0.01)  # Small pause to allow GUI update
+            
+        except Exception as e:
+            print(f"Error updating live graph: {e}")
+    
+    def mark_phase_change(self, step, phase):
+        """Mark a phase change in the graph"""
+        with self.lock:
+            self.phase_markers.append((step, phase))
+            # Reset moving averages at the start of each new phase
+            for ma in self.moving_averages.values():
+                ma.values.clear()
+            print(f"Phase change marked: Step {step} -> {phase} (moving averages reset)")
+    
+    def add_symbols(self, count):
+        """Add symbols to the active count"""
+        self.active_symbols_count += count
+        print(f"Added {count} symbols, total active symbols: {self.active_symbols_count}")
+    
+    def remove_symbols(self, count):
+        """Remove symbols from the active count"""
+        self.active_symbols_count -= count
+        print(f"Removed {count} symbols, total active symbols: {self.active_symbols_count}")
+    
+    def save_final_plot(self, filename="final_training_metrics.png"):
+        """Save the final plot to file"""
+        with self.lock:
+            try:
+                self.fig.savefig(filename, dpi=150, bbox_inches='tight')
+                print(f"Final plot saved to {filename}")
+            except Exception as e:
+                print(f"Error saving final plot: {e}")
+    
+    def close(self):
+        """Close the live grapher"""
+        plt.ioff()
+        plt.close(self.fig)
+
+# Global live grapher instance
+live_grapher = None
+global_step_counter = 0
 
 class MovingAverage:
     def __init__(self, window_size=100):
@@ -80,6 +557,8 @@ def run_pretraining_phase(trainer, target_puzzles=None, epochs=50):
     Modified pretraining to only train on puzzles that have symbol mappings
     NOW USES GLOBAL INDICES CONSISTENTLY
     """
+    global live_grapher
+    
     print(f"\n{'='*60}")
     print(f"PRETRAINING PHASE - Encoder Training ({epochs} epochs)")
     print(f"{'='*60}")
@@ -186,7 +665,7 @@ def run_pretraining_phase(trainer, target_puzzles=None, epochs=50):
     for param in agent2.parameters():
         param.requires_grad = False
     
-    encoder_optimizer = torch.optim.Adam(encoder_params, lr=0.001)
+    encoder_optimizer = torch.optim.Adam(encoder_params, lr=0.0001)
     
     history = {
         'loss': [],
@@ -195,6 +674,11 @@ def run_pretraining_phase(trainer, target_puzzles=None, epochs=50):
     }
     
     visualization_frequency = max(1, epochs // 5)  # Show details 5 times during training
+    
+    # Mark phase change in live grapher
+    global global_step_counter
+    if live_grapher:
+        live_grapher.mark_phase_change(global_step_counter, 'pretraining')
     
     for epoch in range(epochs):
         total_loss = 0.0
@@ -257,6 +741,18 @@ def run_pretraining_phase(trainer, target_puzzles=None, epochs=50):
         history['loss'].append(avg_loss)
         history['accuracy'].append(accuracy)
         history['epochs'].append(epoch + 1)
+        
+        # Update live grapher
+        if live_grapher:
+            try:
+                live_grapher.add_data_point(
+                    step=global_step_counter,
+                    loss=avg_loss,
+                    acc1=accuracy  # For pretraining, use accuracy as proxy
+                )
+                global_step_counter += 1
+            except Exception as e:
+                print(f"Warning: Live grapher update failed: {e}")
         
         if show_details:
             print(f"  Epoch {epoch+1} Summary: Loss={avg_loss:.4f}, Accuracy={accuracy:.3f}")
@@ -363,12 +859,20 @@ def run_pretraining_phase(trainer, target_puzzles=None, epochs=50):
     return history
 
 def run_training_phase(trainer, cycles=200):
-    """Run the main training phase"""
+    """Run the main training phase - MODIFIED to repeat each puzzle multiple times"""
+    global live_grapher
+    
     print(f"\n{'='*60}")
     print(f"TRAINING PHASE - Joint Training ({cycles} cycles)")
+    print(f"Repetitions per puzzle: {trainer.repetitions_per_puzzle}")
     print(f"{'='*60}")
     
     trainer.set_training_mode("joint")
+    
+    # Mark phase change in live grapher
+    global global_step_counter
+    if live_grapher:
+        live_grapher.mark_phase_change(global_step_counter, 'training')
     
     # Initialize tracking
     metrics_history = []
@@ -378,7 +882,7 @@ def run_training_phase(trainer, cycles=200):
     conf2_correct_history = []
     
     # Moving averages
-    ma_window = 20
+    ma_window = 50
     acc1_selection_ma = MovingAverage(ma_window)
     acc2_selection_ma = MovingAverage(ma_window)
     conf1_correct_ma = MovingAverage(ma_window)
@@ -387,7 +891,7 @@ def run_training_phase(trainer, cycles=200):
     for cycle in range(cycles):
         print(f"\nTraining Cycle {cycle + 1}/{cycles}")
         
-        # Train on each active puzzle
+        # MODIFIED: Train on each active puzzle multiple times before moving to next
         cycle_metrics = []
         for puzzle_idx, puzzle in enumerate(trainer.active_puzzles):
             puzzle_tensor = torch.tensor(
@@ -396,36 +900,64 @@ def run_training_phase(trainer, cycles=200):
                 device=trainer.device
             ).unsqueeze(0)
             
-            step_metrics = trainer.train_bidirectional_step(
-                puzzle_tensor, 
-                puzzle_idx,
-                num_exchanges=1,
-                temperature=1.0,
-                initial_phase=False
-            )
+            print(f"  Training on puzzle {puzzle_idx} for {trainer.repetitions_per_puzzle} repetitions...")
             
-            cycle_metrics.extend(step_metrics)
+            # NEW: Repeat each puzzle multiple times
+            for repetition in range(trainer.repetitions_per_puzzle):
+                step_metrics = trainer.train_bidirectional_step(
+                    puzzle_tensor, 
+                    puzzle_idx,
+                    num_exchanges=1,
+                    temperature=1.0,
+                    initial_phase=False
+                )
+                
+                cycle_metrics.extend(step_metrics)
+                
+                # Update metrics for each step within the repetition
+                for metrics in step_metrics:
+                    acc1_selection_ma.update(metrics['agent1_selection_accuracy'])
+                    acc2_selection_ma.update(metrics['agent2_selection_accuracy'])
+                    conf1_correct_ma.update(metrics['agent1_correct_confidence'])
+                    conf2_correct_ma.update(metrics['agent2_correct_confidence'])
+                    
+                    acc1_selection_history.append(acc1_selection_ma.get_average())
+                    acc2_selection_history.append(acc2_selection_ma.get_average())
+                    conf1_correct_history.append(conf1_correct_ma.get_average())
+                    conf2_correct_history.append(conf2_correct_ma.get_average())
+                    
+                    # Update live grapher for each step
+                    if live_grapher:
+                        try:
+                            live_grapher.add_data_point(
+                                step=global_step_counter,
+                                loss=metrics['total_loss'],
+                                acc1=metrics['agent1_selection_accuracy'],
+                                acc2=metrics['agent2_selection_accuracy'],
+                                conf1=metrics['agent1_correct_confidence'],
+                                conf2=metrics['agent2_correct_confidence']
+                            )
+                            global_step_counter += 1
+                        except Exception as e:
+                            print(f"Warning: Live grapher update failed: {e}")
+                
+                # Show progress for this repetition
+                if step_metrics:
+                    avg_loss = step_metrics[0]['total_loss']
+                    acc1 = step_metrics[0]['agent1_selection_accuracy']
+                    acc2 = step_metrics[0]['agent2_selection_accuracy']
+                    print(f"    Rep {repetition+1}/{trainer.repetitions_per_puzzle}: Loss={avg_loss:.4f}, Acc1={acc1:.3f}, Acc2={acc2:.3f}")
         
-        # Update metrics
+        # Update comprehensive metrics history
         metrics_history.extend(cycle_metrics)
         
-        for metrics in cycle_metrics:
-            acc1_selection_ma.update(metrics['agent1_selection_accuracy'])
-            acc2_selection_ma.update(metrics['agent2_selection_accuracy'])
-            conf1_correct_ma.update(metrics['agent1_correct_confidence'])
-            conf2_correct_ma.update(metrics['agent2_correct_confidence'])
-            
-            acc1_selection_history.append(acc1_selection_ma.get_average())
-            acc2_selection_history.append(acc2_selection_ma.get_average())
-            conf1_correct_history.append(conf1_correct_ma.get_average())
-            conf2_correct_history.append(conf2_correct_ma.get_average())
-        
-        # Show progress
+        # Show cycle summary
         if cycle_metrics:
             avg_acc1 = acc1_selection_ma.get_average()
             avg_acc2 = acc2_selection_ma.get_average()
             avg_loss = np.mean([m['total_loss'] for m in cycle_metrics if not np.isnan(m['total_loss'])])
-            print(f"  Avg Loss: {avg_loss:.4f}, Acc1: {avg_acc1:.3f}, Acc2: {avg_acc2:.3f}")
+            print(f"  Cycle {cycle + 1} Summary: Avg Loss: {avg_loss:.4f}, Acc1: {avg_acc1:.3f}, Acc2: {avg_acc2:.3f}")
+            print(f"  Total training steps this cycle: {len(cycle_metrics)}")
     
     accuracies_history = {
         'acc1_selection': acc1_selection_history,
@@ -434,13 +966,24 @@ def run_training_phase(trainer, cycles=200):
         'conf2_correct': conf2_correct_history
     }
     
+    print(f"\nTraining Phase Complete:")
+    print(f"  Total training steps: {len(metrics_history)}")
+    print(f"  Steps per cycle: {len(trainer.active_puzzles) * trainer.repetitions_per_puzzle}")
+    
     return metrics_history, accuracies_history
 
 def run_consolidation_phase(trainer):
     """Run consolidation phase to remove recessive symbols"""
+    global live_grapher
+    
     print(f"\n{'='*60}")
     print(f"CONSOLIDATION PHASE")
     print(f"{'='*60}")
+    
+    # Mark phase change in live grapher
+    global global_step_counter
+    if live_grapher:
+        live_grapher.mark_phase_change(global_step_counter, 'consolidation')
     
     # Run consolidation tests
     confusion_data = trainer.run_consolidation_test()
@@ -455,9 +998,16 @@ def run_consolidation_phase(trainer):
 
 def run_addition_phase(trainer):
     """Run addition phase to add new puzzles"""
+    global live_grapher
+    
     print(f"\n{'='*60}")
     print(f"ADDITION PHASE")
     print(f"{'='*60}")
+    
+    # Mark phase change in live grapher
+    global global_step_counter
+    if live_grapher:
+        live_grapher.mark_phase_change(global_step_counter, 'addition')
     
     new_puzzles = trainer.add_new_puzzles()
     return new_puzzles
@@ -518,13 +1068,13 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
     plt.grid(True)
     plt.legend()
     
-    # Plot vocabulary size over time
+    # Plot active symbols over time
     plt.subplot(3, 2, 4)
-    vocab_sizes = [m.get('active_puzzles', 0) for m in metrics_history]
+    active_symbols = [m.get('active_symbols', 0) for m in metrics_history]
     global_phases = [m.get('global_phase_count', 0) for m in metrics_history]
     
-    plt.plot(vocab_sizes, label='Active Puzzles/Symbols', linewidth=2, color='purple')
-    plt.title('Vocabulary Evolution')
+    plt.plot(active_symbols, label='Active Symbols', linewidth=2, color='purple')
+    plt.title('Active Symbols Evolution')
     plt.xlabel('Step')
     plt.ylabel('Count')
     plt.grid(True)
@@ -560,6 +1110,7 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
     config_text += f"Training Cycles: {config.get('training_cycles', 'N/A')}\n"
     config_text += f"Consolidation Tests: {config.get('consolidation_tests', 'N/A')}\n"
     config_text += f"Puzzles per Addition: {config.get('puzzles_per_addition', 'N/A')}\n"
+    config_text += f"Repetitions per Puzzle: {config.get('repetitions_per_puzzle', 'N/A')}\n"  # NEW
     
     plt.text(0.1, 0.9, config_text, fontsize=10, verticalalignment='top',
              bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgreen", alpha=0.5))
@@ -583,6 +1134,7 @@ def print_selection_debug(puzzle_tensor, sender, receiver, trainer):
     print(f"Phase Cycle: {phase_info['phase_cycle']}")
     print(f"Active Puzzles: {phase_info['active_puzzles']}")
     print(f"Removed Symbols: {phase_info['removed_symbols']}")
+    print(f"Repetitions per Puzzle: {phase_info['selection_config']['repetitions_per_puzzle']}")
     
     # Show current puzzle-symbol mapping
     print(f"\nPuzzle-Symbol Mapping:")
@@ -647,16 +1199,23 @@ def print_message_details(symbols: torch.Tensor, agent_name: str):
     print(f"  Active symbols: {len(nonzero_indices)}")
 
 def main():
+    global live_grapher
+    
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
+    
+    # Initialize live grapher with initial symbol count (will be set properly after trainer creation)
+    print("Initializing live grapher...")
+    live_grapher = LiveGrapher(initial_symbols=3)  # Temporary, will be updated after trainer setup
+    print("Live grapher ready! Training metrics will update in real-time.")
     
     # Create selection agents
     sender = Agent(
         agent_id="sender",
         embedding_dim=512,
         hidden_dim=1024,
-        num_symbols=100,     # Increased to accommodate growth
+        num_symbols=100,     
         puzzle_symbols=10,
         max_seq_length=1,    
         sender_scale=1.0,
@@ -667,26 +1226,34 @@ def main():
         agent_id="receiver",
         embedding_dim=512,
         hidden_dim=1024,
-        num_symbols=100,     # Increased to accommodate growth
+        num_symbols=100,     
         puzzle_symbols=10,
         max_seq_length=1,    
         sender_scale=1.0,
         similarity_metric='cosine'
     ).to(device)
     
-    # Create phase-based trainer
+    # Create phase-based trainer with all configurable parameters
     trainer = CommunicationTrainer(
         agent1=sender,
         agent2=receiver,
-        learning_rate=1e-7,
+        learning_rate=1e-6,
         device=device,
         sync_frequency=50,
-        num_distractors=4,
+        num_distractors=2,
         distractor_strategy='random',
-        training_cycles=200,         # Cycles per training phase
-        consolidation_tests=5,       # Test rounds in consolidation
-        puzzles_per_addition=5       # Puzzles to add each cycle
+        first_training_cycles=50,        # Shorter first training phase
+        training_cycles=50,              # Subsequent training phases
+        consolidation_tests=5,           # Test rounds in consolidation
+        puzzles_per_addition=2,          # Puzzles to add each cycle
+        repetitions_per_puzzle=1,        # Repeat each puzzle X times
+        initial_puzzle_count=3,          # NEW: Initial number of puzzles
+        initial_comm_symbols=3           # NEW: Initial communication symbols (optional, defaults to initial_puzzle_count)
     )
+    max_global_phases = 6  # Run 3 complete cycles for demonstration
+
+    first_pretrain_epochs = 100
+    pretrain_epochs = 100
     
     # Load ARC puzzles
     arc_file_path = 'arc-agi_test_challenges.json'
@@ -695,7 +1262,13 @@ def main():
     
     # Set puzzle dataset and initialize first puzzles
     trainer.set_puzzle_dataset(all_puzzles)
-    trainer.initialize_first_puzzles(initial_count=5)
+    trainer.initialize_first_puzzles()  # NEW: No parameter needed, uses trainer's configuration
+    
+    # Update live grapher with correct initial symbol count
+    if live_grapher:
+        initial_symbols = trainer.initial_comm_symbols
+        live_grapher.active_symbols_count = initial_symbols
+        print(f"Live grapher updated with initial symbols: {initial_symbols}")
     
     # Show initial state
     print("\n" + "="*60)
@@ -704,16 +1277,19 @@ def main():
     phase_info = trainer.get_phase_status()
     print(f"Phase: {phase_info['current_phase']}")
     print(f"Active puzzles: {phase_info['active_puzzles']}")
+    print(f"Initial communication symbols: {phase_info['selection_config']['initial_comm_symbols']}")
+    print(f"Repetitions per puzzle: {phase_info['selection_config']['repetitions_per_puzzle']}")
     print(f"Puzzle-symbol mapping: {phase_info['puzzle_symbol_mapping']}")
     sender.print_position_symbol_mapping()
     print("="*60)
     
     # Enhanced logging
     with open('phase_training_log.txt', 'w') as log_file:
-        log_file.write("Phase-Based Training Log\n")
+        log_file.write("Phase-Based Training Log with Puzzle Repetitions\n")
         log_file.write("="*50 + "\n")
         log_file.write(f"Phase cycle: pretraining → training → consolidation → addition\n")
         log_file.write(f"Training cycles per phase: {trainer.training_cycles}\n")
+        log_file.write(f"Repetitions per puzzle: {trainer.repetitions_per_puzzle}\n")  # NEW
         log_file.write(f"Consolidation tests: {trainer.consolidation_tests}\n")
         log_file.write(f"Puzzles per addition: {trainer.puzzles_per_addition}\n")
         log_file.write("="*50 + "\n\n")
@@ -727,15 +1303,17 @@ def main():
             'conf2_correct': []
         }
         
-        # Main phase cycle loop
-        max_global_phases = 3  # Run 3 complete cycles for demonstration
         
+        # Note: For the final global phase, we skip consolidation and addition phases
+        # to get accurate final counts after the last training phase
         while trainer.global_phase_count < max_global_phases:
             phase_info = trainer.get_phase_status()
             current_phase = phase_info['current_phase']
             
             log_file.write(f"\n{'='*60}\n")
-            log_file.write(f"GLOBAL PHASE {trainer.global_phase_count + 1} - {current_phase.upper()}\n")
+            log_file.write(f"GLOBAL PHASE {trainer.global_phase_count + 1}/{max_global_phases} - {current_phase.upper()}\n")
+            if trainer.global_phase_count == max_global_phases - 1:
+                log_file.write(f"*** FINAL GLOBAL PHASE - Will skip consolidation/addition after training ***\n")
             log_file.write(f"{'='*60}\n")
             log_file.flush()
             
@@ -743,18 +1321,32 @@ def main():
                 # Pretraining phase - train encoder on newly added puzzles
                 if trainer.global_phase_count == 0:
                     # First pretraining - use all initial puzzles
-                    pretraining_history = run_pretraining_phase(trainer, epochs=150)
+                    pretraining_history = run_pretraining_phase(trainer, epochs=first_pretrain_epochs)
                 else:
                     # Subsequent pretraining - use only newly added puzzles
                     # Get last 5 puzzles (newly added)
                     new_puzzles = trainer.active_puzzles[-trainer.puzzles_per_addition:]
-                    pretraining_history = run_pretraining_phase(trainer, target_puzzles=new_puzzles, epochs=30)
+                    pretraining_history = run_pretraining_phase(trainer, target_puzzles=new_puzzles, epochs=pretrain_epochs)
                 
                 trainer.advance_phase()
                 
             elif current_phase == "training":
-                # Training phase - full joint training
-                training_metrics, training_accuracies = run_training_phase(trainer, cycles=trainer.training_cycles)
+                # Training phase - use different cycle counts for first vs subsequent phases
+                cycles_for_this_phase = trainer.get_training_cycles_for_current_phase()
+                
+                # Log which type of training phase this is
+                if trainer.global_phase_count == 0:
+                    log_file.write(f"FIRST training phase - using {cycles_for_this_phase} cycles\n")
+                    log_file.write(f"Each puzzle repeated {trainer.repetitions_per_puzzle} times per cycle\n")
+                    print(f"FIRST training phase - using {cycles_for_this_phase} cycles")
+                    print(f"Each puzzle repeated {trainer.repetitions_per_puzzle} times per cycle")
+                else:
+                    log_file.write(f"Subsequent training phase #{trainer.global_phase_count} - using {cycles_for_this_phase} cycles\n")
+                    log_file.write(f"Each puzzle repeated {trainer.repetitions_per_puzzle} times per cycle\n")
+                    print(f"Subsequent training phase #{trainer.global_phase_count} - using {cycles_for_this_phase} cycles")
+                    print(f"Each puzzle repeated {trainer.repetitions_per_puzzle} times per cycle")
+                
+                training_metrics, training_accuracies = run_training_phase(trainer, cycles=cycles_for_this_phase)
                 
                 # Add to comprehensive tracking
                 all_metrics_history.extend(training_metrics)
@@ -767,17 +1359,45 @@ def main():
                     final_acc2 = training_accuracies['acc2_selection'][-1] if training_accuracies['acc2_selection'] else 0
                     avg_loss = np.mean([m['total_loss'] for m in training_metrics[-50:] if not np.isnan(m['total_loss'])])
                     
-                    log_file.write(f"Training completed:\n")
+                    log_file.write(f"Training completed ({cycles_for_this_phase} cycles, {trainer.repetitions_per_puzzle} reps/puzzle):\n")
                     log_file.write(f"  Final Agent1 accuracy: {final_acc1:.3f}\n")
                     log_file.write(f"  Final Agent2 accuracy: {final_acc2:.3f}\n")
                     log_file.write(f"  Average loss (last 50): {avg_loss:.4f}\n")
+                    log_file.write(f"  Total training steps: {len(training_metrics)}\n")
                     log_file.flush()
+                
+                # Check if this is the final global phase
+                if trainer.global_phase_count == max_global_phases - 1:
+                    log_file.write(f"Final training phase completed - skipping consolidation and addition phases\n")
+                    log_file.flush()
+                    
+                    # Plot final training metrics before exiting
+                    if all_metrics_history:
+                        plot_phase_training_metrics(
+                            all_metrics_history, 
+                            all_accuracies_history,
+                            trainer.get_phase_status(),
+                            title=f"Phase-Based Training (Final - Global Phase {trainer.global_phase_count + 1})"
+                        )
+                        print("Final training metrics plotted to phase_training_metrics.png")
+                    
+                    break  # Exit the phase loop to prevent further phases
                 
                 trainer.advance_phase()
                 
             elif current_phase == "consolidation":
+                # Skip consolidation if this would be the final global phase
+                if trainer.global_phase_count >= max_global_phases - 1:
+                    log_file.write(f"Skipping consolidation phase for final global phase\n")
+                    log_file.flush()
+                    break
+                
                 # Consolidation phase - test and remove recessive symbols
                 confusion_data, removed_symbols = run_consolidation_phase(trainer)
+                
+                # Update live grapher symbol count
+                if live_grapher and removed_symbols:
+                    live_grapher.remove_symbols(len(removed_symbols))
                 
                 log_file.write(f"Consolidation completed:\n")
                 log_file.write(f"  Tested symbols: {len(confusion_data)}\n")
@@ -790,8 +1410,18 @@ def main():
                 trainer.advance_phase()
                 
             elif current_phase == "addition":
+                # Skip addition if this would be the final global phase
+                if trainer.global_phase_count >= max_global_phases - 1:
+                    log_file.write(f"Skipping addition phase for final global phase\n")
+                    log_file.flush()
+                    break
+                
                 # Addition phase - add new puzzles
                 new_puzzles = run_addition_phase(trainer)
+                
+                # Update live grapher symbol count
+                if live_grapher and new_puzzles:
+                    live_grapher.add_symbols(len(new_puzzles))
                 
                 log_file.write(f"Addition completed:\n")
                 log_file.write(f"  Added puzzles: {len(new_puzzles)}\n")
@@ -831,9 +1461,15 @@ def main():
     
     final_phase_info = trainer.get_phase_status()
     print(f"Completed global phases: {final_phase_info['global_phase_count']}")
+    print(f"Final phase: {final_phase_info['current_phase']}")
     print(f"Final active puzzles: {final_phase_info['active_puzzles']}")
     print(f"Total removed symbols: {final_phase_info['removed_symbols']}")
+    print(f"Repetitions per puzzle: {final_phase_info['selection_config']['repetitions_per_puzzle']}")
     print(f"Final puzzle-symbol mapping: {final_phase_info['puzzle_symbol_mapping']}")
+    
+    # Note if we stopped early
+    if final_phase_info['current_phase'] in ['consolidation', 'addition']:
+        print(f"Note: Stopped after final training phase, skipping {final_phase_info['current_phase']} phase")
     
     if all_metrics_history:
         recent_metrics = all_metrics_history[-50:]  # Last 50 steps
@@ -847,7 +1483,23 @@ def main():
     receiver.print_position_symbol_mapping()
     print("="*60)
     
-    print("\nPhase-based training complete! Check phase_training_log.txt for details")
+    # Save final plot and cleanup live grapher
+    if live_grapher:
+        print("\nSaving final training plot...")
+        live_grapher.save_final_plot("live_training_final.png")
+        
+        # Keep the plot window open for a bit to see final results
+        print("Live training plot will remain open. Close the plot window to continue.")
+        try:
+            # Wait for user to close the plot window
+            while plt.get_fignums():
+                plt.pause(1.0)
+        except KeyboardInterrupt:
+            print("Training interrupted by user.")
+        finally:
+            live_grapher.close()
+    
+    print("\nPhase-based training with puzzle repetitions complete! Check phase_training_log.txt for details")
 
 if __name__ == "__main__":
     main()

@@ -19,24 +19,38 @@ class ProgressiveSelectionTrainer:
         sync_frequency: int = 50,         # Synchronize every N cycles
         num_distractors: int = 3,         # Number of distractor puzzles
         distractor_strategy: str = 'random',  # 'random', 'similar_size', 'hard'
-        training_cycles: int = 200,       # Cycles per training phase
-        consolidation_tests: int = 5,     # Number of test cycles in consolidation
-        puzzles_per_addition: int = 5     # Puzzles to add each addition phase
+        first_training_cycles: int = 100,     # Cycles for FIRST training phase
+        training_cycles: int = 200,           # Cycles for subsequent training phases
+        consolidation_tests: int = 5,         # Number of test cycles in consolidation
+        puzzles_per_addition: int = 5,        # Puzzles to add each addition phase
+        repetitions_per_puzzle: int = 5,      # How many times to repeat each puzzle
+        initial_puzzle_count: int = 5,        # NEW: Initial number of puzzles to start with
+        initial_comm_symbols: int = None      # NEW: Initial communication symbols (defaults to initial_puzzle_count)
     ):
+        # NEW: Store initial configuration
+        self.initial_puzzle_count = initial_puzzle_count
+        self.initial_comm_symbols = initial_comm_symbols if initial_comm_symbols is not None else initial_puzzle_count
+        
+        # Update agents with initial communication symbols before moving to device
+        agent1.set_initial_comm_symbols(self.initial_comm_symbols)
+        agent2.set_initial_comm_symbols(self.initial_comm_symbols)
+        
         self.agent1 = agent1.to(device)
         self.agent2 = agent2.to(device)
         self.device = device
         
         # Phase-based training parameters
+        self.first_training_cycles = first_training_cycles
         self.training_cycles = training_cycles
         self.consolidation_tests = consolidation_tests
         self.puzzles_per_addition = puzzles_per_addition
+        self.repetitions_per_puzzle = repetitions_per_puzzle
         self.cycle_count = 0
         
         # Current phase tracking
-        self.current_phase = "pretraining"  # pretraining, training, consolidation, addition
-        self.phase_cycle = 0  # Cycle within current phase
-        self.global_phase_count = 0  # Which iteration of the full cycle we're on
+        self.current_phase = "pretraining"
+        self.phase_cycle = 0
+        self.global_phase_count = 0
         
         # Synchronization parameters
         self.sync_frequency = sync_frequency
@@ -83,11 +97,11 @@ class ProgressiveSelectionTrainer:
         self.training_mode = "joint"
         
         # Puzzle and symbol management
-        self.active_puzzles = []  # Currently active puzzles
-        self.available_arc_puzzles = []  # Full ARC dataset
-        self.puzzle_symbol_mapping = {}  # puzzle_idx -> symbol_idx
-        self.symbol_puzzle_mapping = {}  # symbol_idx -> puzzle_idx
-        self.next_available_symbol = None  # Track next symbol to assign
+        self.active_puzzles = []
+        self.available_arc_puzzles = []
+        self.puzzle_symbol_mapping = {}
+        self.symbol_puzzle_mapping = {}
+        self.next_available_symbol = None
         
         # Consolidation tracking
         self.consolidation_results = []
@@ -98,13 +112,16 @@ class ProgressiveSelectionTrainer:
         self.available_arc_puzzles = puzzles
         print(f"Loaded {len(puzzles)} total ARC puzzles for iterative training")
     
-    def initialize_first_puzzles(self, initial_count: int = 5):
-        """Initialize the first set of active puzzles with symbol assignments"""
-        if len(self.available_arc_puzzles) < initial_count:
-            raise ValueError(f"Need at least {initial_count} puzzles to start")
+    def initialize_first_puzzles(self):
+        """
+        Initialize the first set of active puzzles with symbol assignments.
+        Now uses the configured initial_puzzle_count instead of a parameter.
+        """
+        if len(self.available_arc_puzzles) < self.initial_puzzle_count:
+            raise ValueError(f"Need at least {self.initial_puzzle_count} puzzles to start")
         
         # Take first puzzles
-        self.active_puzzles = self.available_arc_puzzles[:initial_count]
+        self.active_puzzles = self.available_arc_puzzles[:self.initial_puzzle_count]
         
         # Create symbol assignments starting from puzzle_symbols
         self.puzzle_symbol_mapping = {}
@@ -118,20 +135,35 @@ class ProgressiveSelectionTrainer:
         
         self.next_available_symbol = start_symbol + len(self.active_puzzles)
         
-        # Update agent vocabularies
-        self.agent1.current_comm_symbols = len(self.active_puzzles)
-        self.agent2.current_comm_symbols = len(self.active_puzzles)
-        self.agent1.current_total_symbols = self.agent1.puzzle_symbols + len(self.active_puzzles)
-        self.agent2.current_total_symbols = self.agent2.puzzle_symbols + len(self.active_puzzles)
+        # Update agent vocabularies to match actual puzzle count
+        actual_comm_symbols = len(self.active_puzzles)
+        self.agent1.current_comm_symbols = actual_comm_symbols
+        self.agent2.current_comm_symbols = actual_comm_symbols
+        self.agent1.current_total_symbols = self.agent1.puzzle_symbols + actual_comm_symbols
+        self.agent2.current_total_symbols = self.agent2.puzzle_symbols + actual_comm_symbols
         
         print(f"Initialized with {len(self.active_puzzles)} puzzles")
         print(f"Symbol assignments: {self.puzzle_symbol_mapping}")
         print(f"Next available symbol: {self.next_available_symbol}")
+        print(f"Agent communication symbols updated to: {actual_comm_symbols}")
     
     def should_synchronize(self) -> bool:
         """Check if it's time to synchronize agent parameters"""
         return (self.cycle_count > 0 and 
                 self.cycle_count - self.last_sync_cycle >= self.sync_frequency)
+        
+    
+    def get_training_cycles_for_current_phase(self) -> int:
+        """
+        Get the appropriate number of training cycles for the current training phase.
+        Returns fewer cycles for the first training phase, more for subsequent ones.
+        """
+        if self.global_phase_count == 0:
+            # First training phase - use shorter cycle count
+            return self.first_training_cycles
+        else:
+            # Subsequent training phases - use standard cycle count
+            return self.training_cycles
     
     def synchronize_agents(self):
         """Synchronize ALL agent parameters from agent1 to agent2."""
@@ -346,14 +378,24 @@ class ProgressiveSelectionTrainer:
                     )
                     
                     predicted_idx = selection_logits.argmax(dim=-1).item()
-                    predicted_symbol = self.puzzle_symbol_mapping[predicted_idx]
+                    
+                    # FIX: Check if predicted puzzle has a symbol mapping
+                    if predicted_idx in self.puzzle_symbol_mapping:
+                        predicted_symbol = self.puzzle_symbol_mapping[predicted_idx]
+                    else:
+                        # Handle case where predicted puzzle doesn't have a symbol mapping
+                        predicted_symbol = -1  # Use -1 to indicate "no symbol"
                     
                     # Record the result
                     confusion_data[assigned_symbol].append(predicted_symbol)
                     round_results[assigned_symbol] = predicted_symbol
                     
                     correct = "✓" if predicted_idx == puzzle_idx else "✗"
-                    symbol_info = f"Symbol {predicted_symbol}" if predicted_symbol != -1 else "No symbol"
+                    if predicted_symbol != -1:
+                        symbol_info = f"Symbol {predicted_symbol}"
+                    else:
+                        symbol_info = "No symbol mapping"
+                    
                     print(f"  Puzzle {puzzle_idx} (Symbol {assigned_symbol}): "
                         f"Predicted {predicted_idx} ({symbol_info}) {correct}")
         
@@ -410,6 +452,9 @@ class ProgressiveSelectionTrainer:
         print(f"Puzzles that will lose symbol mappings: {orphaned_puzzles}")
         print(f"These puzzles will remain active but won't have dedicated symbols")
         
+        # STORE ORIGINAL MAPPINGS BEFORE REMOVAL
+        original_puzzle_symbol_mapping = self.puzzle_symbol_mapping.copy()
+        
         # Remove symbol mappings for recessive symbols
         for symbol in recessive_symbols:
             if symbol in self.symbol_puzzle_mapping:
@@ -429,13 +474,49 @@ class ProgressiveSelectionTrainer:
         new_symbol_mapping = {}
         new_symbol_idx = self.agent1.puzzle_symbols
         
+        # Track symbol transfers for embedding copying
+        symbol_transfer_mapping = {}  # old_symbol -> new_symbol
+        
         for puzzle_idx in remaining_mapped_puzzles:
-            new_puzzle_mapping[puzzle_idx] = new_symbol_idx
-            new_symbol_mapping[new_symbol_idx] = puzzle_idx
+            old_symbol = original_puzzle_symbol_mapping[puzzle_idx]
+            new_symbol = new_symbol_idx
+            
+            new_puzzle_mapping[puzzle_idx] = new_symbol
+            new_symbol_mapping[new_symbol] = puzzle_idx
+            
+            # Track the transfer (only if symbol actually changes)
+            if old_symbol != new_symbol:
+                symbol_transfer_mapping[old_symbol] = new_symbol
+                print(f"Symbol transfer: {old_symbol} -> {new_symbol} (puzzle {puzzle_idx})")
+            
             new_symbol_idx += 1
         
+        # UPDATE MAPPINGS
         self.puzzle_symbol_mapping = new_puzzle_mapping
         self.symbol_puzzle_mapping = new_symbol_mapping
+        
+        # TRANSFER EMBEDDINGS FOR REMAPPED SYMBOLS
+        if symbol_transfer_mapping:
+            print(f"\nTransferring embeddings for {len(symbol_transfer_mapping)} remapped symbols...")
+            
+            with torch.no_grad():
+                # Transfer embeddings for Agent 1
+                for old_symbol, new_symbol in symbol_transfer_mapping.items():
+                    self.agent1.communication_embedding.weight[new_symbol].copy_(
+                        self.agent1.communication_embedding.weight[old_symbol]
+                    )
+                    print(f"  Agent1: Copied embedding {old_symbol} -> {new_symbol}")
+                
+                # Transfer embeddings for Agent 2
+                for old_symbol, new_symbol in symbol_transfer_mapping.items():
+                    self.agent2.communication_embedding.weight[new_symbol].copy_(
+                        self.agent2.communication_embedding.weight[old_symbol]
+                    )
+                    print(f"  Agent2: Copied embedding {old_symbol} -> {new_symbol}")
+            
+            print(f"Embedding transfer complete: {len(symbol_transfer_mapping)} transfers")
+        else:
+            print("No embedding transfers needed (symbols remain in same positions)")
         
         # Update agent vocabularies based on remaining mapped symbols
         self.agent1.current_comm_symbols = len(self.puzzle_symbol_mapping)
@@ -446,12 +527,13 @@ class ProgressiveSelectionTrainer:
         # Track removed symbols
         self.removed_symbols.update(recessive_symbols)
         
-        print(f"Results:")
+        print(f"\nResults:")
         print(f"  Total puzzles (unchanged): {len(self.active_puzzles)}")
         print(f"  Puzzles with symbol mappings: {len(self.puzzle_symbol_mapping)}")
         print(f"  Puzzles without symbol mappings: {len(self.active_puzzles) - len(self.puzzle_symbol_mapping)}")
         print(f"  Active communication symbols: {self.agent1.current_comm_symbols}")
         print(f"  New symbol mapping: {self.puzzle_symbol_mapping}")
+        print(f"  Embeddings preserved for surviving symbols: ✓")
     
     def add_new_puzzles(self):
         """Add new puzzles from the ARC dataset"""
@@ -505,6 +587,7 @@ class ProgressiveSelectionTrainer:
         if self.current_phase == "pretraining":
             self.current_phase = "training"
         elif self.current_phase == "training":
+            # self.current_phase = "addition"
             self.current_phase = "consolidation"
         elif self.current_phase == "consolidation":
             self.current_phase = "addition"
@@ -671,24 +754,28 @@ class ProgressiveSelectionTrainer:
         return entropy.mean()
 
     def get_phase_status(self) -> Dict[str, any]:
-        """Get current phase and vocabulary status"""
-        return {
-            'current_phase': self.current_phase,
-            'phase_cycle': self.phase_cycle,
-            'global_phase_count': self.global_phase_count,
-            'active_puzzles': len(self.active_puzzles),
-            'removed_symbols': len(self.removed_symbols),
-            'agent1_vocab': self.agent1.get_vocabulary_info(),
-            'agent2_vocab': self.agent2.get_vocabulary_info(),
-            'puzzle_symbol_mapping': self.puzzle_symbol_mapping,
-            'selection_config': {
-                'num_distractors': self.num_distractors,
-                'distractor_strategy': self.distractor_strategy,
-                'training_cycles': self.training_cycles,
-                'consolidation_tests': self.consolidation_tests,
-                'puzzles_per_addition': self.puzzles_per_addition
+            """Get current phase and vocabulary status"""
+            return {
+                'current_phase': self.current_phase,
+                'phase_cycle': self.phase_cycle,
+                'global_phase_count': self.global_phase_count,
+                'active_puzzles': len(self.active_puzzles),
+                'removed_symbols': len(self.removed_symbols),
+                'agent1_vocab': self.agent1.get_vocabulary_info(),
+                'agent2_vocab': self.agent2.get_vocabulary_info(),
+                'puzzle_symbol_mapping': self.puzzle_symbol_mapping,
+                'selection_config': {
+                    'num_distractors': self.num_distractors,
+                    'distractor_strategy': self.distractor_strategy,
+                    'first_training_cycles': self.first_training_cycles,
+                    'training_cycles': self.training_cycles,
+                    'consolidation_tests': self.consolidation_tests,
+                    'puzzles_per_addition': self.puzzles_per_addition,
+                    'repetitions_per_puzzle': self.repetitions_per_puzzle,
+                    'initial_puzzle_count': self.initial_puzzle_count,        # NEW
+                    'initial_comm_symbols': self.initial_comm_symbols        # NEW
+                }
             }
-        }
 
 
 # Create a factory function to replace the original CommunicationTrainer

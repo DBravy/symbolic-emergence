@@ -1,40 +1,182 @@
-Phase-Based Training Log
+Phase-Based Training Log with Puzzle Repetitions
 ==================================================
 Phase cycle: pretraining → training → consolidation → addition
-Training cycles per phase: 200
+Training cycles per phase: 50
+Repetitions per puzzle: 1
 Consolidation tests: 5
-Puzzles per addition: 5
+Puzzles per addition: 2
 ==================================================
 
 
 ============================================================
-GLOBAL PHASE 1 - PRETRAINING
+GLOBAL PHASE 1/6 - PRETRAINING
 ============================================================
 
 ============================================================
-GLOBAL PHASE 1 - TRAINING
+GLOBAL PHASE 1/6 - TRAINING
 ============================================================
-Training completed:
-  Final Agent1 accuracy: 0.450
-  Final Agent2 accuracy: 0.250
-  Average loss (last 50): 2.9800
+FIRST training phase - using 50 cycles
+Each puzzle repeated 1 times per cycle
+Training completed (50 cycles, 1 reps/puzzle):
+  Final Agent1 accuracy: 0.660
+  Final Agent2 accuracy: 0.660
+  Average loss (last 50): 2.1616
+  Total training steps: 150
 
 ============================================================
-GLOBAL PHASE 1 - CONSOLIDATION
+GLOBAL PHASE 1/6 - CONSOLIDATION
 ============================================================
 Consolidation completed:
-  Tested symbols: 5
-  Removed symbols: 2
-  Remaining puzzles: 5
-  Removed: {10, 13}
+  Tested symbols: 3
+  Removed symbols: 1
+  Remaining puzzles: 3
+  Removed: {11}
 
 ============================================================
-GLOBAL PHASE 1 - ADDITION
+GLOBAL PHASE 1/6 - ADDITION
 ============================================================
 Addition completed:
-  Added puzzles: 5
-  Total active puzzles: 10
+  Added puzzles: 2
+  Total active puzzles: 5
 
 ============================================================
-GLOBAL PHASE 2 - PRETRAINING
+GLOBAL PHASE 2/6 - PRETRAINING
 ============================================================
+
+============================================================
+GLOBAL PHASE 2/6 - TRAINING
+============================================================
+Subsequent training phase #1 - using 50 cycles
+Each puzzle repeated 1 times per cycle
+Training completed (50 cycles, 1 reps/puzzle):
+  Final Agent1 accuracy: 0.620
+  Final Agent2 accuracy: 0.640
+  Average loss (last 50): 2.1131
+  Total training steps: 250
+
+============================================================
+GLOBAL PHASE 2/6 - CONSOLIDATION
+============================================================
+Consolidation completed:
+  Tested symbols: 4
+  Removed symbols: 2
+  Remaining puzzles: 5
+  Removed: {11, 13}
+
+============================================================
+GLOBAL PHASE 2/6 - ADDITION
+============================================================
+Addition completed:
+  Added puzzles: 2
+  Total active puzzles: 7
+
+============================================================
+GLOBAL PHASE 3/6 - PRETRAINING
+============================================================
+
+============================================================
+GLOBAL PHASE 3/6 - TRAINING
+============================================================
+Subsequent training phase #2 - using 50 cycles
+Each puzzle repeated 1 times per cycle
+Training completed (50 cycles, 1 reps/puzzle):
+  Final Agent1 accuracy: 0.600
+  Final Agent2 accuracy: 0.480
+  Average loss (last 50): 2.1656
+  Total training steps: 350
+
+============================================================
+GLOBAL PHASE 3/6 - CONSOLIDATION
+============================================================
+Consolidation completed:
+  Tested symbols: 4
+  Removed symbols: 3
+  Remaining puzzles: 7
+  Removed: {10, 11, 15}
+
+============================================================
+GLOBAL PHASE 3/6 - ADDITION
+============================================================
+Addition completed:
+  Added puzzles: 2
+  Total active puzzles: 9
+
+============================================================
+GLOBAL PHASE 4/6 - PRETRAINING
+============================================================
+
+============================================================
+GLOBAL PHASE 4/6 - TRAINING
+============================================================
+Subsequent training phase #3 - using 50 cycles
+Each puzzle repeated 1 times per cycle
+Training completed (50 cycles, 1 reps/puzzle):
+  Final Agent1 accuracy: 0.560
+  Final Agent2 accuracy: 0.540
+  Average loss (last 50): 2.1565
+  Total training steps: 450
+
+============================================================
+GLOBAL PHASE 4/6 - CONSOLIDATION
+============================================================
+Consolidation completed:
+  Tested symbols: 3
+  Removed symbols: 3
+  Remaining puzzles: 9
+  Removed: {17, 10, 18}
+
+============================================================
+GLOBAL PHASE 4/6 - ADDITION
+============================================================
+Addition completed:
+  Added puzzles: 2
+  Total active puzzles: 11
+
+============================================================
+GLOBAL PHASE 5/6 - PRETRAINING
+============================================================
+
+============================================================
+GLOBAL PHASE 5/6 - TRAINING
+============================================================
+Subsequent training phase #4 - using 50 cycles
+Each puzzle repeated 1 times per cycle
+Training completed (50 cycles, 1 reps/puzzle):
+  Final Agent1 accuracy: 0.420
+  Final Agent2 accuracy: 0.500
+  Average loss (last 50): 2.1554
+  Total training steps: 550
+
+============================================================
+GLOBAL PHASE 5/6 - CONSOLIDATION
+============================================================
+Consolidation completed:
+  Tested symbols: 2
+  Removed symbols: 1
+  Remaining puzzles: 11
+  Removed: {20}
+
+============================================================
+GLOBAL PHASE 5/6 - ADDITION
+============================================================
+Addition completed:
+  Added puzzles: 2
+  Total active puzzles: 13
+
+============================================================
+GLOBAL PHASE 6/6 - PRETRAINING
+*** FINAL GLOBAL PHASE - Will skip consolidation/addition after training ***
+============================================================
+
+============================================================
+GLOBAL PHASE 6/6 - TRAINING
+*** FINAL GLOBAL PHASE - Will skip consolidation/addition after training ***
+============================================================
+Subsequent training phase #5 - using 50 cycles
+Each puzzle repeated 1 times per cycle
+Training completed (50 cycles, 1 reps/puzzle):
+  Final Agent1 accuracy: 0.400
+  Final Agent2 accuracy: 0.380
+  Average loss (last 50): 2.1694
+  Total training steps: 650
+Final training phase completed - skipping consolidation and addition phases

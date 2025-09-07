@@ -54,14 +54,17 @@ class ProgressiveSelectionAgent(nn.Module):
         self.max_seq_length = max_seq_length
         self.puzzle_symbols = puzzle_symbols
         
-        # Progressive training state - start small
-        self.current_comm_symbols = 5  # Start with 5 communication symbols
+        # Progressive training state - will be set by trainer
+        # Default values for backward compatibility
+        self.current_comm_symbols = 5  # Will be overridden by set_initial_comm_symbols()
         self.current_seq_length = 1   # Start with sequence length 1
         self.current_total_symbols = puzzle_symbols + self.current_comm_symbols
         
         # Communication and puzzle vocabularies
         self.communication_vocabulary = set(range(self.current_total_symbols))
         self.puzzle_vocabulary = set(range(puzzle_symbols))
+        
+        # ... rest of the __init__ method remains the same until the end ...
         
         # Puzzle embedding (for converting grids to continuous representations)
         self.embedding_system = PuzzleEmbedding(
@@ -117,6 +120,23 @@ class ProgressiveSelectionAgent(nn.Module):
         self.fixed_size = fixed_size
 
         self._apply_sender_scaling()
+    
+    def set_initial_comm_symbols(self, initial_comm_symbols: int):
+        """
+        NEW: Set the initial number of communication symbols.
+        This should be called by the trainer during initialization.
+        
+        Args:
+            initial_comm_symbols: Number of communication symbols to start with
+        """
+        self.current_comm_symbols = min(initial_comm_symbols, self.max_num_symbols - self.puzzle_symbols)
+        self.current_total_symbols = self.puzzle_symbols + self.current_comm_symbols
+        
+        # Update communication vocabulary
+        self.communication_vocabulary = set(range(self.current_total_symbols))
+        
+        print(f"[{self.agent_id}] Initial communication symbols set to: {self.current_comm_symbols}")
+        print(f"[{self.agent_id}] Total symbols: {self.current_total_symbols}")
     
     def is_sender(self) -> bool:
         return 'sender' in self.agent_id.lower()

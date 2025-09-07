@@ -1,0 +1,38 @@
+*.png
+
+# OS/IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.env
+.env.* 
+*.egg-info/
+build/
+dist/
+
+# Notebooks & caches
+.ipynb_checkpoints/
+.mypy_cache/
+.pytest_cache/
+
+# Data / artifacts (keep large or regenerable stuff out)
+data/
+datasets/
+outputs/
+checkpoints/
+logs/
+wandb/
+*.log
+
+# C/CUDA build caches (if any)
+*.so
+*.o
+*.out
