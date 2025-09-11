@@ -4,6 +4,9 @@ from agent_selection import ProgressiveSelectionAgent as Agent
 from trainer_selection import ProgressiveSelectionTrainer as CommunicationTrainer
 
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+
+mpl.rcParams['figure.raise_window'] = False
 import matplotlib.animation as animation
 from matplotlib.patches import Rectangle
 from puzzle import Puzzle
@@ -35,18 +38,19 @@ class LiveGrapher:
             'loss': [],
             'acc1_selection': [],
             'acc2_selection': [],
-            'conf1_correct': [],
-            'conf2_correct': [],
+            'ges1': [],
+            'ges2': [],
             'active_symbols': [],
-            'steps': []
+            'steps': [],
+            'total_puzzles': []
         }
         
         # Moving averages for smoothed display
         self.moving_averages = {
             'acc1_selection': MovingAverage(ma_window),
             'acc2_selection': MovingAverage(ma_window),
-            'conf1_correct': MovingAverage(ma_window),
-            'conf2_correct': MovingAverage(ma_window),
+            'ges1': MovingAverage(ma_window),
+            'ges2': MovingAverage(ma_window),
             'loss': MovingAverage(ma_window)
         }
         
@@ -55,8 +59,8 @@ class LiveGrapher:
             'loss': [],
             'acc1_selection': [],
             'acc2_selection': [],
-            'conf1_correct': [],
-            'conf2_correct': []
+            'ges1': [],
+            'ges2': []
         }
         
         # Phase tracking
@@ -65,7 +69,8 @@ class LiveGrapher:
             'pretraining': 'blue',
             'training': 'green', 
             'consolidation': 'orange',
-            'addition': 'red'
+            'addition': 'red',
+            'remedial': 'magenta'
         }
         
         # Initialize plots
@@ -90,11 +95,11 @@ class LiveGrapher:
         self.axes[0, 1].set_ylim(0, 1.1)
         self.axes[0, 1].grid(True, alpha=0.3)
         
-        # Confidence plot
-        self.axes[0, 2].set_title(f'Confidence in Correct Selection (MA-{self.ma_window})')
+        # GES plot (replaces confidence)
+        self.axes[0, 2].set_title(f'Generalization Efficiency Score (GES) (MA-{self.ma_window})')
         self.axes[0, 2].set_xlabel('Step')
-        self.axes[0, 2].set_ylabel('Confidence')
-        self.axes[0, 2].set_ylim(0, 1.1)
+        self.axes[0, 2].set_ylabel('GES')
+        # allow negative values; no fixed ylim
         self.axes[0, 2].grid(True, alpha=0.3)
         
         # Active symbols
@@ -116,16 +121,17 @@ class LiveGrapher:
         plt.tight_layout()
         
     def add_data_point(self, step, loss=None, acc1=None, acc2=None, 
-                      conf1=None, conf2=None, phase=None):
+                     ges1=None, ges2=None, phase=None, total_puzzles=None):
         """Add a new data point and update the graph"""
         with self.lock:
             self.data['steps'].append(step)
             self.data['loss'].append(loss if loss is not None else np.nan)
             self.data['acc1_selection'].append(acc1 if acc1 is not None else np.nan)
             self.data['acc2_selection'].append(acc2 if acc2 is not None else np.nan)
-            self.data['conf1_correct'].append(conf1 if conf1 is not None else np.nan)
-            self.data['conf2_correct'].append(conf2 if conf2 is not None else np.nan)
+            self.data['ges1'].append(ges1 if ges1 is not None else np.nan)
+            self.data['ges2'].append(ges2 if ges2 is not None else np.nan)
             self.data['active_symbols'].append(self.active_symbols_count)
+            self.data['total_puzzles'].append(total_puzzles if total_puzzles is not None else np.nan)
             
             # Update moving averages and store MA values
             if loss is not None and not np.isnan(loss):
@@ -133,30 +139,30 @@ class LiveGrapher:
                 self.ma_data['loss'].append(self.moving_averages['loss'].get_average())
             else:
                 self.ma_data['loss'].append(np.nan)
-                
+            
             if acc1 is not None and not np.isnan(acc1):
                 self.moving_averages['acc1_selection'].update(acc1)
                 self.ma_data['acc1_selection'].append(self.moving_averages['acc1_selection'].get_average())
             else:
                 self.ma_data['acc1_selection'].append(np.nan)
-                
+            
             if acc2 is not None and not np.isnan(acc2):
                 self.moving_averages['acc2_selection'].update(acc2)
                 self.ma_data['acc2_selection'].append(self.moving_averages['acc2_selection'].get_average())
             else:
                 self.ma_data['acc2_selection'].append(np.nan)
-                
-            if conf1 is not None and not np.isnan(conf1):
-                self.moving_averages['conf1_correct'].update(conf1)
-                self.ma_data['conf1_correct'].append(self.moving_averages['conf1_correct'].get_average())
+            
+            if ges1 is not None and not np.isnan(ges1):
+                self.moving_averages['ges1'].update(ges1)
+                self.ma_data['ges1'].append(self.moving_averages['ges1'].get_average())
             else:
-                self.ma_data['conf1_correct'].append(np.nan)
-                
-            if conf2 is not None and not np.isnan(conf2):
-                self.moving_averages['conf2_correct'].update(conf2)
-                self.ma_data['conf2_correct'].append(self.moving_averages['conf2_correct'].get_average())
+                self.ma_data['ges1'].append(np.nan)
+            
+            if ges2 is not None and not np.isnan(ges2):
+                self.moving_averages['ges2'].update(ges2)
+                self.ma_data['ges2'].append(self.moving_averages['ges2'].get_average())
             else:
-                self.ma_data['conf2_correct'].append(np.nan)
+                self.ma_data['ges2'].append(np.nan)
             
             # Track phase changes
             if phase:
@@ -173,7 +179,7 @@ class LiveGrapher:
             steps = self.data['steps']
             if not steps:
                 return
-                
+            
             # Clear all plots
             for ax in self.axes.flat:
                 if ax != self.axes[1, 2]:  # Don't clear stats panel
@@ -296,78 +302,81 @@ class LiveGrapher:
             if has_acc_labels:
                 self.axes[0, 1].legend()
  
-            # Fix for Confidence plot (axes[0, 2])
-            has_conf_labels = False
-            conf1_series = self.ma_data['conf1_correct']
-            conf2_series = self.ma_data['conf2_correct']
-            if steps and conf1_series:
+            # GES plot (axes[0, 2])
+            has_ges_labels = False
+            ges1_series = self.ma_data['ges1']
+            ges2_series = self.ma_data['ges2']
+            if steps and ges1_series:
                 if self.phase_markers:
-                    first_label_conf1 = False
+                    first_label_ges1 = False
                     for i, (start_step, _) in enumerate(self.phase_markers):
                         end_step = self.phase_markers[i+1][0] - 1 if i + 1 < len(self.phase_markers) else steps[-1]
-                        indices = [idx for idx, s in enumerate(steps) if s >= start_step and s <= end_step and not np.isnan(conf1_series[idx])]
+                        indices = [idx for idx, s in enumerate(steps) if s >= start_step and s <= end_step and not np.isnan(ges1_series[idx])]
                         if indices:
                             x_seg = [steps[idx] for idx in indices]
-                            y_seg = [conf1_series[idx] for idx in indices]
+                            y_seg = [ges1_series[idx] for idx in indices]
                             self.axes[0, 2].plot(
                                 x_seg,
                                 y_seg,
-                                'g--', 
-                                label=(f'Agent1 (MA-{self.ma_window})' if not first_label_conf1 else None),
+                                'g--',
+                                label=(f'Agent1 GES (MA-{self.ma_window})' if not first_label_ges1 else None),
                                 alpha=0.8,
                                 linewidth=2
                             )
-                            first_label_conf1 = True
-                            has_conf_labels = True
+                            first_label_ges1 = True
+                            has_ges_labels = True
                 else:
-                    valid_idx = [i for i, y in enumerate(conf1_series) if not np.isnan(y)]
+                    valid_idx = [i for i, y in enumerate(ges1_series) if not np.isnan(y)]
                     if valid_idx:
                         x_all = [steps[i] for i in valid_idx]
-                        y_all = [conf1_series[i] for i in valid_idx]
-                        self.axes[0, 2].plot(x_all, y_all, 'g--', label=f'Agent1 (MA-{self.ma_window})', alpha=0.8, linewidth=2)
-                        has_conf_labels = True
+                        y_all = [ges1_series[i] for i in valid_idx]
+                        self.axes[0, 2].plot(x_all, y_all, 'g--', label=f'Agent1 GES (MA-{self.ma_window})', alpha=0.8, linewidth=2)
+                        has_ges_labels = True
 
-            if steps and conf2_series:
+            if steps and ges2_series:
                 if self.phase_markers:
-                    first_label_conf2 = False
+                    first_label_ges2 = False
                     for i, (start_step, _) in enumerate(self.phase_markers):
                         end_step = self.phase_markers[i+1][0] - 1 if i + 1 < len(self.phase_markers) else steps[-1]
-                        indices = [idx for idx, s in enumerate(steps) if s >= start_step and s <= end_step and not np.isnan(conf2_series[idx])]
+                        indices = [idx for idx, s in enumerate(steps) if s >= start_step and s <= end_step and not np.isnan(ges2_series[idx])]
                         if indices:
                             x_seg = [steps[idx] for idx in indices]
-                            y_seg = [conf2_series[idx] for idx in indices]
+                            y_seg = [ges2_series[idx] for idx in indices]
                             self.axes[0, 2].plot(
                                 x_seg,
                                 y_seg,
-                                'r--', 
-                                label=(f'Agent2 (MA-{self.ma_window})' if not first_label_conf2 else None),
+                                'r--',
+                                label=(f'Agent2 GES (MA-{self.ma_window})' if not first_label_ges2 else None),
                                 alpha=0.8,
                                 linewidth=2
                             )
-                            first_label_conf2 = True
-                            has_conf_labels = True
+                            first_label_ges2 = True
+                            has_ges_labels = True
                 else:
-                    valid_idx = [i for i, y in enumerate(conf2_series) if not np.isnan(y)]
+                    valid_idx = [i for i, y in enumerate(ges2_series) if not np.isnan(y)]
                     if valid_idx:
                         x_all = [steps[i] for i in valid_idx]
-                        y_all = [conf2_series[i] for i in valid_idx]
-                        self.axes[0, 2].plot(x_all, y_all, 'r--', label=f'Agent2 (MA-{self.ma_window})', alpha=0.8, linewidth=2)
-                        has_conf_labels = True
- 
-            # Plot raw confidence data as faint background
-            valid_conf1_raw = [(s, c) for s, c in zip(steps, self.data['conf1_correct']) if not np.isnan(c)]
-            valid_conf2_raw = [(s, c) for s, c in zip(steps, self.data['conf2_correct']) if not np.isnan(c)]
- 
-            if valid_conf1_raw:
-                conf1_steps_raw, conf1_vals_raw = zip(*valid_conf1_raw)
-                self.axes[0, 2].plot(conf1_steps_raw, conf1_vals_raw, 'g--', alpha=0.2, linewidth=1)
+                        y_all = [ges2_series[i] for i in valid_idx]
+                        self.axes[0, 2].plot(x_all, y_all, 'r--', label=f'Agent2 GES (MA-{self.ma_window})', alpha=0.8, linewidth=2)
+                        has_ges_labels = True
+
+            # Plot raw GES data as faint background
+            valid_ges1_raw = [(s, c) for s, c in zip(steps, self.data['ges1']) if not np.isnan(c)]
+            valid_ges2_raw = [(s, c) for s, c in zip(steps, self.data['ges2']) if not np.isnan(c)]
+
+            if valid_ges1_raw:
+                ges1_steps_raw, ges1_vals_raw = zip(*valid_ges1_raw)
+                self.axes[0, 2].plot(ges1_steps_raw, ges1_vals_raw, 'g--', alpha=0.2, linewidth=1)
                  
-            if valid_conf2_raw:
-                conf2_steps_raw, conf2_vals_raw = zip(*valid_conf2_raw)
-                self.axes[0, 2].plot(conf2_steps_raw, conf2_vals_raw, 'r--', alpha=0.2, linewidth=1)
+            if valid_ges2_raw:
+                ges2_steps_raw, ges2_vals_raw = zip(*valid_ges2_raw)
+                self.axes[0, 2].plot(ges2_steps_raw, ges2_vals_raw, 'r--', alpha=0.2, linewidth=1)
+
+            # Horizontal reference line at y=0
+            self.axes[0, 2].axhline(y=0, color='gray', linestyle=':', linewidth=1)
  
             # Only add legend if there are labeled plots
-            if has_conf_labels:
+            if has_ges_labels:
                 self.axes[0, 2].legend()
             
             # Plot active symbols
@@ -422,8 +431,14 @@ class LiveGrapher:
                     stats_text += f"Agent1 Acc (MA): {self.ma_data['acc1_selection'][-1]:.3f}\n"
                 if self.ma_data['acc2_selection'] and not np.isnan(self.ma_data['acc2_selection'][-1]):
                     stats_text += f"Agent2 Acc (MA): {self.ma_data['acc2_selection'][-1]:.3f}\n"
+                if self.ma_data['ges1'] and not np.isnan(self.ma_data['ges1'][-1]):
+                    stats_text += f"Agent1 GES (MA): {self.ma_data['ges1'][-1]:.2f}\n"
+                if self.ma_data['ges2'] and not np.isnan(self.ma_data['ges2'][-1]):
+                    stats_text += f"Agent2 GES (MA): {self.ma_data['ges2'][-1]:.2f}\n"
                 if recent_data['active_symbols']:
                     stats_text += f"Active Symbols: {recent_data['active_symbols'][-1]}\n"
+                if recent_data.get('total_puzzles'):
+                    stats_text += f"Total Puzzles: {int(recent_data['total_puzzles'][-1])}\n"
                 
                 # Add phase info
                 if self.phase_markers:
@@ -435,9 +450,13 @@ class LiveGrapher:
                 if recent_data['loss']:
                     stats_text += f"Loss (raw): {recent_data['loss'][-1]:.4f}\n"
                 if recent_data['acc1_selection']:
-                    stats_text += f"Agent1 (raw): {recent_data['acc1_selection'][-1]:.3f}\n"
+                    stats_text += f"Agent1 Acc (raw): {recent_data['acc1_selection'][-1]:.3f}\n"
                 if recent_data['acc2_selection']:
-                    stats_text += f"Agent2 (raw): {recent_data['acc2_selection'][-1]:.3f}\n"
+                    stats_text += f"Agent2 Acc (raw): {recent_data['acc2_selection'][-1]:.3f}\n"
+                if recent_data['ges1']:
+                    stats_text += f"Agent1 GES (raw): {recent_data['ges1'][-1]:.2f}\n"
+                if recent_data['ges2']:
+                    stats_text += f"Agent2 GES (raw): {recent_data['ges2'][-1]:.2f}\n"
                 
                 self.axes[1, 2].text(0.05, 0.95, stats_text, fontsize=10, 
                                    verticalalignment='top', 
@@ -445,9 +464,8 @@ class LiveGrapher:
                                            facecolor="lightblue", alpha=0.7))
             
             # Force update
-            self.fig.canvas.draw()
+            self.fig.canvas.draw_idle()
             self.fig.canvas.flush_events()
-            plt.pause(0.01)  # Small pause to allow GUI update
             
         except Exception as e:
             print(f"Error updating live graph: {e}")
@@ -748,7 +766,8 @@ def run_pretraining_phase(trainer, target_puzzles=None, epochs=50):
                 live_grapher.add_data_point(
                     step=global_step_counter,
                     loss=avg_loss,
-                    acc1=accuracy  # For pretraining, use accuracy as proxy
+                    acc1=accuracy,  # For pretraining, use accuracy as proxy
+                    total_puzzles=len(trainer.active_puzzles)
                 )
                 global_step_counter += 1
             except Exception as e:
@@ -878,15 +897,15 @@ def run_training_phase(trainer, cycles=200):
     metrics_history = []
     acc1_selection_history = []
     acc2_selection_history = []
-    conf1_correct_history = []
-    conf2_correct_history = []
+    ges1_history = []
+    ges2_history = []
     
     # Moving averages
     ma_window = 50
     acc1_selection_ma = MovingAverage(ma_window)
     acc2_selection_ma = MovingAverage(ma_window)
-    conf1_correct_ma = MovingAverage(ma_window)
-    conf2_correct_ma = MovingAverage(ma_window)
+    ges1_ma = MovingAverage(ma_window)
+    ges2_ma = MovingAverage(ma_window)
     
     for cycle in range(cycles):
         print(f"\nTraining Cycle {cycle + 1}/{cycles}")
@@ -916,15 +935,31 @@ def run_training_phase(trainer, cycles=200):
                 
                 # Update metrics for each step within the repetition
                 for metrics in step_metrics:
+                    # Update accuracy moving averages
                     acc1_selection_ma.update(metrics['agent1_selection_accuracy'])
                     acc2_selection_ma.update(metrics['agent2_selection_accuracy'])
-                    conf1_correct_ma.update(metrics['agent1_correct_confidence'])
-                    conf2_correct_ma.update(metrics['agent2_correct_confidence'])
+
+                    # Compute GES for both agents
+                    try:
+                        chance = 1.0 / max(1, metrics.get('num_candidates', trainer.num_distractors + 1))
+                        active_puzzles = max(1, metrics.get('active_puzzles', len(trainer.active_puzzles)))
+                        symbols = metrics.get('mapped_puzzles', len(trainer.puzzle_symbol_mapping))
+                        ratio = (active_puzzles / symbols) if symbols and symbols > 0 else np.nan
+                        ges1_val = ((metrics['agent1_selection_accuracy'] - chance) * ratio * 100.0) if not np.isnan(ratio) else np.nan
+                        ges2_val = ((metrics['agent2_selection_accuracy'] - chance) * ratio * 100.0) if not np.isnan(ratio) else np.nan
+                    except Exception:
+                        ges1_val, ges2_val = np.nan, np.nan
+                    
+                    # Update GES moving averages
+                    if not np.isnan(ges1_val):
+                        ges1_ma.update(ges1_val)
+                    if not np.isnan(ges2_val):
+                        ges2_ma.update(ges2_val)
                     
                     acc1_selection_history.append(acc1_selection_ma.get_average())
                     acc2_selection_history.append(acc2_selection_ma.get_average())
-                    conf1_correct_history.append(conf1_correct_ma.get_average())
-                    conf2_correct_history.append(conf2_correct_ma.get_average())
+                    ges1_history.append(ges1_ma.get_average())
+                    ges2_history.append(ges2_ma.get_average())
                     
                     # Update live grapher for each step
                     if live_grapher:
@@ -934,8 +969,9 @@ def run_training_phase(trainer, cycles=200):
                                 loss=metrics['total_loss'],
                                 acc1=metrics['agent1_selection_accuracy'],
                                 acc2=metrics['agent2_selection_accuracy'],
-                                conf1=metrics['agent1_correct_confidence'],
-                                conf2=metrics['agent2_correct_confidence']
+                                ges1=ges1_val,
+                                ges2=ges2_val,
+                                total_puzzles=metrics.get('active_puzzles', len(trainer.active_puzzles))
                             )
                             global_step_counter += 1
                         except Exception as e:
@@ -962,8 +998,8 @@ def run_training_phase(trainer, cycles=200):
     accuracies_history = {
         'acc1_selection': acc1_selection_history,
         'acc2_selection': acc2_selection_history,
-        'conf1_correct': conf1_correct_history,
-        'conf2_correct': conf2_correct_history
+        'ges1': ges1_history,
+        'ges2': ges2_history
     }
     
     print(f"\nTraining Phase Complete:")
@@ -996,6 +1032,129 @@ def run_consolidation_phase(trainer):
     
     return confusion_data, recessive_symbols
 
+# --- NEW: Remedial training phase ---
+def run_remedial_phase(trainer, accuracy_threshold=0.7, tests=10, train_cycles_per_round=20, max_rounds=10):
+    """Train only weak puzzles (<70% accuracy over 10 tests) until each reaches threshold.
+    Alternates between short training rounds and re-testing. Returns metrics and accuracies history.
+    """
+    global live_grapher
+    global global_step_counter
+
+    print(f"\n{'='*60}")
+    print(f"REMEDIAL PHASE")
+    print(f"{'='*60}")
+
+    # Mark phase change in live grapher
+    if live_grapher:
+        live_grapher.mark_phase_change(global_step_counter, 'remedial')
+
+    # Identify initial weak puzzles
+    threshold_correct = int(np.ceil(accuracy_threshold * tests))
+    weak_indices = trainer.get_weak_puzzles(accuracy_threshold=accuracy_threshold, tests=tests)
+    if not weak_indices:
+        print("No remedial training needed (all puzzles >= threshold)")
+        return [], {'acc1_selection': [], 'acc2_selection': [], 'ges1': [], 'ges2': []}
+
+    print(f"Starting remedial training for puzzles: {weak_indices} (target >= {threshold_correct}/{tests})")
+
+    metrics_history = []
+    acc1_history, acc2_history = [], []
+    ges1_history, ges2_history = [], []
+
+    # Moving averages for live view
+    ma_window = 50
+    acc1_ma = MovingAverage(ma_window)
+    acc2_ma = MovingAverage(ma_window)
+    ges1_ma = MovingAverage(ma_window)
+    ges2_ma = MovingAverage(ma_window)
+
+    round_idx = 0
+    while weak_indices and round_idx < max_rounds:
+        round_idx += 1
+        print(f"\nRemedial Round {round_idx}: Training {len(weak_indices)} puzzles for {train_cycles_per_round} cycles")
+        for cycle in range(train_cycles_per_round):
+            # Train each weak puzzle once per cycle
+            for puzzle_idx in list(weak_indices):
+                puzzle = trainer.active_puzzles[puzzle_idx]
+                puzzle_tensor = torch.tensor(puzzle.test_input, dtype=torch.long, device=trainer.device).unsqueeze(0)
+                step_metrics = trainer.train_bidirectional_step(
+                    puzzle_tensor,
+                    puzzle_idx,
+                    num_exchanges=1,
+                    temperature=1.0,
+                    initial_phase=False
+                )
+                metrics_history.extend(step_metrics)
+
+                # Update live grapher for each step
+                for metrics in step_metrics:
+                    # Update accuracy MA
+                    acc1_ma.update(metrics['agent1_selection_accuracy'])
+                    acc2_ma.update(metrics['agent2_selection_accuracy'])
+
+                    # Compute GES
+                    try:
+                        chance = 1.0 / max(1, metrics.get('num_candidates', trainer.num_distractors + 1))
+                        active_puzzles = max(1, metrics.get('active_puzzles', len(trainer.active_puzzles)))
+                        symbols = metrics.get('mapped_puzzles', len(trainer.puzzle_symbol_mapping))
+                        ratio = (active_puzzles / symbols) if symbols and symbols > 0 else np.nan
+                        ges1_val = ((metrics['agent1_selection_accuracy'] - chance) * ratio * 100.0) if not np.isnan(ratio) else np.nan
+                        ges2_val = ((metrics['agent2_selection_accuracy'] - chance) * ratio * 100.0) if not np.isnan(ratio) else np.nan
+                    except Exception:
+                        ges1_val, ges2_val = np.nan, np.nan
+
+                    if not np.isnan(ges1_val):
+                        ges1_ma.update(ges1_val)
+                    if not np.isnan(ges2_val):
+                        ges2_ma.update(ges2_val)
+
+                    acc1_history.append(acc1_ma.get_average())
+                    acc2_history.append(acc2_ma.get_average())
+                    ges1_history.append(ges1_ma.get_average())
+                    ges2_history.append(ges2_ma.get_average())
+
+                    if live_grapher:
+                        try:
+                            live_grapher.add_data_point(
+                                step=global_step_counter,
+                                loss=metrics['total_loss'],
+                                acc1=metrics['agent1_selection_accuracy'],
+                                acc2=metrics['agent2_selection_accuracy'],
+                                ges1=ges1_val,
+                                ges2=ges2_val,
+                                total_puzzles=metrics.get('active_puzzles', len(trainer.active_puzzles))
+                            )
+                            global_step_counter += 1
+                        except Exception as e:
+                            print(f"Warning: Live grapher update failed: {e}")
+
+        # Re-test only current weak puzzles
+        print("\nRe-testing weak puzzles...")
+        retest_results = trainer.evaluate_selection_accuracy(puzzle_indices=weak_indices, tests=tests)
+        passed = [idx for idx, correct in retest_results.items() if correct >= threshold_correct]
+        if passed:
+            print(f"Puzzles reaching threshold this round: {passed}")
+            # Remove passed puzzles from weak set
+            weak_indices = [idx for idx in weak_indices if idx not in passed]
+        else:
+            print("No puzzles reached threshold this round.")
+
+        print(f"Remaining weak puzzles: {weak_indices}")
+
+    if weak_indices:
+        print(f"Remedial phase ended with {len(weak_indices)} puzzles still below threshold after {round_idx} rounds.")
+    else:
+        print("All remedial puzzles reached the target accuracy.")
+
+    accuracies_history = {
+        'acc1_selection': acc1_history,
+        'acc2_selection': acc2_history,
+        'ges1': ges1_history,
+        'ges2': ges2_history
+    }
+
+    return metrics_history, accuracies_history
+
 def run_addition_phase(trainer):
     """Run addition phase to add new puzzles"""
     global live_grapher
@@ -1018,8 +1177,8 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
     plt.figure(figsize=(20, 12))
     
     # Separate metrics by phase
-    phases = ['pretraining', 'training', 'consolidation', 'addition']
-    phase_colors = {'pretraining': 'blue', 'training': 'green', 'consolidation': 'orange', 'addition': 'red'}
+    phases = ['pretraining', 'training', 'consolidation', 'addition', 'remedial']
+    phase_colors = {'pretraining': 'blue', 'training': 'green', 'consolidation': 'orange', 'addition': 'red', 'remedial': 'magenta'}
     
     # Plot loss
     plt.subplot(3, 2, 1)
@@ -1057,18 +1216,45 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
     plt.grid(True)
     plt.legend()
     
-    # Plot confidence
+    # Plot GES (replaces confidence)
     plt.subplot(3, 2, 3)
-    plt.plot(accuracies_history['conf1_correct'], label='Agent1 Correct Confidence', alpha=0.7)
-    plt.plot(accuracies_history['conf2_correct'], label='Agent2 Correct Confidence', alpha=0.7)
-    plt.title(f'{title} - Confidence in Correct Selection')
+    # Moving averages over time captured in accuracies_history
+    plt.plot(accuracies_history.get('ges1', []), label='Agent1 GES (MA)', alpha=0.7, linestyle='--', color='g')
+    plt.plot(accuracies_history.get('ges2', []), label='Agent2 GES (MA)', alpha=0.7, linestyle='--', color='r')
+    
+    # Also plot raw GES computed from metrics_history as faint background
+    raw_ges1, raw_ges2 = [], []
+    for m in metrics_history:
+        try:
+            num_candidates = m.get('num_candidates', None)
+            if num_candidates is None or num_candidates <= 0:
+                continue
+            chance = 1.0 / num_candidates
+            puzzles = m.get('active_puzzles', 0)
+            symbols = m.get('mapped_puzzles', 0)
+            if symbols and symbols > 0:
+                ratio = puzzles / symbols
+                raw_ges1.append(((m['agent1_selection_accuracy'] - chance) * ratio * 100.0))
+                raw_ges2.append(((m['agent2_selection_accuracy'] - chance) * ratio * 100.0))
+            else:
+                raw_ges1.append(np.nan)
+                raw_ges2.append(np.nan)
+        except Exception:
+            raw_ges1.append(np.nan)
+            raw_ges2.append(np.nan)
+    if raw_ges1:
+        plt.plot(raw_ges1, label='Agent1 GES (raw)', alpha=0.2, linewidth=1, color='g')
+    if raw_ges2:
+        plt.plot(raw_ges2, label='Agent2 GES (raw)', alpha=0.2, linewidth=1, color='r')
+    
+    plt.title(f'{title} - Generalization Efficiency Score (GES)')
     plt.xlabel('Step')
-    plt.ylabel('Confidence')
-    plt.ylim(0, 1.1)
+    plt.ylabel('GES')
+    plt.axhline(y=0, color='gray', linestyle=':', linewidth=1)
     plt.grid(True)
     plt.legend()
     
-    # Plot active symbols over time
+    # Active symbols over time
     plt.subplot(3, 2, 4)
     active_symbols = [m.get('active_symbols', 0) for m in metrics_history]
     global_phases = [m.get('global_phase_count', 0) for m in metrics_history]
@@ -1092,7 +1278,8 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
     phase_text += "1. Pretraining (new puzzles)\n"
     phase_text += "2. Training (all puzzles)\n"
     phase_text += "3. Consolidation (remove recessive)\n"
-    phase_text += "4. Addition (add new puzzles)\n"
+    phase_text += "4. Remedial (train weak puzzles)\n"
+    phase_text += "5. Addition (add new puzzles)\n"
     
     plt.text(0.1, 0.9, phase_text, fontsize=10, verticalalignment='top', 
              bbox=dict(boxstyle="round,pad=0.3", facecolor="lightblue", alpha=0.5))
@@ -1110,7 +1297,7 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
     config_text += f"Training Cycles: {config.get('training_cycles', 'N/A')}\n"
     config_text += f"Consolidation Tests: {config.get('consolidation_tests', 'N/A')}\n"
     config_text += f"Puzzles per Addition: {config.get('puzzles_per_addition', 'N/A')}\n"
-    config_text += f"Repetitions per Puzzle: {config.get('repetitions_per_puzzle', 'N/A')}\n"  # NEW
+    config_text += f"Repetitions per Puzzle: {config.get('repetitions_per_puzzle', 'N/A')}\n"
     
     plt.text(0.1, 0.9, config_text, fontsize=10, verticalalignment='top',
              bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgreen", alpha=0.5))
@@ -1217,7 +1404,7 @@ def main():
         hidden_dim=1024,
         num_symbols=100,     
         puzzle_symbols=10,
-        max_seq_length=1,    
+        max_seq_length=2,    
         sender_scale=1.0,
         similarity_metric='cosine'
     ).to(device)
@@ -1228,7 +1415,7 @@ def main():
         hidden_dim=1024,
         num_symbols=100,     
         puzzle_symbols=10,
-        max_seq_length=1,    
+        max_seq_length=2,    
         sender_scale=1.0,
         similarity_metric='cosine'
     ).to(device)
@@ -1237,20 +1424,20 @@ def main():
     trainer = CommunicationTrainer(
         agent1=sender,
         agent2=receiver,
-        learning_rate=1e-6,
+        learning_rate=7e-7,
         device=device,
-        sync_frequency=50,
+        sync_frequency=1000000000,
         num_distractors=2,
         distractor_strategy='random',
         first_training_cycles=50,        # Shorter first training phase
-        training_cycles=50,              # Subsequent training phases
+        training_cycles=25,              # Subsequent training phases
         consolidation_tests=5,           # Test rounds in consolidation
         puzzles_per_addition=2,          # Puzzles to add each cycle
         repetitions_per_puzzle=1,        # Repeat each puzzle X times
         initial_puzzle_count=3,          # NEW: Initial number of puzzles
         initial_comm_symbols=3           # NEW: Initial communication symbols (optional, defaults to initial_puzzle_count)
     )
-    max_global_phases = 6  # Run 3 complete cycles for demonstration
+    max_global_phases = 20  # Run 3 complete cycles for demonstration
 
     first_pretrain_epochs = 100
     pretrain_epochs = 100
@@ -1287,9 +1474,9 @@ def main():
     with open('phase_training_log.txt', 'w') as log_file:
         log_file.write("Phase-Based Training Log with Puzzle Repetitions\n")
         log_file.write("="*50 + "\n")
-        log_file.write(f"Phase cycle: pretraining → training → consolidation → addition\n")
+        log_file.write(f"Phase cycle: pretraining → training → consolidation → remedial → addition\n")
         log_file.write(f"Training cycles per phase: {trainer.training_cycles}\n")
-        log_file.write(f"Repetitions per puzzle: {trainer.repetitions_per_puzzle}\n")  # NEW
+        log_file.write(f"Repetitions per puzzle: {trainer.repetitions_per_puzzle}\n")
         log_file.write(f"Consolidation tests: {trainer.consolidation_tests}\n")
         log_file.write(f"Puzzles per addition: {trainer.puzzles_per_addition}\n")
         log_file.write("="*50 + "\n\n")
@@ -1299,8 +1486,8 @@ def main():
         all_accuracies_history = {
             'acc1_selection': [],
             'acc2_selection': [],
-            'conf1_correct': [],
-            'conf2_correct': []
+            'ges1': [],
+            'ges2': []
         }
         
         
@@ -1407,6 +1594,29 @@ def main():
                     log_file.write(f"  Removed: {removed_symbols}\n")
                 log_file.flush()
                 
+                trainer.advance_phase()
+                
+            elif current_phase == "remedial":
+                # Remedial training phase - train only weak puzzles until >= 7/10
+                log_file.write(f"Remedial phase starting: identifying weak puzzles (<7/10)\n")
+                log_file.flush()
+
+                remedial_metrics, remedial_accuracies = run_remedial_phase(
+                    trainer,
+                    accuracy_threshold=0.7,
+                    tests=10,
+                    train_cycles_per_round=20,
+                    max_rounds=10
+                )
+
+                # Track
+                all_metrics_history.extend(remedial_metrics)
+                for key in all_accuracies_history:
+                    all_accuracies_history[key].extend(remedial_accuracies[key])
+
+                log_file.write(f"Remedial phase completed: steps={len(remedial_metrics)}\n")
+                log_file.flush()
+
                 trainer.advance_phase()
                 
             elif current_phase == "addition":

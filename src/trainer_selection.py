@@ -21,7 +21,7 @@ class ProgressiveSelectionTrainer:
         distractor_strategy: str = 'random',  # 'random', 'similar_size', 'hard'
         first_training_cycles: int = 100,     # Cycles for FIRST training phase
         training_cycles: int = 200,           # Cycles for subsequent training phases
-        consolidation_tests: int = 5,         # Number of test cycles in consolidation
+        consolidation_tests: int = 10,         # Number of test cycles in consolidation
         puzzles_per_addition: int = 5,        # Puzzles to add each addition phase
         repetitions_per_puzzle: int = 5,      # How many times to repeat each puzzle
         initial_puzzle_count: int = 5,        # NEW: Initial number of puzzles to start with
@@ -59,6 +59,8 @@ class ProgressiveSelectionTrainer:
         # Selection task parameters
         self.num_distractors = num_distractors
         self.distractor_strategy = distractor_strategy
+
+        self.used_puzzle_indices = set()
 
         # Copy Agent 1's puzzle symbol embeddings to Agent 2
         with torch.no_grad():
@@ -114,14 +116,22 @@ class ProgressiveSelectionTrainer:
     
     def initialize_first_puzzles(self):
         """
-        Initialize the first set of active puzzles with symbol assignments.
-        Now uses the configured initial_puzzle_count instead of a parameter.
+        Initialize the first set of active puzzles with RANDOM selection.
+        Modified to randomly sample instead of taking first N puzzles.
         """
         if len(self.available_arc_puzzles) < self.initial_puzzle_count:
             raise ValueError(f"Need at least {self.initial_puzzle_count} puzzles to start")
         
-        # Take first puzzles
-        self.active_puzzles = self.available_arc_puzzles[:self.initial_puzzle_count]
+        # CHANGED: Randomly sample initial puzzles instead of taking first N
+        available_indices = list(range(len(self.available_arc_puzzles)))
+        selected_indices = random.sample(available_indices, self.initial_puzzle_count)
+        selected_indices.sort()  # Sort for consistent ordering in active_puzzles
+        
+        # Track used puzzle indices
+        self.used_puzzle_indices.update(selected_indices)
+        
+        # Get the randomly selected puzzles
+        self.active_puzzles = [self.available_arc_puzzles[i] for i in selected_indices]
         
         # Create symbol assignments starting from puzzle_symbols
         self.puzzle_symbol_mapping = {}
@@ -142,10 +152,12 @@ class ProgressiveSelectionTrainer:
         self.agent1.current_total_symbols = self.agent1.puzzle_symbols + actual_comm_symbols
         self.agent2.current_total_symbols = self.agent2.puzzle_symbols + actual_comm_symbols
         
-        print(f"Initialized with {len(self.active_puzzles)} puzzles")
+        print(f"Initialized with {len(self.active_puzzles)} RANDOMLY SELECTED puzzles")
+        print(f"Selected puzzle indices: {selected_indices}")
         print(f"Symbol assignments: {self.puzzle_symbol_mapping}")
         print(f"Next available symbol: {self.next_available_symbol}")
         print(f"Agent communication symbols updated to: {actual_comm_symbols}")
+
     
     def should_synchronize(self) -> bool:
         """Check if it's time to synchronize agent parameters"""
@@ -317,120 +329,356 @@ class ProgressiveSelectionTrainer:
         
         return distractors
 
-    def run_consolidation_test(self) -> Dict[str, List]:
+    def run_consolidation_test(self) -> Dict[str, list]:
         """
         Run consolidation tests to identify recessive symbols.
-        Returns confusion matrix data for analysis.
+        Robust version:
+        • Runs 10 selection tests per mapped puzzle
+        • Records full candidate info (grid + confidence + selected/target flags)
+        • Saves details keyed by BOTH puzzle_idx and symbol to avoid lookup gaps
+        Returns:
+        confusion_data: {symbol: [symbol or -1 for each test]}
         """
+        from collections import defaultdict
+
         print(f"\n{'='*50}")
         print(f"CONSOLIDATION PHASE - Testing Symbol Accuracy")
+        print(f"Modified: 10 selection tests per puzzle with {self.num_distractors} distractors each")
         print(f"{'='*50}")
-        
-        # Set agents to eval mode
+
         self.agent1.eval()
         self.agent2.eval()
-        
-        # Track results for each test
-        confusion_data = defaultdict(list)  # symbol -> [predicted_symbols_list]
-        
+
+        # For accuracies → used by identify_recessive_symbols
+        puzzle_test_results = defaultdict(list)   # {puzzle_idx: [bool, ...]}
+
+        # For visual debugging → now ALWAYS populated per test
+        by_puzzle = defaultdict(list)             # {puzzle_idx: [(test_num, all_candidates_data), ...]}
+        by_symbol = defaultdict(list)             # {symbol:     [(test_num, all_candidates_data), ...]}
+
         with torch.no_grad():
-            for test_round in range(self.consolidation_tests):
-                print(f"\nConsolidation Test Round {test_round + 1}/{self.consolidation_tests}")
-                
-                round_results = {}
-                
-                mapped_puzzle_indices = list(self.puzzle_symbol_mapping.keys())
-                print(f"Testing {len(mapped_puzzle_indices)} puzzles with symbol mappings")
-                print(f"Skipping {len(self.active_puzzles) - len(mapped_puzzle_indices)} puzzles without mappings")
+            mapped_puzzle_indices = list(self.puzzle_symbol_mapping.keys())
+            print(f"Testing {len(mapped_puzzle_indices)} puzzles with symbol mappings")
 
-                if len(mapped_puzzle_indices) == 0:
-                    print("No puzzles with symbol mappings to test!")
-                    return {}
+            for puzzle_idx in mapped_puzzle_indices:
+                puzzle = self.active_puzzles[puzzle_idx]
+                puzzle_tensor = torch.tensor(puzzle.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
 
-                for puzzle_idx in mapped_puzzle_indices:
-                    puzzle = self.active_puzzles[puzzle_idx]
-                    puzzle_tensor = torch.tensor(
-                        puzzle.test_input, 
-                        dtype=torch.long, 
-                        device=self.device
-                    ).unsqueeze(0)
-                    
-                    assigned_symbol = self.puzzle_symbol_mapping[puzzle_idx]
-                    
-                    # Agent1 encodes the puzzle
+                symbol = self.puzzle_symbol_mapping[puzzle_idx]
+                print(f"\nTesting Puzzle {puzzle_idx} (Symbol {symbol}) - 10 selection tests:")
+
+                correct = 0
+                for test_num in range(10):
+                    # Sender encodes → message
                     symbols, _, _ = self.agent1.encode_puzzle_to_message(
                         puzzle_tensor, temperature=0.1, deterministic=True
                     )
-                    
-                    # Create candidates with all active puzzles
-                    candidates = []
-                    for other_puzzle in self.active_puzzles:
-                        candidate_tensor = torch.tensor(
-                            other_puzzle.test_input,
-                            dtype=torch.long,
-                            device=self.device
-                        ).unsqueeze(0)
-                        candidates.append(candidate_tensor)
-                    
-                    # Agent2 selects from all puzzles
+
+                    # Build candidates: target first, then distractors
+                    distractors = self.sample_distractors(puzzle_tensor, puzzle_idx)
+                    candidates = [puzzle_tensor] + distractors  # each [1, H, W]
+
+                    # Receiver selects
                     selection_probs, selection_logits, _ = self.agent2.select_from_candidates(
                         symbols, candidates, temperature=0.1
                     )
-                    
-                    predicted_idx = selection_logits.argmax(dim=-1).item()
-                    
-                    # FIX: Check if predicted puzzle has a symbol mapping
-                    if predicted_idx in self.puzzle_symbol_mapping:
-                        predicted_symbol = self.puzzle_symbol_mapping[predicted_idx]
-                    else:
-                        # Handle case where predicted puzzle doesn't have a symbol mapping
-                        predicted_symbol = -1  # Use -1 to indicate "no symbol"
-                    
-                    # Record the result
-                    confusion_data[assigned_symbol].append(predicted_symbol)
-                    round_results[assigned_symbol] = predicted_symbol
-                    
-                    correct = "✓" if predicted_idx == puzzle_idx else "✗"
-                    if predicted_symbol != -1:
-                        symbol_info = f"Symbol {predicted_symbol}"
-                    else:
-                        symbol_info = "No symbol mapping"
-                    
-                    print(f"  Puzzle {puzzle_idx} (Symbol {assigned_symbol}): "
-                        f"Predicted {predicted_idx} ({symbol_info}) {correct}")
+                    # predicted candidate index
+                    predicted_idx = int(selection_logits.argmax(dim=-1).item())
+                    is_correct = (predicted_idx == 0)
+
+                    # Save correctness for confusion matrix later
+                    puzzle_test_results[puzzle_idx].append(is_correct)
+                    if is_correct:
+                        correct += 1
+
+                    # Build full candidate metadata (ALWAYS, not only on errors)
+                    all_candidates_data = []
+                    for cand_idx, cand in enumerate(candidates):
+                        cand_np = cand[0].detach().cpu().numpy()  # remove batch
+                        conf = float(selection_probs[0, cand_idx].item())
+                        all_candidates_data.append({
+                            "puzzle": cand_np,
+                            "confidence": conf,
+                            "is_target": (cand_idx == 0),
+                            "is_selected": (cand_idx == predicted_idx),
+                            "candidate_idx": cand_idx,
+                        })
+
+                    # Store under both keys so later lookups are stable
+                    record = (test_num, all_candidates_data)
+                    by_puzzle[puzzle_idx].append(record)
+                    by_symbol[symbol].append(record)
+
+                    # A little progress print
+                    if test_num < 3 or test_num == 9:
+                        status = "✓" if is_correct else "✗"
+                        tgt_conf = float(selection_probs[0, 0].item())
+                        print(f"    Test {test_num+1}/10: Selected candidate {predicted_idx} {status} (target conf: {tgt_conf:.3f})")
+
+                acc = correct / 10
+                print(f"  → Final accuracy: {correct}/10 ({acc:.1%})")
+                if correct == 0:
+                    print(f"  → WARNING: Puzzle {puzzle_idx} was NEVER selected correctly!")
+
+        # Build confusion_data in the format expected by identify_recessive_symbols
+        confusion_data = {}
+        for puzzle_idx, results in puzzle_test_results.items():
+            symbol = self.puzzle_symbol_mapping[puzzle_idx]
+            confusion_data[symbol] = [symbol if ok else -1 for ok in results]
+
+        # Make the test details available for the analyzer
+        self.puzzle_test_details_by_puzzle = dict(by_puzzle)
+        self.puzzle_test_details_by_symbol = dict(by_symbol)
+
+        return confusion_data
+
+
+    def print_puzzle_grid(self, grid: np.ndarray, title: str = "Grid", indent: str = "    "):
+        """
+        Print a puzzle grid in a readable format with proper indentation.
         
-        return dict(confusion_data)
-    
+        Args:
+            grid: 2D numpy array representing the puzzle
+            title: Title to display above the grid
+            indent: Indentation string for formatting
+        """
+        print(f"{indent}{title}:")
+        for row in grid:
+            print(f"{indent}  " + " ".join(f"{x:2d}" for x in row))
+
     def identify_recessive_symbols(self, confusion_data: Dict[int, List[int]]) -> Set[int]:
         """
         Identify symbols that are consistently misinterpreted.
-        A symbol is considered recessive if it's never predicted correctly
-        across all test rounds.
+        Modified to remove symbols with ≤30% accuracy (instead of just 0% accuracy).
+        Shows visual debugging for poor performers, with robust fallbacks.
+        Also writes all output to consolidation_analysis.txt.
         """
-        recessive_symbols = set()
-        
-        print(f"\n{'='*50}")
-        print(f"ANALYZING SYMBOL PERFORMANCE")
-        print(f"{'='*50}")
-        
+        recessive_symbols: Set[int] = set()
+        poor_performers: List[int] = []  # Symbols with ≤30% accuracy (but >0%)
+
+        consolidation_filename = 'consolidation_analysis.txt'
+
+        header = f"{'='*50}\nANALYZING SYMBOL PERFORMANCE (10 tests per symbol)\n{'='*50}"
+        print(header)
+        with open(consolidation_filename, 'a') as log_file:
+            log_file.write(f"\n{header}\n")
+
+        # --- Compute per-symbol accuracy and categorize ---
         for symbol, predictions in confusion_data.items():
+            total_tests = len(predictions)
             correct_predictions = sum(1 for pred in predictions if pred == symbol)
-            accuracy = correct_predictions / len(predictions)
-            
-            print(f"Symbol {symbol}: {correct_predictions}/{len(predictions)} correct ({accuracy:.2f})")
-            
-            # Consider symbol recessive if accuracy is below threshold
-            if accuracy == 0.0:  # Never predicted correctly
+            accuracy = (correct_predictions / total_tests) if total_tests > 0 else 0.0
+
+            symbol_line = f"Symbol {symbol}: {correct_predictions}/{total_tests} tests correct ({accuracy:.1%})"
+            print(symbol_line)
+            with open(consolidation_filename, 'a') as log_file:
+                log_file.write(f"{symbol_line}\n")
+
+            # CHANGED: Now include all symbols with ≤30% accuracy for removal
+            if accuracy <= 0.30:
                 recessive_symbols.add(symbol)
-                print(f"  → RECESSIVE: Symbol {symbol} never predicted correctly")
-            
-            # Show what this symbol was confused with
-            if accuracy < 1.0:
-                confusion_counter = Counter(predictions)
-                most_common = confusion_counter.most_common(2)
-                print(f"  → Most often confused with: {most_common}")
-        
+                if accuracy == 0.0:
+                    status_line = f"  → RECESSIVE: Symbol {symbol} never selected correctly in any test"
+                else:
+                    status_line = f"  → RECESSIVE: Symbol {symbol} selected correctly ≤30% of the time"
+            elif accuracy < 0.50:
+                status_line = f"  → LOW PERFORMANCE: Symbol {symbol} selected correctly <50% of the time"
+            else:
+                status_line = f"  → GOOD PERFORMANCE: Symbol {symbol} performing well"
+
+            print(status_line)
+            with open(consolidation_filename, 'a') as log_file:
+                log_file.write(f"{status_line}\n")
+
+        summary_text = (
+            f"\nSummary:\n"
+            f"  Total symbols tested: {len(confusion_data)}\n"
+            f"  Recessive symbols (≤30% accuracy): {len(recessive_symbols)}\n"
+            f"  Symbols to be removed: {sorted(recessive_symbols) if recessive_symbols else 'None'}"
+        )
+        print(summary_text)
+        with open(consolidation_filename, 'a') as log_file:
+            log_file.write(f"{summary_text}\n")
+
+        # --- Visual debugging for recessive symbols (now all ≤30% performers) ---
+        if recessive_symbols:
+            debug_header = (
+                f"\n{'='*70}\n"
+                f"VISUAL DEBUG: WRONG ANSWERS FOR RECESSIVE SYMBOLS (≤30% accuracy)\n"
+                f"{'='*70}"
+            )
+            print(debug_header)
+            with open(consolidation_filename, 'a') as log_file:
+                log_file.write(f"{debug_header}\n")
+
+                # Sort symbols to debug
+                symbols_to_debug = sorted(recessive_symbols)
+
+                for symbol in symbols_to_debug:
+                    # Find the active puzzle index for this symbol
+                    puzzle_idx = None
+                    for p_idx, s in self.puzzle_symbol_mapping.items():
+                        if s == symbol:
+                            puzzle_idx = p_idx
+                            break
+
+                    if puzzle_idx is None:
+                        warn = f"Warning: Could not find puzzle for symbol {symbol}"
+                        print(warn)
+                        log_file.write(warn + "\n")
+                        continue
+
+                    # Accuracy recap
+                    predictions = confusion_data.get(symbol, [])
+                    total_tests = len(predictions)
+                    correct_predictions = sum(1 for pred in predictions if pred == symbol)
+                    accuracy = (correct_predictions / total_tests) if total_tests > 0 else 0.0
+
+                    header_line = (
+                        f"\nSymbol {symbol} (Puzzle {puzzle_idx}) - Accuracy: {accuracy:.1%}\n"
+                        f"Showing all {max(total_tests - correct_predictions, 0)} wrong answers:"
+                    )
+                    print(header_line)
+                    log_file.write(header_line + "\n")
+
+                    # Retrieve recorded test details (prefer new robust stores, fallback to legacy)
+                    details = []
+                    if hasattr(self, "puzzle_test_details_by_puzzle"):
+                        details = list(self.puzzle_test_details_by_puzzle.get(puzzle_idx, []))
+                    if not details and hasattr(self, "puzzle_test_details_by_symbol"):
+                        details = list(self.puzzle_test_details_by_symbol.get(symbol, []))
+
+                    # Legacy fallback: self.puzzle_wrong_answers[puzzle_idx] may contain only wrong tests.
+                    if not details and hasattr(self, "puzzle_wrong_answers"):
+                        legacy = self.puzzle_wrong_answers.get(puzzle_idx, [])
+                        # Normalize legacy tuples into the new (test_num, all_candidates_data) shape
+                        normalized = []
+                        for item in legacy:
+                            if isinstance(item, (list, tuple)):
+                                if len(item) == 2:
+                                    # Already new form: (test_num, all_candidates_data)
+                                    test_num, all_candidates_data = item
+                                    normalized.append((test_num, all_candidates_data))
+                                elif len(item) == 3:
+                                    # Old form: (test_num, target_puzzle, selected_puzzle)
+                                    test_num, target_puzzle, selected_puzzle = item
+                                    all_candidates_data = [
+                                        {
+                                            "puzzle": target_puzzle,
+                                            "confidence": 0.0,
+                                            "is_target": True,
+                                            "is_selected": False,
+                                            "candidate_idx": 0,
+                                        },
+                                        {
+                                            "puzzle": selected_puzzle,
+                                            "confidence": 0.0,
+                                            "is_target": False,
+                                            "is_selected": True,
+                                            "candidate_idx": 1,
+                                        },
+                                    ]
+                                    normalized.append((test_num, all_candidates_data))
+                                # else: unexpected shape → ignore
+                        details = normalized
+
+                    # If we still have no details, emit a clear diagnostic and continue
+                    if not details:
+                        no_data = (
+                            f"  No wrong answer data available for puzzle {puzzle_idx} / symbol {symbol} "
+                            f"(check test recording)."
+                        )
+                        print(no_data)
+                        log_file.write(no_data + "\n")
+                        continue
+
+                    # Filter to only the tests where the target was NOT selected
+                    wrong_only = []
+                    for test_num, cand_list in details:
+                        target_selected = any(c.get("is_target") and c.get("is_selected") for c in cand_list)
+                        if not target_selected:
+                            wrong_only.append((test_num, cand_list))
+
+                    if not wrong_only:
+                        info = "  (No wrong picks recorded – all tests selected the target.)"
+                        print(info)
+                        log_file.write(info + "\n")
+                        continue
+
+                    # Emit detailed diagnostics for each wrong test
+                    for i, (test_num, cand_list) in enumerate(wrong_only, 1):
+                        # Confidence ranking
+                        ranked = sorted(cand_list, key=lambda x: float(x.get("confidence", 0.0)), reverse=True)
+                        ranking_info = "    Confidence ranking: " + " > ".join(
+                            f"Cand{c.get('candidate_idx', -1)}({'T' if c.get('is_target') else 'D'}): "
+                            f"{float(c.get('confidence', 0.0)):.3f}" for c in ranked
+                        )
+                        print(ranking_info)
+                        log_file.write(ranking_info + "\n")
+
+                        # Summary (selected vs target)
+                        sel = next((c for c in cand_list if c.get("is_selected")), None)
+                        tgt = next((c for c in cand_list if c.get("is_target")), None)
+                        if sel is not None and tgt is not None:
+                            summary = (
+                                f"    Summary: Agent selected candidate {sel.get('candidate_idx', -1)} "
+                                f"(conf: {float(sel.get('confidence', 0.0)):.3f}) instead of target "
+                                f"(conf: {float(tgt.get('confidence', 0.0)):.3f})"
+                            )
+                            print(summary)
+                            log_file.write(summary + "\n")
+
+                        # Show each candidate block with grid
+                        for c in cand_list:
+                            is_target = bool(c.get("is_target"))
+                            is_selected = bool(c.get("is_selected"))
+                            cand_idx = c.get("candidate_idx", -1)
+                            conf_val = float(c.get("confidence", 0.0))
+
+                            if is_target and is_selected:
+                                title, mark = f"CANDIDATE {cand_idx}: TARGET (CORRECTLY SELECTED)", "✓✓"
+                            elif is_target and not is_selected:
+                                title, mark = f"CANDIDATE {cand_idx}: TARGET (NOT SELECTED)", "✗✗"
+                            elif (not is_target) and is_selected:
+                                title, mark = f"CANDIDATE {cand_idx}: DISTRACTOR (WRONGLY SELECTED)", "✗"
+                            else:
+                                title, mark = f"CANDIDATE {cand_idx}: DISTRACTOR (NOT SELECTED)", " "
+
+                            conf_line = f"      {mark} Confidence: {conf_val:.3f}"
+                            print(conf_line)
+                            log_file.write(conf_line + "\n")
+
+                            # Render grids to console and file
+                            self.print_puzzle_grid(c.get("puzzle"), title=f"      {title}", indent="")
+                            self.write_puzzle_grid_to_file(log_file, c.get("puzzle"), f"      {title}", "")
+
+                        log_file.write("\n")
+
+        # Completion marker
+        with open(consolidation_filename, 'a') as log_file:
+            log_file.write(f"\n{'='*70}\nCONSOLIDATION ANALYSIS COMPLETE\n{'='*70}\n\n")
+
         return recessive_symbols
+
+
+    def write_puzzle_grid_to_file(self, log_file, grid: np.ndarray, title: str = "Grid", indent: str = "    "):
+        """
+        Write a puzzle grid to the log file in the same format as console output.
+        
+        Args:
+            log_file: Open file handle to write to
+            grid: 2D numpy array representing the puzzle
+            title: Title to display above the grid
+            indent: Indentation string for formatting
+        """
+        log_file.write(f"{indent}{title}:\n")
+        for row in grid:
+            log_file.write(f"{indent}  " + " ".join(f"{x:2d}" for x in row) + "\n")
+
+    def _get_timestamp(self):
+        """Get current timestamp for logging"""
+        import datetime
+        return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     def remove_recessive_symbols(self, recessive_symbols: Set[int]):
         """Remove recessive symbols but keep their associated puzzles"""
@@ -536,40 +784,48 @@ class ProgressiveSelectionTrainer:
         print(f"  Embeddings preserved for surviving symbols: ✓")
     
     def add_new_puzzles(self):
-        """Add new puzzles from the ARC dataset"""
+        """
+        Add new puzzles from the ARC dataset using RANDOM selection.
+        Modified to randomly sample from unused puzzles instead of sequential selection.
+        """
         print(f"\n{'='*50}")
-        print(f"ADDITION PHASE - Adding {self.puzzles_per_addition} new puzzles")
+        print(f"ADDITION PHASE - Adding {self.puzzles_per_addition} new puzzles (RANDOM)")
         print(f"{'='*50}")
         
-        # Find puzzles not yet used
-        used_puzzle_count = len(self.active_puzzles) + len(self.removed_symbols)
-        if used_puzzle_count + self.puzzles_per_addition > len(self.available_arc_puzzles):
-            actual_addition = len(self.available_arc_puzzles) - used_puzzle_count
-            print(f"Only {actual_addition} puzzles available to add")
+        # Find unused puzzle indices
+        all_indices = set(range(len(self.available_arc_puzzles)))
+        unused_indices = list(all_indices - self.used_puzzle_indices)
+        
+        if len(unused_indices) < self.puzzles_per_addition:
+            actual_addition = len(unused_indices)
+            print(f"Only {actual_addition} unused puzzles available to add")
             self.puzzles_per_addition = actual_addition
         
         if self.puzzles_per_addition <= 0:
-            print("No more puzzles to add!")
+            print("No more unused puzzles to add!")
             return []
         
-        # Add new puzzles
-        start_idx = len(self.active_puzzles)
+        # CHANGED: Randomly sample from unused puzzles instead of sequential
+        selected_new_indices = random.sample(unused_indices, self.puzzles_per_addition)
+        selected_new_indices.sort()  # Sort for consistent ordering
+        
+        # Track the newly used indices
+        self.used_puzzle_indices.update(selected_new_indices)
+        
         new_puzzles = []
         
-        for i in range(self.puzzles_per_addition):
-            puzzle_idx = used_puzzle_count + i
-            if puzzle_idx < len(self.available_arc_puzzles):
-                new_puzzle = self.available_arc_puzzles[puzzle_idx]
-                self.active_puzzles.append(new_puzzle)
-                new_puzzles.append(new_puzzle)
-                
-                # Assign symbol
-                active_puzzle_idx = len(self.active_puzzles) - 1
-                symbol_idx = self.agent1.puzzle_symbols + active_puzzle_idx
-                self.puzzle_symbol_mapping[active_puzzle_idx] = symbol_idx
-                self.symbol_puzzle_mapping[symbol_idx] = active_puzzle_idx
-                
-                print(f"Added puzzle {puzzle_idx} as active puzzle {active_puzzle_idx} with symbol {symbol_idx}")
+        for dataset_idx in selected_new_indices:
+            new_puzzle = self.available_arc_puzzles[dataset_idx]
+            self.active_puzzles.append(new_puzzle)
+            new_puzzles.append(new_puzzle)
+            
+            # Assign symbol
+            active_puzzle_idx = len(self.active_puzzles) - 1
+            symbol_idx = self.agent1.puzzle_symbols + active_puzzle_idx
+            self.puzzle_symbol_mapping[active_puzzle_idx] = symbol_idx
+            self.symbol_puzzle_mapping[symbol_idx] = active_puzzle_idx
+            
+            print(f"Added dataset puzzle {dataset_idx} as active puzzle {active_puzzle_idx} with symbol {symbol_idx}")
         
         # Update agent vocabularies
         self.agent1.current_comm_symbols = len(self.active_puzzles)
@@ -578,9 +834,52 @@ class ProgressiveSelectionTrainer:
         self.agent2.current_total_symbols = self.agent2.puzzle_symbols + len(self.active_puzzles)
         
         print(f"Total active puzzles: {len(self.active_puzzles)}")
+        print(f"Selected new puzzle indices from dataset: {selected_new_indices}")
+        print(f"Total used puzzle indices: {len(self.used_puzzle_indices)}")
+        print(f"Remaining unused puzzles: {len(self.available_arc_puzzles) - len(self.used_puzzle_indices)}")
         print(f"New symbol mapping: {self.puzzle_symbol_mapping}")
         
         return new_puzzles
+    
+    # --- NEW: Evaluation helpers for remedial training ---
+    def evaluate_selection_accuracy(self, puzzle_indices: List[int] = None, tests: int = 10, temperature: float = 0.1) -> Dict[int, int]:
+        """Evaluate selection accuracy (Agent1 encodes → Agent2 selects) for given puzzles.
+        Returns a dict of puzzle_idx -> number of correct selections out of `tests`.
+        """
+        self.agent1.eval()
+        self.agent2.eval()
+        results: Dict[int, int] = {}
+        indices = puzzle_indices if puzzle_indices is not None else list(range(len(self.active_puzzles)))
+        with torch.no_grad():
+            for puzzle_idx in indices:
+                puzzle = self.active_puzzles[puzzle_idx]
+                puzzle_tensor = torch.tensor(puzzle.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
+                correct = 0
+                for _ in range(tests):
+                    symbols, _, _ = self.agent1.encode_puzzle_to_message(
+                        puzzle_tensor, temperature=temperature, deterministic=True
+                    )
+                    distractors = self.sample_distractors(puzzle_tensor, puzzle_idx)
+                    candidates = [puzzle_tensor] + distractors
+                    _, selection_logits, _ = self.agent2.select_from_candidates(
+                        symbols, candidates, temperature=temperature
+                    )
+                    predicted_idx = int(selection_logits.argmax(dim=-1).item())
+                    if predicted_idx == 0:
+                        correct += 1
+                results[puzzle_idx] = correct
+        self.agent1.train()
+        self.agent2.train()
+        return results
+    
+
+    def get_weak_puzzles(self, accuracy_threshold: float = 0.7, tests: int = 10) -> List[int]:
+        """Return indices of puzzles whose selection accuracy is below threshold."""
+        threshold_correct = int(np.ceil(accuracy_threshold * tests))
+        eval_results = self.evaluate_selection_accuracy(tests=tests)
+        weak = [idx for idx, correct in eval_results.items() if correct < threshold_correct]
+        print(f"Identified {len(weak)} weak puzzles (<{threshold_correct}/{tests} correct): {weak}")
+        return weak
     
     def advance_phase(self):
         """Advance to the next phase in the cycle"""
@@ -590,6 +889,9 @@ class ProgressiveSelectionTrainer:
             # self.current_phase = "addition"
             self.current_phase = "consolidation"
         elif self.current_phase == "consolidation":
+            # NEW: Insert remedial phase between consolidation and addition
+            self.current_phase = "addition" # can be switched with remedial
+        elif self.current_phase == "remedial":
             self.current_phase = "addition"
         elif self.current_phase == "addition":
             self.current_phase = "pretraining"
@@ -754,28 +1056,36 @@ class ProgressiveSelectionTrainer:
         return entropy.mean()
 
     def get_phase_status(self) -> Dict[str, any]:
-            """Get current phase and vocabulary status"""
-            return {
-                'current_phase': self.current_phase,
-                'phase_cycle': self.phase_cycle,
-                'global_phase_count': self.global_phase_count,
-                'active_puzzles': len(self.active_puzzles),
-                'removed_symbols': len(self.removed_symbols),
-                'agent1_vocab': self.agent1.get_vocabulary_info(),
-                'agent2_vocab': self.agent2.get_vocabulary_info(),
-                'puzzle_symbol_mapping': self.puzzle_symbol_mapping,
-                'selection_config': {
-                    'num_distractors': self.num_distractors,
-                    'distractor_strategy': self.distractor_strategy,
-                    'first_training_cycles': self.first_training_cycles,
-                    'training_cycles': self.training_cycles,
-                    'consolidation_tests': self.consolidation_tests,
-                    'puzzles_per_addition': self.puzzles_per_addition,
-                    'repetitions_per_puzzle': self.repetitions_per_puzzle,
-                    'initial_puzzle_count': self.initial_puzzle_count,        # NEW
-                    'initial_comm_symbols': self.initial_comm_symbols        # NEW
-                }
+        """
+        Enhanced to include random selection tracking information.
+        """
+        base_status = {
+            'current_phase': self.current_phase,
+            'phase_cycle': self.phase_cycle,
+            'global_phase_count': self.global_phase_count,
+            'active_puzzles': len(self.active_puzzles),
+            'removed_symbols': len(self.removed_symbols),
+            'agent1_vocab': self.agent1.get_vocabulary_info(),
+            'agent2_vocab': self.agent2.get_vocabulary_info(),
+            'puzzle_symbol_mapping': self.puzzle_symbol_mapping,
+            # NEW: Random selection tracking
+            'used_puzzle_indices': len(self.used_puzzle_indices),
+            'total_available_puzzles': len(self.available_arc_puzzles),
+            'remaining_unused_puzzles': len(self.available_arc_puzzles) - len(self.used_puzzle_indices),
+            'selection_strategy': 'random',  # Indicate this is using random selection
+            'selection_config': {
+                'num_distractors': self.num_distractors,
+                'distractor_strategy': self.distractor_strategy,
+                'first_training_cycles': self.first_training_cycles,
+                'training_cycles': self.training_cycles,
+                'consolidation_tests': self.consolidation_tests,
+                'puzzles_per_addition': self.puzzles_per_addition,
+                'repetitions_per_puzzle': self.repetitions_per_puzzle,
+                'initial_puzzle_count': self.initial_puzzle_count,
+                'initial_comm_symbols': self.initial_comm_symbols
             }
+        }
+        return base_status
 
 
 # Create a factory function to replace the original CommunicationTrainer

@@ -1,0 +1,373 @@
+
+==================================================
+ANALYZING SYMBOL COMMUNICATION PERFORMANCE
+==================================================
+Symbol 10: 46/46 correct (100.0%)
+  → KEEPING: Symbol 10 performing well
+Symbol 11: 57/57 correct (100.0%)
+  → KEEPING: Symbol 11 performing well
+Symbol 12: 47/47 correct (100.0%)
+  → KEEPING: Symbol 12 performing well
+
+Summary:
+  Total symbols analyzed: 3
+  Unused symbols: 0
+  Low performance symbols (≤30%, ≥5 uses): 0
+  Low usage + poor symbols (≤2 uses, ≤50%): 0
+  Good symbols: 3
+  Total symbols to remove: 0
+  Symbols to be removed: None
+
+======================================================================
+EXAMPLES OF WELL-PERFORMING SYMBOLS (kept)
+======================================================================
+  Symbol 11: 57/57 correct (100.0%)
+  Symbol 12: 47/47 correct (100.0%)
+  Symbol 10: 46/46 correct (100.0%)
+
+======================================================================
+CONSOLIDATION ANALYSIS COMPLETE
+======================================================================
+
+
+==================================================
+ANALYZING SYMBOL COMMUNICATION PERFORMANCE
+==================================================
+Symbol 13: 44/53 correct (83.0%)
+  → KEEPING: Symbol 13 performing well
+Symbol 14: 54/97 correct (55.7%)
+  → KEEPING: Symbol 14 adequate performance
+Symbol 10: 0/0 correct (0.0%)
+  → REMOVING: Symbol 10 never used by encoder
+Symbol 11: 0/0 correct (0.0%)
+  → REMOVING: Symbol 11 never used by encoder
+Symbol 12: 0/0 correct (0.0%)
+  → REMOVING: Symbol 12 never used by encoder
+
+Summary:
+  Total symbols analyzed: 5
+  Unused symbols: 3
+  Low performance symbols (≤30%, ≥5 uses): 0
+  Low usage + poor symbols (≤2 uses, ≤50%): 0
+  Good symbols: 2
+  Total symbols to remove: 3
+  Symbols to be removed: [10, 11, 12]
+
+======================================================================
+DETAILED ANALYSIS OF REMOVED SYMBOLS
+======================================================================
+
+Symbol 10 - Removal Details:
+  Reason: Never selected by encoder during consolidation trials
+
+Symbol 11 - Removal Details:
+  Reason: Never selected by encoder during consolidation trials
+
+Symbol 12 - Removal Details:
+  Reason: Never selected by encoder during consolidation trials
+
+======================================================================
+EXAMPLES OF WELL-PERFORMING SYMBOLS (kept)
+======================================================================
+  Symbol 13: 44/53 correct (83.0%)
+  Symbol 14: 54/97 correct (55.7%)
+
+======================================================================
+CONSOLIDATION ANALYSIS COMPLETE
+======================================================================
+
+
+==================================================
+ANALYZING SYMBOL COMMUNICATION PERFORMANCE
+==================================================
+Symbol 16: 28/28 correct (100.0%)
+  → KEEPING: Symbol 16 performing well
+Symbol 15: 52/122 correct (42.6%)
+  → KEEPING: Symbol 15 needs more data (low usage but not poor enough to remove)
+Symbol 10: 0/0 correct (0.0%)
+  → REMOVING: Symbol 10 never used by encoder
+Symbol 11: 0/0 correct (0.0%)
+  → REMOVING: Symbol 11 never used by encoder
+
+Summary:
+  Total symbols analyzed: 4
+  Unused symbols: 2
+  Low performance symbols (≤30%, ≥5 uses): 0
+  Low usage + poor symbols (≤2 uses, ≤50%): 0
+  Good symbols: 2
+  Total symbols to remove: 2
+  Symbols to be removed: [10, 11]
+
+======================================================================
+DETAILED ANALYSIS OF REMOVED SYMBOLS
+======================================================================
+
+Symbol 10 - Removal Details:
+  Reason: Never selected by encoder during consolidation trials
+
+Symbol 11 - Removal Details:
+  Reason: Never selected by encoder during consolidation trials
+
+======================================================================
+EXAMPLES OF WELL-PERFORMING SYMBOLS (kept)
+======================================================================
+  Symbol 16: 28/28 correct (100.0%)
+  Symbol 15: 52/122 correct (42.6%)
+
+======================================================================
+CONSOLIDATION ANALYSIS COMPLETE
+======================================================================
+
+
+==================================================
+ANALYZING SYMBOL COMMUNICATION PERFORMANCE
+==================================================
+Symbol 17: 26/46 correct (56.5%)
+  → KEEPING: Symbol 17 adequate performance
+Symbol 18: 41/104 correct (39.4%)
+  → KEEPING: Symbol 18 needs more data (low usage but not poor enough to remove)
+Symbol 10: 0/0 correct (0.0%)
+  → REMOVING: Symbol 10 never used by encoder
+Symbol 11: 0/0 correct (0.0%)
+  → REMOVING: Symbol 11 never used by encoder
+
+Summary:
+  Total symbols analyzed: 4
+  Unused symbols: 2
+  Low performance symbols (≤30%, ≥5 uses): 0
+  Low usage + poor symbols (≤2 uses, ≤50%): 0
+  Good symbols: 2
+  Total symbols to remove: 2
+  Symbols to be removed: [10, 11]
+
+======================================================================
+DETAILED ANALYSIS OF REMOVED SYMBOLS
+======================================================================
+
+Symbol 10 - Removal Details:
+  Reason: Never selected by encoder during consolidation trials
+
+Symbol 11 - Removal Details:
+  Reason: Never selected by encoder during consolidation trials
+
+======================================================================
+EXAMPLES OF WELL-PERFORMING SYMBOLS (kept)
+======================================================================
+  Symbol 17: 26/46 correct (56.5%)
+  Symbol 18: 41/104 correct (39.4%)
+
+======================================================================
+CONSOLIDATION ANALYSIS COMPLETE
+======================================================================
+
+
+==================================================
+ANALYZING SYMBOL COMMUNICATION PERFORMANCE
+==================================================
+Symbol 19: 27/49 correct (55.1%)
+  → KEEPING: Symbol 19 adequate performance
+Symbol 20: 31/101 correct (30.7%)
+  → KEEPING: Symbol 20 needs more data (low usage but not poor enough to remove)
+Symbol 10: 0/0 correct (0.0%)
+  → REMOVING: Symbol 10 never used by encoder
+Symbol 11: 0/0 correct (0.0%)
+  → REMOVING: Symbol 11 never used by encoder
+
+Summary:
+  Total symbols analyzed: 4
+  Unused symbols: 2
+  Low performance symbols (≤30%, ≥5 uses): 0
+  Low usage + poor symbols (≤2 uses, ≤50%): 0
+  Good symbols: 2
+  Total symbols to remove: 2
+  Symbols to be removed: [10, 11]
+
+======================================================================
+DETAILED ANALYSIS OF REMOVED SYMBOLS
+======================================================================
+
+Symbol 10 - Removal Details:
+  Reason: Never selected by encoder during consolidation trials
+
+Symbol 11 - Removal Details:
+  Reason: Never selected by encoder during consolidation trials
+
+======================================================================
+EXAMPLES OF WELL-PERFORMING SYMBOLS (kept)
+======================================================================
+  Symbol 19: 27/49 correct (55.1%)
+  Symbol 20: 31/101 correct (30.7%)
+
+======================================================================
+CONSOLIDATION ANALYSIS COMPLETE
+======================================================================
+
+
+==================================================
+ANALYZING SYMBOL COMMUNICATION PERFORMANCE
+==================================================
+Symbol 21: 32/45 correct (71.1%)
+  → KEEPING: Symbol 21 performing well
+Symbol 22: 46/105 correct (43.8%)
+  → KEEPING: Symbol 22 needs more data (low usage but not poor enough to remove)
+Symbol 10: 0/0 correct (0.0%)
+  → REMOVING: Symbol 10 never used by encoder
+Symbol 11: 0/0 correct (0.0%)
+  → REMOVING: Symbol 11 never used by encoder
+
+Summary:
+  Total symbols analyzed: 4
+  Unused symbols: 2
+  Low performance symbols (≤30%, ≥5 uses): 0
+  Low usage + poor symbols (≤2 uses, ≤50%): 0
+  Good symbols: 2
+  Total symbols to remove: 2
+  Symbols to be removed: [10, 11]
+
+======================================================================
+DETAILED ANALYSIS OF REMOVED SYMBOLS
+======================================================================
+
+Symbol 10 - Removal Details:
+  Reason: Never selected by encoder during consolidation trials
+
+Symbol 11 - Removal Details:
+  Reason: Never selected by encoder during consolidation trials
+
+======================================================================
+EXAMPLES OF WELL-PERFORMING SYMBOLS (kept)
+======================================================================
+  Symbol 21: 32/45 correct (71.1%)
+  Symbol 22: 46/105 correct (43.8%)
+
+======================================================================
+CONSOLIDATION ANALYSIS COMPLETE
+======================================================================
+
+
+==================================================
+ANALYZING SYMBOL COMMUNICATION PERFORMANCE
+==================================================
+Symbol 24: 61/127 correct (48.0%)
+  → KEEPING: Symbol 24 needs more data (low usage but not poor enough to remove)
+Symbol 23: 16/23 correct (69.6%)
+  → KEEPING: Symbol 23 adequate performance
+Symbol 10: 0/0 correct (0.0%)
+  → REMOVING: Symbol 10 never used by encoder
+Symbol 11: 0/0 correct (0.0%)
+  → REMOVING: Symbol 11 never used by encoder
+
+Summary:
+  Total symbols analyzed: 4
+  Unused symbols: 2
+  Low performance symbols (≤30%, ≥5 uses): 0
+  Low usage + poor symbols (≤2 uses, ≤50%): 0
+  Good symbols: 2
+  Total symbols to remove: 2
+  Symbols to be removed: [10, 11]
+
+======================================================================
+DETAILED ANALYSIS OF REMOVED SYMBOLS
+======================================================================
+
+Symbol 10 - Removal Details:
+  Reason: Never selected by encoder during consolidation trials
+
+Symbol 11 - Removal Details:
+  Reason: Never selected by encoder during consolidation trials
+
+======================================================================
+EXAMPLES OF WELL-PERFORMING SYMBOLS (kept)
+======================================================================
+  Symbol 23: 16/23 correct (69.6%)
+  Symbol 24: 61/127 correct (48.0%)
+
+======================================================================
+CONSOLIDATION ANALYSIS COMPLETE
+======================================================================
+
+
+==================================================
+ANALYZING SYMBOL COMMUNICATION PERFORMANCE
+==================================================
+Symbol 25: 43/111 correct (38.7%)
+  → KEEPING: Symbol 25 needs more data (low usage but not poor enough to remove)
+Symbol 26: 6/39 correct (15.4%)
+  → REMOVING: Symbol 26 has poor success rate (≤30%) with sufficient usage
+Symbol 10: 0/0 correct (0.0%)
+  → REMOVING: Symbol 10 never used by encoder
+Symbol 11: 0/0 correct (0.0%)
+  → REMOVING: Symbol 11 never used by encoder
+
+Summary:
+  Total symbols analyzed: 4
+  Unused symbols: 2
+  Low performance symbols (≤30%, ≥5 uses): 1
+  Low usage + poor symbols (≤2 uses, ≤50%): 0
+  Good symbols: 1
+  Total symbols to remove: 3
+  Symbols to be removed: [10, 11, 26]
+
+======================================================================
+DETAILED ANALYSIS OF REMOVED SYMBOLS
+======================================================================
+
+Symbol 10 - Removal Details:
+  Reason: Never selected by encoder during consolidation trials
+
+Symbol 11 - Removal Details:
+  Reason: Never selected by encoder during consolidation trials
+
+Symbol 26 - Removal Details:
+  Reason: Success rate 15.4% over 39 trials
+  Recent pattern: ✗✗✗✗✗✓✗✗✗✗ (last 10 trials)
+
+======================================================================
+EXAMPLES OF WELL-PERFORMING SYMBOLS (kept)
+======================================================================
+  Symbol 25: 43/111 correct (38.7%)
+
+======================================================================
+CONSOLIDATION ANALYSIS COMPLETE
+======================================================================
+
+
+==================================================
+ANALYZING SYMBOL COMMUNICATION PERFORMANCE
+==================================================
+Symbol 27: 44/83 correct (53.0%)
+  → KEEPING: Symbol 27 adequate performance
+Symbol 28: 3/67 correct (4.5%)
+  → REMOVING: Symbol 28 has poor success rate (≤30%) with sufficient usage
+Symbol 10: 0/0 correct (0.0%)
+  → REMOVING: Symbol 10 never used by encoder
+
+Summary:
+  Total symbols analyzed: 3
+  Unused symbols: 1
+  Low performance symbols (≤30%, ≥5 uses): 1
+  Low usage + poor symbols (≤2 uses, ≤50%): 0
+  Good symbols: 1
+  Total symbols to remove: 2
+  Symbols to be removed: [10, 28]
+
+======================================================================
+DETAILED ANALYSIS OF REMOVED SYMBOLS
+======================================================================
+
+Symbol 10 - Removal Details:
+  Reason: Never selected by encoder during consolidation trials
+
+Symbol 28 - Removal Details:
+  Reason: Success rate 4.5% over 67 trials
+  Recent pattern: ✗✗✗✗✗✗✗✗✗✗ (last 10 trials)
+
+======================================================================
+EXAMPLES OF WELL-PERFORMING SYMBOLS (kept)
+======================================================================
+  Symbol 27: 44/83 correct (53.0%)
+
+======================================================================
+CONSOLIDATION ANALYSIS COMPLETE
+======================================================================
+
