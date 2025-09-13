@@ -1044,6 +1044,10 @@ def run_training_phase(trainer, cycles=200):
         print(f"Novel symbol induction test accuracy: {summary['accuracy']:.3f} ({summary['correct']}/{summary['num_tests']})")
         # Signal controller to skip next pretraining
         trainer.skip_next_pretraining = True
+        # Permanently skip all future pretraining
+        trainer.skip_pretraining_always = True
+        # Enable intelligent addition moving forward
+        trainer.intelligent_addition_enabled = True
         # Return with histories and the trigger flag so upstream can immediately transition phases
         return metrics_history, accuracies_history, True
     
@@ -1549,9 +1553,10 @@ def main():
             
             if current_phase == "pretraining":
                 # Pretraining phase - train encoder on newly added puzzles
-                if trainer.skip_next_pretraining:
-                    print("Skipping pretraining due to recent GES threshold event.")
-                    trainer.skip_next_pretraining = False  # consume the skip
+                if trainer.skip_pretraining_always or trainer.skip_next_pretraining:
+                    reason = "permanent threshold state" if trainer.skip_pretraining_always else "recent GES threshold event"
+                    print(f"Skipping pretraining due to {reason}.")
+                    trainer.skip_next_pretraining = False  # consume one-time skip if set
                     trainer.advance_phase()
                 else:
                     if trainer.global_phase_count == 0:

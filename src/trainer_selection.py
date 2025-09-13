@@ -120,8 +120,14 @@ class ProgressiveSelectionTrainer:
         self.early_stop_ges_threshold = 100
         self.early_stop_force = False
         
-        # NEW: Skip pretraining once (set by controller after threshold)
+                # NEW: Skip pretraining once (set by controller after threshold)
         self.skip_next_pretraining = False
+
+        # NEW: Toggle to switch addition strategy after threshold
+        self.intelligent_addition_enabled = False
+
+        # NEW: Permanently skip all future pretraining once threshold hit
+        self.skip_pretraining_always = False
 
     def set_puzzle_dataset(self, puzzles: List[Puzzle]):
         """Set the full ARC puzzle dataset"""
@@ -489,7 +495,7 @@ class ProgressiveSelectionTrainer:
                 log_file.write(f"{symbol_line}\n")
 
             # CHANGED: Now include all symbols with ≤30% accuracy for removal
-            if accuracy <= 0.06:
+            if accuracy <= 0.30:
                 recessive_symbols.add(symbol)
                 if accuracy == 0.0:
                     status_line = f"  → RECESSIVE: Symbol {symbol} never selected correctly in any test"
@@ -800,11 +806,15 @@ class ProgressiveSelectionTrainer:
     def add_new_puzzles(self):
         """
         Add new puzzles from the ARC dataset using RANDOM selection.
-        Modified to randomly sample from unused puzzles and allocate NEW symbols
-        at the encoder-predicted embeddings for the added puzzles (no pretraining here).
+        Behavior:
+        - Before threshold: assign NEW symbols using the next contiguous index (random embeddings).
+        - After threshold: allocate NEW symbols at encoder-predicted embeddings (no pretraining).
         """
         print(f"\n{'='*50}")
-        print(f"ADDITION PHASE - Adding {self.puzzles_per_addition} new puzzles (RANDOM with predicted-embed symbols)")
+        if self.intelligent_addition_enabled:
+            print(f"ADDITION PHASE - Adding {self.puzzles_per_addition} new puzzles (predicted-embedding symbols)")
+        else:
+            print(f"ADDITION PHASE - Adding {self.puzzles_per_addition} new puzzles (random symbol initialization)")
         print(f"{'='*50}")
         
         # Find unused puzzle indices
@@ -837,22 +847,24 @@ class ProgressiveSelectionTrainer:
             # Assign active puzzle index
             active_puzzle_idx = len(self.active_puzzles) - 1
             
-            # Predict a symbol embedding for this new puzzle using Agent1's encoder
-            target_tensor = torch.tensor(new_puzzle.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
-            seq_emb = self.agent1.embedding_system.embed_puzzle(target_tensor)  # [1, L, D]
-            pred_emb = self.agent1.encoder.predict_symbol_embedding(seq_emb, position=0)  # [1, D]
-            pred_emb = F.normalize(pred_emb, p=2, dim=-1)
-            
-            # Allocate a new symbol at this embedding on BOTH agents
-            new_sym_idx_1 = self.agent1.add_new_symbol_with_embedding(pred_emb)
-            self.agent2.add_new_symbol_with_embedding(pred_emb)
-            
-            # Record the mapping using the returned absolute symbol index
-            self.puzzle_symbol_mapping[active_puzzle_idx] = new_sym_idx_1
-            self.symbol_puzzle_mapping[new_sym_idx_1] = active_puzzle_idx
-            
-            print(f"Added dataset puzzle {dataset_idx} as active puzzle {active_puzzle_idx} with symbol {new_sym_idx_1} (predicted embedding)")
-        
+            if self.intelligent_addition_enabled:
+                # Predict and allocate symbol at predicted embedding
+                target_tensor = torch.tensor(new_puzzle.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
+                seq_emb = self.agent1.embedding_system.embed_puzzle(target_tensor)  # [1, L, D]
+                pred_emb = self.agent1.encoder.predict_symbol_embedding(seq_emb, position=0)  # [1, D]
+                pred_emb = F.normalize(pred_emb, p=2, dim=-1)
+                new_sym_idx_1 = self.agent1.add_new_symbol_with_embedding(pred_emb)
+                self.agent2.add_new_symbol_with_embedding(pred_emb)
+                self.puzzle_symbol_mapping[active_puzzle_idx] = new_sym_idx_1
+                self.symbol_puzzle_mapping[new_sym_idx_1] = active_puzzle_idx
+                print(f"Added dataset puzzle {dataset_idx} as active puzzle {active_puzzle_idx} with symbol {new_sym_idx_1} (predicted embedding)")
+            else:
+                # Random symbol initialization: assign next contiguous symbol index
+                next_symbol = self.agent1.puzzle_symbols + len(self.puzzle_symbol_mapping)
+                self.puzzle_symbol_mapping[active_puzzle_idx] = next_symbol
+                self.symbol_puzzle_mapping[next_symbol] = active_puzzle_idx
+                print(f"Added dataset puzzle {dataset_idx} as active puzzle {active_puzzle_idx} with symbol {next_symbol} (random initialization)")
+         
         # Update agent vocabularies to reflect the number of mapped puzzles
         self.agent1.current_comm_symbols = len(self.puzzle_symbol_mapping)
         self.agent2.current_comm_symbols = len(self.puzzle_symbol_mapping)
