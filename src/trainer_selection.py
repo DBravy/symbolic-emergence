@@ -108,7 +108,21 @@ class ProgressiveSelectionTrainer:
         # Consolidation tracking
         self.consolidation_results = []
         self.removed_symbols = set()
-    
+        
+        # NEW: Moving averages for GES early-stop trigger
+        self._ges_window = 50
+        self._ges1_values = []
+        self._ges2_values = []
+        
+        # NEW: Early-stop configuration (easily toggled for quick tests)
+        self.early_stop_enabled = True
+        self.early_stop_min_cycles = 5
+        self.early_stop_ges_threshold = 100
+        self.early_stop_force = False
+        
+        # NEW: Skip pretraining once (set by controller after threshold)
+        self.skip_next_pretraining = False
+
     def set_puzzle_dataset(self, puzzles: List[Puzzle]):
         """Set the full ARC puzzle dataset"""
         self.available_arc_puzzles = puzzles
@@ -475,7 +489,7 @@ class ProgressiveSelectionTrainer:
                 log_file.write(f"{symbol_line}\n")
 
             # CHANGED: Now include all symbols with ≤30% accuracy for removal
-            if accuracy <= 0.30:
+            if accuracy <= 0.06:
                 recessive_symbols.add(symbol)
                 if accuracy == 0.0:
                     status_line = f"  → RECESSIVE: Symbol {symbol} never selected correctly in any test"
@@ -786,10 +800,11 @@ class ProgressiveSelectionTrainer:
     def add_new_puzzles(self):
         """
         Add new puzzles from the ARC dataset using RANDOM selection.
-        Modified to randomly sample from unused puzzles instead of sequential selection.
+        Modified to randomly sample from unused puzzles and allocate NEW symbols
+        at the encoder-predicted embeddings for the added puzzles (no pretraining here).
         """
         print(f"\n{'='*50}")
-        print(f"ADDITION PHASE - Adding {self.puzzles_per_addition} new puzzles (RANDOM)")
+        print(f"ADDITION PHASE - Adding {self.puzzles_per_addition} new puzzles (RANDOM with predicted-embed symbols)")
         print(f"{'='*50}")
         
         # Find unused puzzle indices
@@ -805,7 +820,7 @@ class ProgressiveSelectionTrainer:
             print("No more unused puzzles to add!")
             return []
         
-        # CHANGED: Randomly sample from unused puzzles instead of sequential
+        # Randomly sample from unused puzzles
         selected_new_indices = random.sample(unused_indices, self.puzzles_per_addition)
         selected_new_indices.sort()  # Sort for consistent ordering
         
@@ -819,19 +834,30 @@ class ProgressiveSelectionTrainer:
             self.active_puzzles.append(new_puzzle)
             new_puzzles.append(new_puzzle)
             
-            # Assign symbol
+            # Assign active puzzle index
             active_puzzle_idx = len(self.active_puzzles) - 1
-            symbol_idx = self.agent1.puzzle_symbols + active_puzzle_idx
-            self.puzzle_symbol_mapping[active_puzzle_idx] = symbol_idx
-            self.symbol_puzzle_mapping[symbol_idx] = active_puzzle_idx
             
-            print(f"Added dataset puzzle {dataset_idx} as active puzzle {active_puzzle_idx} with symbol {symbol_idx}")
+            # Predict a symbol embedding for this new puzzle using Agent1's encoder
+            target_tensor = torch.tensor(new_puzzle.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
+            seq_emb = self.agent1.embedding_system.embed_puzzle(target_tensor)  # [1, L, D]
+            pred_emb = self.agent1.encoder.predict_symbol_embedding(seq_emb, position=0)  # [1, D]
+            pred_emb = F.normalize(pred_emb, p=2, dim=-1)
+            
+            # Allocate a new symbol at this embedding on BOTH agents
+            new_sym_idx_1 = self.agent1.add_new_symbol_with_embedding(pred_emb)
+            self.agent2.add_new_symbol_with_embedding(pred_emb)
+            
+            # Record the mapping using the returned absolute symbol index
+            self.puzzle_symbol_mapping[active_puzzle_idx] = new_sym_idx_1
+            self.symbol_puzzle_mapping[new_sym_idx_1] = active_puzzle_idx
+            
+            print(f"Added dataset puzzle {dataset_idx} as active puzzle {active_puzzle_idx} with symbol {new_sym_idx_1} (predicted embedding)")
         
-        # Update agent vocabularies
-        self.agent1.current_comm_symbols = len(self.active_puzzles)
-        self.agent2.current_comm_symbols = len(self.active_puzzles)
-        self.agent1.current_total_symbols = self.agent1.puzzle_symbols + len(self.active_puzzles)
-        self.agent2.current_total_symbols = self.agent2.puzzle_symbols + len(self.active_puzzles)
+        # Update agent vocabularies to reflect the number of mapped puzzles
+        self.agent1.current_comm_symbols = len(self.puzzle_symbol_mapping)
+        self.agent2.current_comm_symbols = len(self.puzzle_symbol_mapping)
+        self.agent1.current_total_symbols = self.agent1.puzzle_symbols + len(self.puzzle_symbol_mapping)
+        self.agent2.current_total_symbols = self.agent2.puzzle_symbols + len(self.puzzle_symbol_mapping)
         
         print(f"Total active puzzles: {len(self.active_puzzles)}")
         print(f"Selected new puzzle indices from dataset: {selected_new_indices}")
@@ -1054,6 +1080,341 @@ class ProgressiveSelectionTrainer:
         
         entropy = -torch.sum(probs * torch.log(probs), dim=-1)
         return entropy.mean()
+
+    # --- NEW: Unseen puzzle generalization testing ---
+    def test_unseen_communication(self, num_tests: int = 100, temperature: float = 0.1, log_file_path: str = "unseen_testing_log.txt") -> dict:
+        """
+        Evaluate sender→receiver communication on puzzles NOT used in training (unseen).
+        Performs `num_tests` independent trials. For each trial, sample a target unseen puzzle
+        and build a candidate set of 1 target + `num_distractors` distractors (prefer unseen; fallback to all).
+        Writes detailed results for each trial to `log_file_path`.
+        Returns a summary dict with counts and accuracy.
+        """
+        # Determine unseen dataset indices
+        all_indices = set(range(len(self.available_arc_puzzles)))
+        unseen_indices = list(all_indices - set(self.used_puzzle_indices))
+        if len(all_indices) == 0:
+            print("No available puzzles in dataset for unseen testing.")
+            return {"num_tests": 0, "correct": 0, "accuracy": 0.0}
+        if len(unseen_indices) == 0:
+            print("Warning: No unseen puzzles remaining. Falling back to sampling from full dataset for testing.")
+            unseen_indices = list(all_indices)
+        
+        # Helper: choose targets (with replacement if needed)
+        if len(unseen_indices) >= num_tests:
+            target_dataset_indices = random.sample(unseen_indices, num_tests)
+        else:
+            target_dataset_indices = [random.choice(unseen_indices) for _ in range(num_tests)]
+        
+        # Prepare for eval
+        self.agent1.eval()
+        self.agent2.eval()
+        correct = 0
+        results = []
+        
+        # Open log file for appending
+        try:
+            log_f = open(log_file_path, 'a')
+        except Exception:
+            log_f = None
+        
+        # Header
+        header = (
+            f"\n{'='*60}\n"
+            f"UNSEEN TESTING AFTER TRAINING PHASE\n"
+            f"Global phase count: {self.global_phase_count}\n"
+            f"Active puzzles: {len(self.active_puzzles)} | Unused in dataset: {len(all_indices - set(self.used_puzzle_indices))}\n"
+            f"Num tests: {num_tests} | Distractors per test: {self.num_distractors}\n"
+            f"{'='*60}\n"
+        )
+        if log_f:
+            log_f.write(header)
+        else:
+            print(header)
+        
+        with torch.no_grad():
+            for t_idx, dataset_idx in enumerate(target_dataset_indices, start=1):
+                # Build target tensor
+                target_puzzle = self.available_arc_puzzles[dataset_idx]
+                target_tensor = torch.tensor(target_puzzle.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
+                
+                # Build distractors: prefer unseen (excluding target), then fallback to all
+                candidate_distractors_pool = list(set(unseen_indices) - {dataset_idx})
+                if len(candidate_distractors_pool) < self.num_distractors:
+                    fallback_pool = list(all_indices - {dataset_idx})
+                    candidate_distractors_pool = fallback_pool
+                if len(candidate_distractors_pool) < self.num_distractors:
+                    # If still not enough, allow repeats
+                    distractor_dataset_indices = [random.choice(candidate_distractors_pool) for _ in range(self.num_distractors)]
+                else:
+                    distractor_dataset_indices = random.sample(candidate_distractors_pool, self.num_distractors)
+                
+                # Convert candidates to tensors
+                candidates = [target_tensor]
+                for d_idx in distractor_dataset_indices:
+                    dp = self.available_arc_puzzles[d_idx]
+                    cand_tensor = torch.tensor(dp.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
+                    candidates.append(cand_tensor)
+                candidate_indices = [dataset_idx] + distractor_dataset_indices
+                
+                # Sender encodes → Receiver selects
+                symbols, _, _ = self.agent1.encode_puzzle_to_message(
+                    target_tensor, temperature=temperature, deterministic=True
+                )
+                selection_probs, selection_logits, _ = self.agent2.select_from_candidates(
+                    symbols, candidates, temperature=temperature
+                )
+                predicted_idx = int(selection_logits.argmax(dim=-1).item())
+                is_correct = (predicted_idx == 0)
+                if is_correct:
+                    correct += 1
+                
+                # Collect per-test details
+                probs_list = [float(selection_probs[0, i].item()) for i in range(selection_probs.shape[1])]
+                test_record = {
+                    "test_number": t_idx,
+                    "target_dataset_idx": dataset_idx,
+                    "candidate_dataset_indices": candidate_indices,
+                    "predicted_candidate": predicted_idx,
+                    "correct": bool(is_correct),
+                    "selection_probs": probs_list
+                }
+                results.append(test_record)
+                
+                # Log per-test details
+                if log_f:
+                    log_f.write(
+                        f"Test {t_idx:03d}: target={dataset_idx}, predicted={predicted_idx}, correct={'✓' if is_correct else '✗'}\n"
+                    )
+                    for i, (cand_idx, prob) in enumerate(zip(candidate_indices, probs_list)):
+                        marker = ' (target)' if i == 0 else ''
+                        log_f.write(f"  cand[{i}] dataset_idx={cand_idx} prob={prob:.4f}{marker}\n")
+                
+        # Summary
+        accuracy = (correct / num_tests) if num_tests > 0 else 0.0
+        summary = {"num_tests": num_tests, "correct": correct, "accuracy": accuracy, "results": results}
+        
+        if log_f:
+            log_f.write(f"Summary: {correct}/{num_tests} correct, accuracy={accuracy:.3f}\n")
+            log_f.flush()
+            log_f.close()
+        else:
+            print(f"Summary: {correct}/{num_tests} correct, accuracy={accuracy:.3f}")
+        
+        # Restore train mode
+        self.agent1.train()
+        self.agent2.train()
+        
+        return summary
+
+    def _update_ges_moving_averages(self, metrics: Dict[str, float]):
+        """
+        NEW: Update internal GES moving averages given a step's metrics.
+        """
+        try:
+            chance = 1.0 / max(1, metrics.get('num_candidates', self.num_distractors + 1))
+            active_puzzles = max(1, metrics.get('active_puzzles', len(self.active_puzzles)))
+            symbols = metrics.get('mapped_puzzles', len(self.puzzle_symbol_mapping))
+            ratio = (active_puzzles / symbols) if symbols and symbols > 0 else float('nan')
+            ges1_val = ((metrics['agent1_selection_accuracy'] - chance) * ratio * 100.0) if not np.isnan(ratio) else float('nan')
+            ges2_val = ((metrics['agent2_selection_accuracy'] - chance) * ratio * 100.0) if not np.isnan(ratio) else float('nan')
+        except Exception:
+            ges1_val, ges2_val = float('nan'), float('nan')
+        if not np.isnan(ges1_val):
+            self._ges1_values.append(ges1_val)
+            if len(self._ges1_values) > self._ges_window:
+                self._ges1_values.pop(0)
+        if not np.isnan(ges2_val):
+            self._ges2_values.append(ges2_val)
+            if len(self._ges2_values) > self._ges_window:
+                self._ges2_values.pop(0)
+
+    def _current_ges_ma(self) -> Tuple[float, float]:
+        """
+        NEW: Return current moving average GES for both agents.
+        """
+        ma1 = float(np.mean(self._ges1_values)) if len(self._ges1_values) > 0 else float('nan')
+        ma2 = float(np.mean(self._ges2_values)) if len(self._ges2_values) > 0 else float('nan')
+        return ma1, ma2
+
+    def freeze_all(self):
+        """
+        NEW: Freeze all model parameters and disable optimizers' gradients.
+        """
+        self.agent1.freeze_all_parameters()
+        self.agent2.freeze_all_parameters()
+        # Put in eval mode for safety
+        self.agent1.eval()
+        self.agent2.eval()
+
+    def unfreeze_all(self):
+        """
+        NEW: Un-freeze all model parameters and return to train mode.
+        """
+        for p in self.agent1.parameters():
+            p.requires_grad = True
+        for p in self.agent2.parameters():
+            p.requires_grad = True
+        self.agent1.train()
+        self.agent2.train()
+
+    def run_novel_symbol_induction_test(self, num_tests: int = 100, temperature: float = 0.1, log_file_path: str = "novel_symbol_unseen_testing_log.txt") -> dict:
+        """
+        NEW: After freezing, evaluate on unseen puzzles by inducing a novel symbol per puzzle.
+        For each unseen test:
+          - Encode target puzzle to sequence embedding
+          - Predict a symbol embedding (position 0)
+          - Allocate new symbol at that embedding on BOTH agents
+          - Sender sends that single-symbol message; receiver performs selection among 1+num_distractors candidates
+        Returns summary dict.
+        """
+        # Determine unseen dataset indices
+        all_indices = set(range(len(self.available_arc_puzzles)))
+        unseen_indices = list(all_indices - set(self.used_puzzle_indices))
+        if len(all_indices) == 0:
+            print("No available puzzles in dataset for novel symbol testing.")
+            return {"num_tests": 0, "correct": 0, "accuracy": 0.0}
+        if len(unseen_indices) == 0:
+            print("Warning: No unseen puzzles remaining. Falling back to sampling from full dataset for testing.")
+            unseen_indices = list(all_indices)
+        
+        # Choose targets
+        if len(unseen_indices) >= num_tests:
+            target_dataset_indices = random.sample(unseen_indices, num_tests)
+        else:
+            target_dataset_indices = [random.choice(unseen_indices) for _ in range(num_tests)]
+        
+        # Ensure eval and frozen
+        self.freeze_all()
+        
+        # Snapshot communication embedding tables and vocab sizes so test is non-destructive
+        snapshot = {
+            'a1_weight': self.agent1.communication_embedding.weight.detach().clone(),
+            'a2_weight': self.agent2.communication_embedding.weight.detach().clone(),
+            'a1_comm': self.agent1.current_comm_symbols,
+            'a2_comm': self.agent2.current_comm_symbols,
+            'a1_total': self.agent1.current_total_symbols,
+            'a2_total': self.agent2.current_total_symbols,
+            'a1_vocab': set(self.agent1.communication_vocabulary),
+            'a2_vocab': set(self.agent2.communication_vocabulary),
+        }
+
+        correct = 0
+        results = []
+        # Open log file
+        try:
+            log_f = open(log_file_path, 'a')
+        except Exception:
+            log_f = None
+        
+        header = (
+            f"\n{'='*60}\n"
+            f"NOVEL SYMBOL INDUCTION TEST (FROZEN MODELS)\n"
+            f"Num tests: {num_tests} | Distractors per test: {self.num_distractors}\n"
+            f"{'='*60}\n"
+        )
+        if log_f:
+            log_f.write(header)
+        else:
+            print(header)
+        
+        with torch.no_grad():
+            for t_idx, dataset_idx in enumerate(target_dataset_indices, start=1):
+                # Build target and candidates
+                target_puzzle = self.available_arc_puzzles[dataset_idx]
+                target_tensor = torch.tensor(target_puzzle.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
+                # Prefer unseen for distractors if possible
+                candidate_distractors_pool = list(set(unseen_indices) - {dataset_idx})
+                if len(candidate_distractors_pool) < self.num_distractors:
+                    fallback_pool = list(all_indices - {dataset_idx})
+                    candidate_distractors_pool = fallback_pool
+                if len(candidate_distractors_pool) < self.num_distractors:
+                    distractor_dataset_indices = [random.choice(candidate_distractors_pool) for _ in range(self.num_distractors)]
+                else:
+                    distractor_dataset_indices = random.sample(candidate_distractors_pool, self.num_distractors)
+                candidates = [target_tensor]
+                for d_idx in distractor_dataset_indices:
+                    dp = self.available_arc_puzzles[d_idx]
+                    cand_tensor = torch.tensor(dp.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
+                    candidates.append(cand_tensor)
+                
+                # 1) Predict embedding for this new puzzle using sender's encoder
+                #    Create sequence embedding first
+                seq_emb = self.agent1.embedding_system.embed_puzzle(target_tensor)  # [1, L, D]
+                pred_emb = self.agent1.encoder.predict_symbol_embedding(seq_emb, position=0)  # [1, D]
+                pred_emb = F.normalize(pred_emb, p=2, dim=-1)  # normalize for stability
+                
+                # 2) Allocate new symbol at this embedding on both agents
+                new_sym_idx_1 = self.agent1.add_new_symbol_with_embedding(pred_emb)
+                # Mirror onto agent2 to ensure consistent vocabulary
+                self.agent2.add_new_symbol_with_embedding(pred_emb)
+                
+                # Build a one-hot-like message selecting the new symbol within current comm range
+                # Translate absolute symbol to local comm index slice [puzzle_symbols:current_total)
+                local_comm_index = new_sym_idx_1 - self.agent1.puzzle_symbols
+                num_comm = self.agent1.current_comm_symbols
+                seq_len = max(1, self.agent1.current_seq_length)
+                message = torch.zeros((1, seq_len, num_comm), device=self.device)
+                # Place the symbol at position 0
+                if 0 <= local_comm_index < num_comm:
+                    message[0, 0, local_comm_index] = 1.0
+                else:
+                    # Fallback: pick last available index
+                    message[0, 0, num_comm - 1] = 1.0
+                
+                # 3) Receiver selects among candidates
+                selection_probs, selection_logits, _ = self.agent2.select_from_candidates(
+                    message, candidates, temperature=0.1
+                )
+                predicted_idx = int(selection_logits.argmax(dim=-1).item())
+                is_correct = (predicted_idx == 0)
+                if is_correct:
+                    correct += 1
+                
+                # Log per-test
+                probs_list = [float(selection_probs[0, i].item()) for i in range(selection_probs.shape[1])]
+                candidate_indices = [dataset_idx] + distractor_dataset_indices
+                if log_f:
+                    log_f.write(
+                        f"Test {t_idx:03d}: target={dataset_idx}, predicted={predicted_idx}, correct={'✓' if is_correct else '✗'}\n"
+                    )
+                    for i, (cand_idx, prob) in enumerate(zip(candidate_indices, probs_list)):
+                        marker = ' (target)' if i == 0 else ''
+                        log_f.write(f"  cand[{i}] dataset_idx={cand_idx} prob={prob:.4f}{marker}\n")
+                
+                results.append({
+                    'test_number': t_idx,
+                    'target_dataset_idx': dataset_idx,
+                    'predicted_candidate': predicted_idx,
+                    'correct': bool(is_correct),
+                    'selection_probs': probs_list,
+                    'candidate_dataset_indices': candidate_indices
+                })
+        
+        accuracy = (correct / num_tests) if num_tests > 0 else 0.0
+        summary = {"num_tests": num_tests, "correct": correct, "accuracy": accuracy, "results": results}
+        if log_f:
+            log_f.write(f"Summary: {correct}/{num_tests} correct, accuracy={accuracy:.3f}\n")
+            log_f.flush()
+            log_f.close()
+        else:
+            print(f"Summary: {correct}/{num_tests} correct, accuracy={accuracy:.3f}")
+        
+        # Restore embedding tables and vocab sizes (non-destructive test)
+        with torch.no_grad():
+            self.agent1.communication_embedding.weight.copy_(snapshot['a1_weight'])
+            self.agent2.communication_embedding.weight.copy_(snapshot['a2_weight'])
+        self.agent1.current_comm_symbols = snapshot['a1_comm']
+        self.agent2.current_comm_symbols = snapshot['a2_comm']
+        self.agent1.current_total_symbols = snapshot['a1_total']
+        self.agent2.current_total_symbols = snapshot['a2_total']
+        self.agent1.communication_vocabulary = snapshot['a1_vocab']
+        self.agent2.communication_vocabulary = snapshot['a2_vocab']
+
+        # Unfreeze for subsequent training
+        self.unfreeze_all()
+        
+        return summary
 
     def get_phase_status(self) -> Dict[str, any]:
         """

@@ -323,6 +323,34 @@ class ProgressiveSimilarityEncoder(nn.Module):
         
         return attention_patterns
 
+    def predict_symbol_embedding(self, x: torch.Tensor, position: int = 0) -> torch.Tensor:
+        """
+        NEW: Predict a symbol embedding for a given sequence position without computing logits.
+        This mirrors the preprocessing in forward() and returns the position-specific predicted embedding.
+        
+        Args:
+            x: [B, L, D] puzzle embedding sequence
+            position: position index to predict embedding for (default 0)
+        Returns:
+            predicted_embedding: [B, D]
+        """
+        B, L, D = x.shape
+        pos = max(0, min(position, self.max_seq_length - 1))
+        
+        # Same preprocessing as in forward
+        pos_encoded = self.pos_encoder(x)
+        x = x + pos_encoded / math.sqrt(D)
+        x = self.dropout(x)
+        for layer in self.encoder:
+            x = layer(x)
+        x = self.encoder_norm(x)
+        x = self.intermediate(x) + x
+        
+        # Pool and predict embedding for the given position
+        pooled_embedding, _ = self.attention_pooling(x, pos)
+        predicted_embedding = self.position_predictors[pos](pooled_embedding)
+        return predicted_embedding
+
 def build_encoder(embedding_dim: int, hidden_dim: int, num_symbols: int, puzzle_symbols: int, max_seq_length: int):
     """Build a progressive encoder with multi-head attention pooling."""
     return ProgressiveSimilarityEncoder(

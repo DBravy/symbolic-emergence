@@ -615,6 +615,46 @@ class ProgressiveSelectionAgent(nn.Module):
         
         print(f"  Note: Phase-based training with dynamic vocabulary management")
 
+    def freeze_all_parameters(self):
+        """
+        NEW: Freeze all trainable parameters in the agent.
+        """
+        for p in self.parameters():
+            p.requires_grad = False
+
+    def add_new_symbol_with_embedding(self, new_embedding: torch.Tensor) -> int:
+        """
+        NEW: Create a new communication symbol initialized at the provided embedding.
+        If space remains in the `communication_embedding` table, use the next index;
+        otherwise, overwrite the last available slot.
+        
+        Args:
+            new_embedding: [D] or [1, D] tensor in the same device/dtype as embeddings
+        Returns:
+            symbol_index: absolute symbol index in the global vocabulary table
+        """
+        with torch.no_grad():
+            emb = new_embedding
+            if emb.dim() == 2:
+                emb = emb.squeeze(0)
+            emb = emb.to(self.communication_embedding.weight.device)
+            emb = emb.type_as(self.communication_embedding.weight)
+            # Determine next available index within max capacity
+            next_idx = self.puzzle_symbols + self.current_comm_symbols
+            if next_idx < self.max_num_symbols:
+                # Place at next slot
+                self.communication_embedding.weight[next_idx].copy_(emb)
+                self.current_comm_symbols += 1
+                self.current_total_symbols = self.puzzle_symbols + self.current_comm_symbols
+                self.communication_vocabulary = set(range(self.current_total_symbols))
+                return next_idx
+            else:
+                # Capacity reached, overwrite the last slot
+                last_idx = self.max_num_symbols - 1
+                self.communication_embedding.weight[last_idx].copy_(emb)
+                # Keep counts unchanged
+                return last_idx
+
 
 # Create a factory function to replace the original Agent
 def Agent(*args, **kwargs):

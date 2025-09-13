@@ -9,22 +9,23 @@ Puzzles per addition: 2
 
 
 ============================================================
-GLOBAL PHASE 1/20 - PRETRAINING
+GLOBAL PHASE 1/100 - PRETRAINING
 ============================================================
 
 ============================================================
-GLOBAL PHASE 1/20 - TRAINING
+GLOBAL PHASE 1/100 - TRAINING
 ============================================================
 FIRST training phase - using 50 cycles
 Each puzzle repeated 1 times per cycle
 Training completed (50 cycles, 1 reps/puzzle):
-  Final Agent1 accuracy: 0.840
-  Final Agent2 accuracy: 0.840
-  Average loss (last 50): 2.1798
+  Final Agent1 accuracy: 0.700
+  Final Agent2 accuracy: 0.700
+  Average loss (last 50): 2.1876
   Total training steps: 150
+Unseen testing summary: 37/100 correct (acc=0.370)
 
 ============================================================
-GLOBAL PHASE 1/20 - CONSOLIDATION
+GLOBAL PHASE 1/100 - CONSOLIDATION
 ============================================================
 Consolidation completed:
   Tested symbols: 3
@@ -32,260 +33,79 @@ Consolidation completed:
   Remaining puzzles: 3
 
 ============================================================
-GLOBAL PHASE 1/20 - ADDITION
+GLOBAL PHASE 1/100 - ADDITION
 ============================================================
 Addition completed:
   Added puzzles: 2
   Total active puzzles: 5
 
 ============================================================
-GLOBAL PHASE 2/20 - PRETRAINING
+GLOBAL PHASE 2/100 - PRETRAINING
 ============================================================
 
 ============================================================
-GLOBAL PHASE 2/20 - TRAINING
+GLOBAL PHASE 2/100 - TRAINING
 ============================================================
 Subsequent training phase #1 - using 25 cycles
 Each puzzle repeated 1 times per cycle
 Training completed (25 cycles, 1 reps/puzzle):
-  Final Agent1 accuracy: 0.640
-  Final Agent2 accuracy: 0.620
-  Average loss (last 50): 2.1433
+  Final Agent1 accuracy: 0.500
+  Final Agent2 accuracy: 0.660
+  Average loss (last 50): 2.1849
   Total training steps: 125
+Unseen testing summary: 51/100 correct (acc=0.510)
 
 ============================================================
-GLOBAL PHASE 2/20 - CONSOLIDATION
+GLOBAL PHASE 2/100 - CONSOLIDATION
 ============================================================
 Consolidation completed:
   Tested symbols: 5
-  Removed symbols: 3
+  Removed symbols: 0
   Remaining puzzles: 5
-  Removed: {10, 11, 12}
 
 ============================================================
-GLOBAL PHASE 2/20 - ADDITION
+GLOBAL PHASE 2/100 - ADDITION
 ============================================================
 Addition completed:
   Added puzzles: 2
   Total active puzzles: 7
 
 ============================================================
-GLOBAL PHASE 3/20 - PRETRAINING
+GLOBAL PHASE 3/100 - PRETRAINING
 ============================================================
 
 ============================================================
-GLOBAL PHASE 3/20 - TRAINING
+GLOBAL PHASE 3/100 - TRAINING
 ============================================================
 Subsequent training phase #2 - using 25 cycles
 Each puzzle repeated 1 times per cycle
 Training completed (25 cycles, 1 reps/puzzle):
-  Final Agent1 accuracy: 0.480
+  Final Agent1 accuracy: 0.280
   Final Agent2 accuracy: 0.480
-  Average loss (last 50): 2.1189
+  Average loss (last 50): 2.1846
   Total training steps: 175
+Unseen testing summary: 37/100 correct (acc=0.370)
 
 ============================================================
-GLOBAL PHASE 3/20 - CONSOLIDATION
+GLOBAL PHASE 3/100 - CONSOLIDATION
 ============================================================
 Consolidation completed:
-  Tested symbols: 4
+  Tested symbols: 7
   Removed symbols: 2
   Remaining puzzles: 7
-  Removed: {10, 11}
+  Removed: {12, 15}
 
 ============================================================
-GLOBAL PHASE 3/20 - ADDITION
+GLOBAL PHASE 3/100 - ADDITION
 ============================================================
 Addition completed:
   Added puzzles: 2
   Total active puzzles: 9
 
 ============================================================
-GLOBAL PHASE 4/20 - PRETRAINING
+GLOBAL PHASE 4/100 - PRETRAINING
 ============================================================
 
 ============================================================
-GLOBAL PHASE 4/20 - TRAINING
-============================================================
-Subsequent training phase #3 - using 25 cycles
-Each puzzle repeated 1 times per cycle
-Training completed (25 cycles, 1 reps/puzzle):
-  Final Agent1 accuracy: 0.600
-  Final Agent2 accuracy: 0.500
-  Average loss (last 50): 2.1672
-  Total training steps: 225
-
-============================================================
-GLOBAL PHASE 4/20 - CONSOLIDATION
-============================================================
-Consolidation completed:
-  Tested symbols: 4
-  Removed symbols: 2
-  Remaining puzzles: 9
-  Removed: {10, 11}
-
-============================================================
-GLOBAL PHASE 4/20 - ADDITION
-============================================================
-Addition completed:
-  Added puzzles: 2
-  Total active puzzles: 11
-
-============================================================
-GLOBAL PHASE 5/20 - PRETRAINING
-============================================================
-
-============================================================
-GLOBAL PHASE 5/20 - TRAINING
-============================================================
-Subsequent training phase #4 - using 25 cycles
-Each puzzle repeated 1 times per cycle
-Training completed (25 cycles, 1 reps/puzzle):
-  Final Agent1 accuracy: 0.400
-  Final Agent2 accuracy: 0.500
-  Average loss (last 50): 2.1767
-  Total training steps: 275
-
-============================================================
-GLOBAL PHASE 5/20 - CONSOLIDATION
-============================================================
-Consolidation completed:
-  Tested symbols: 4
-  Removed symbols: 2
-  Remaining puzzles: 11
-  Removed: {10, 11}
-
-============================================================
-GLOBAL PHASE 5/20 - ADDITION
-============================================================
-Addition completed:
-  Added puzzles: 2
-  Total active puzzles: 13
-
-============================================================
-GLOBAL PHASE 6/20 - PRETRAINING
-============================================================
-
-============================================================
-GLOBAL PHASE 6/20 - TRAINING
-============================================================
-Subsequent training phase #5 - using 25 cycles
-Each puzzle repeated 1 times per cycle
-Training completed (25 cycles, 1 reps/puzzle):
-  Final Agent1 accuracy: 0.480
-  Final Agent2 accuracy: 0.520
-  Average loss (last 50): 2.1332
-  Total training steps: 325
-
-============================================================
-GLOBAL PHASE 6/20 - CONSOLIDATION
-============================================================
-Consolidation completed:
-  Tested symbols: 4
-  Removed symbols: 2
-  Remaining puzzles: 13
-  Removed: {10, 11}
-
-============================================================
-GLOBAL PHASE 6/20 - ADDITION
-============================================================
-Addition completed:
-  Added puzzles: 2
-  Total active puzzles: 15
-
-============================================================
-GLOBAL PHASE 7/20 - PRETRAINING
-============================================================
-
-============================================================
-GLOBAL PHASE 7/20 - TRAINING
-============================================================
-Subsequent training phase #6 - using 25 cycles
-Each puzzle repeated 1 times per cycle
-Training completed (25 cycles, 1 reps/puzzle):
-  Final Agent1 accuracy: 0.500
-  Final Agent2 accuracy: 0.380
-  Average loss (last 50): 2.1212
-  Total training steps: 375
-
-============================================================
-GLOBAL PHASE 7/20 - CONSOLIDATION
-============================================================
-Consolidation completed:
-  Tested symbols: 4
-  Removed symbols: 2
-  Remaining puzzles: 15
-  Removed: {10, 11}
-
-============================================================
-GLOBAL PHASE 7/20 - ADDITION
-============================================================
-Addition completed:
-  Added puzzles: 2
-  Total active puzzles: 17
-
-============================================================
-GLOBAL PHASE 8/20 - PRETRAINING
-============================================================
-
-============================================================
-GLOBAL PHASE 8/20 - TRAINING
-============================================================
-Subsequent training phase #7 - using 25 cycles
-Each puzzle repeated 1 times per cycle
-Training completed (25 cycles, 1 reps/puzzle):
-  Final Agent1 accuracy: 0.380
-  Final Agent2 accuracy: 0.300
-  Average loss (last 50): 2.1669
-  Total training steps: 425
-
-============================================================
-GLOBAL PHASE 8/20 - CONSOLIDATION
-============================================================
-Consolidation completed:
-  Tested symbols: 4
-  Removed symbols: 3
-  Remaining puzzles: 17
-  Removed: {26, 10, 11}
-
-============================================================
-GLOBAL PHASE 8/20 - ADDITION
-============================================================
-Addition completed:
-  Added puzzles: 2
-  Total active puzzles: 19
-
-============================================================
-GLOBAL PHASE 9/20 - PRETRAINING
-============================================================
-
-============================================================
-GLOBAL PHASE 9/20 - TRAINING
-============================================================
-Subsequent training phase #8 - using 25 cycles
-Each puzzle repeated 1 times per cycle
-Training completed (25 cycles, 1 reps/puzzle):
-  Final Agent1 accuracy: 0.300
-  Final Agent2 accuracy: 0.320
-  Average loss (last 50): 2.1890
-  Total training steps: 475
-
-============================================================
-GLOBAL PHASE 9/20 - CONSOLIDATION
-============================================================
-Consolidation completed:
-  Tested symbols: 3
-  Removed symbols: 2
-  Remaining puzzles: 19
-  Removed: {10, 28}
-
-============================================================
-GLOBAL PHASE 9/20 - ADDITION
-============================================================
-Addition completed:
-  Added puzzles: 2
-  Total active puzzles: 21
-
-============================================================
-GLOBAL PHASE 10/20 - PRETRAINING
+GLOBAL PHASE 4/100 - TRAINING
 ============================================================

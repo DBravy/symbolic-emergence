@@ -474,10 +474,12 @@ class LiveGrapher:
         """Mark a phase change in the graph"""
         with self.lock:
             self.phase_markers.append((step, phase))
-            # Reset moving averages at the start of each new phase
-            for ma in self.moving_averages.values():
+            # Reset moving averages at the start of each new phase, but preserve GES
+            for name, ma in self.moving_averages.items():
+                if name in ('ges1', 'ges2'):
+                    continue
                 ma.values.clear()
-            print(f"Phase change marked: Step {step} -> {phase} (moving averages reset)")
+            print(f"Phase change marked: Step {step} -> {phase} (moving averages reset except GES)")
     
     def add_symbols(self, count):
         """Add symbols to the active count"""
@@ -907,6 +909,10 @@ def run_training_phase(trainer, cycles=200):
     ges1_ma = MovingAverage(ma_window)
     ges2_ma = MovingAverage(ma_window)
     
+    # NEW: Early-stop GES trigger state
+    cycles_completed = 0
+    early_stop_triggered = False
+    
     for cycle in range(cycles):
         print(f"\nTraining Cycle {cycle + 1}/{cycles}")
         
@@ -961,6 +967,9 @@ def run_training_phase(trainer, cycles=200):
                     ges1_history.append(ges1_ma.get_average())
                     ges2_history.append(ges2_ma.get_average())
                     
+                    # Update trainer-internal GES tracker for global early-stop check
+                    trainer._update_ges_moving_averages(metrics)
+                    
                     # Update live grapher for each step
                     if live_grapher:
                         try:
@@ -976,16 +985,12 @@ def run_training_phase(trainer, cycles=200):
                             global_step_counter += 1
                         except Exception as e:
                             print(f"Warning: Live grapher update failed: {e}")
-                
-                # Show progress for this repetition
-                if step_metrics:
-                    avg_loss = step_metrics[0]['total_loss']
-                    acc1 = step_metrics[0]['agent1_selection_accuracy']
-                    acc2 = step_metrics[0]['agent2_selection_accuracy']
-                    print(f"    Rep {repetition+1}/{trainer.repetitions_per_puzzle}: Loss={avg_loss:.4f}, Acc1={acc1:.3f}, Acc2={acc2:.3f}")
+            
+            # End repetition loop
         
         # Update comprehensive metrics history
         metrics_history.extend(cycle_metrics)
+        cycles_completed += 1
         
         # Show cycle summary
         if cycle_metrics:
@@ -994,6 +999,32 @@ def run_training_phase(trainer, cycles=200):
             avg_loss = np.mean([m['total_loss'] for m in cycle_metrics if not np.isnan(m['total_loss'])])
             print(f"  Cycle {cycle + 1} Summary: Avg Loss: {avg_loss:.4f}, Acc1: {avg_acc1:.3f}, Acc2: {avg_acc2:.3f}")
             print(f"  Total training steps this cycle: {len(cycle_metrics)}")
+        
+        # NEW: Early-stop check using trainer's configuration
+        if trainer.early_stop_enabled:
+            # Only allow early stop in the second half of this training phase
+            half_cycles = max(1, cycles // 2)
+            in_second_half = cycles_completed >= half_cycles
+
+            if not in_second_half:
+                # Gate early-stop until second half of this training phase
+                continue
+
+            # Allow a quick-test override (still respects second-half gating)
+            if trainer.early_stop_force:
+                print("\nEarly-stop force enabled (second half). Running novel symbol induction test, then stopping current training phase and proceeding to consolidation and addition...")
+                early_stop_triggered = True
+                break
+            
+            # Otherwise, require min cycles and threshold
+            if cycles_completed >= max(half_cycles, trainer.early_stop_min_cycles):
+                ges1_ma_val, ges2_ma_val = trainer._current_ges_ma()
+                if not np.isnan(ges1_ma_val) and not np.isnan(ges2_ma_val):
+                    print(f"  GES moving averages: Agent1={ges1_ma_val:.2f}, Agent2={ges2_ma_val:.2f}")
+                    if ges1_ma_val > trainer.early_stop_ges_threshold and ges2_ma_val > trainer.early_stop_ges_threshold:
+                        print("\nGES threshold met (second half): running novel symbol induction test, then stopping current training phase and proceeding to consolidation and addition...")
+                        early_stop_triggered = True
+                        break
     
     accuracies_history = {
         'acc1_selection': acc1_selection_history,
@@ -1006,7 +1037,17 @@ def run_training_phase(trainer, cycles=200):
     print(f"  Total training steps: {len(metrics_history)}")
     print(f"  Steps per cycle: {len(trainer.active_puzzles) * trainer.repetitions_per_puzzle}")
     
-    return metrics_history, accuracies_history
+    # NEW: If early stop triggered, run the novel symbol induction test here, but DO NOT end the overall run.
+    # We will signal to the phase controller to proceed to consolidation → addition → training (skip pretraining once).
+    if early_stop_triggered:
+        summary = trainer.run_novel_symbol_induction_test(num_tests=100, temperature=0.1, log_file_path="novel_symbol_unseen_testing_log.txt")
+        print(f"Novel symbol induction test accuracy: {summary['accuracy']:.3f} ({summary['correct']}/{summary['num_tests']})")
+        # Signal controller to skip next pretraining
+        trainer.skip_next_pretraining = True
+        # Return with histories and the trigger flag so upstream can immediately transition phases
+        return metrics_history, accuracies_history, True
+    
+    return metrics_history, accuracies_history, False
 
 def run_consolidation_phase(trainer):
     """Run consolidation phase to remove recessive symbols"""
@@ -1404,7 +1445,7 @@ def main():
         hidden_dim=1024,
         num_symbols=100,     
         puzzle_symbols=10,
-        max_seq_length=2,    
+        max_seq_length=1,    
         sender_scale=1.0,
         similarity_metric='cosine'
     ).to(device)
@@ -1415,7 +1456,7 @@ def main():
         hidden_dim=1024,
         num_symbols=100,     
         puzzle_symbols=10,
-        max_seq_length=2,    
+        max_seq_length=1,    
         sender_scale=1.0,
         similarity_metric='cosine'
     ).to(device)
@@ -1437,7 +1478,9 @@ def main():
         initial_puzzle_count=3,          # NEW: Initial number of puzzles
         initial_comm_symbols=3           # NEW: Initial communication symbols (optional, defaults to initial_puzzle_count)
     )
-    max_global_phases = 20  # Run 3 complete cycles for demonstration
+    # QUICK TEST: force early-stop to run novel symbol induction immediately. Toggle False to restore normal behavior.
+    trainer.early_stop_force = False
+    max_global_phases = 100  # Run 3 complete cycles for demonstration
 
     first_pretrain_epochs = 100
     pretrain_epochs = 100
@@ -1506,17 +1549,22 @@ def main():
             
             if current_phase == "pretraining":
                 # Pretraining phase - train encoder on newly added puzzles
-                if trainer.global_phase_count == 0:
-                    # First pretraining - use all initial puzzles
-                    pretraining_history = run_pretraining_phase(trainer, epochs=first_pretrain_epochs)
+                if trainer.skip_next_pretraining:
+                    print("Skipping pretraining due to recent GES threshold event.")
+                    trainer.skip_next_pretraining = False  # consume the skip
+                    trainer.advance_phase()
                 else:
-                    # Subsequent pretraining - use only newly added puzzles
-                    # Get last 5 puzzles (newly added)
-                    new_puzzles = trainer.active_puzzles[-trainer.puzzles_per_addition:]
-                    pretraining_history = run_pretraining_phase(trainer, target_puzzles=new_puzzles, epochs=pretrain_epochs)
-                
-                trainer.advance_phase()
-                
+                    if trainer.global_phase_count == 0:
+                        # First pretraining - use all initial puzzles
+                        pretraining_history = run_pretraining_phase(trainer, epochs=first_pretrain_epochs)
+                    else:
+                        # Subsequent pretraining - use only newly added puzzles
+                        # Get last 5 puzzles (newly added)
+                        new_puzzles = trainer.active_puzzles[-trainer.puzzles_per_addition:]
+                        pretraining_history = run_pretraining_phase(trainer, target_puzzles=new_puzzles, epochs=pretrain_epochs)
+                    
+                    trainer.advance_phase()
+            
             elif current_phase == "training":
                 # Training phase - use different cycle counts for first vs subsequent phases
                 cycles_for_this_phase = trainer.get_training_cycles_for_current_phase()
@@ -1533,7 +1581,7 @@ def main():
                     print(f"Subsequent training phase #{trainer.global_phase_count} - using {cycles_for_this_phase} cycles")
                     print(f"Each puzzle repeated {trainer.repetitions_per_puzzle} times per cycle")
                 
-                training_metrics, training_accuracies = run_training_phase(trainer, cycles=cycles_for_this_phase)
+                training_metrics, training_accuracies, early_stop = run_training_phase(trainer, cycles=cycles_for_this_phase)
                 
                 # Add to comprehensive tracking
                 all_metrics_history.extend(training_metrics)
@@ -1553,9 +1601,43 @@ def main():
                     log_file.write(f"  Total training steps: {len(training_metrics)}\n")
                     log_file.flush()
                 
+                # --- MODIFIED: If early stop triggered, proceed immediately to consolidation → addition, then loop continues ---
+                if early_stop:
+                    # Unseen puzzle testing already executed inside run_training_phase
+                    # Proceed to consolidation
+                    confusion_data, removed_symbols = run_consolidation_phase(trainer)
+                    if live_grapher and removed_symbols:
+                        live_grapher.remove_symbols(len(removed_symbols))
+                    # Addition with predicted embeddings (implemented in trainer.add_new_puzzles)
+                    new_puzzles = run_addition_phase(trainer)
+                    if live_grapher and new_puzzles:
+                        live_grapher.add_symbols(len(new_puzzles))
+                    
+                    # After addition, skip pretraining (already flagged) and continue to training in next loop
+                    # Advance phase to training directly
+                    trainer.current_phase = "training"
+                    trainer.phase_cycle = 0
+                    print("Continuing directly to training phase (pretraining skipped).")
+                    
+                    # Plot snapshot
+                    if all_metrics_history:
+                        plot_phase_training_metrics(
+                            all_metrics_history, 
+                            all_accuracies_history,
+                            trainer.get_phase_status(),
+                            title=f"Phase-Based Training (Threshold Transition - Global Phase {trainer.global_phase_count + 1})"
+                        )
+                        print("Transition metrics plotted to phase_training_metrics.png")
+                    continue
+                
+                # --- NEW: Unseen puzzle testing (100 questions) ---
+                unseen_summary = trainer.test_unseen_communication(num_tests=100, temperature=0.1, log_file_path="unseen_testing_log.txt")
+                log_file.write(f"Unseen testing summary: {unseen_summary['correct']}/{unseen_summary['num_tests']} correct (acc={unseen_summary['accuracy']:.3f})\n")
+                log_file.flush()
+                
                 # Check if this is the final global phase
                 if trainer.global_phase_count == max_global_phases - 1:
-                    log_file.write(f"Final training phase completed - skipping consolidation and addition phases\n")
+                    log_file.write(f"Final training phase completed - skipping consolidation and addition after training\n")
                     log_file.flush()
                     
                     # Plot final training metrics before exiting
@@ -1571,7 +1653,7 @@ def main():
                     break  # Exit the phase loop to prevent further phases
                 
                 trainer.advance_phase()
-                
+            
             elif current_phase == "consolidation":
                 # Skip consolidation if this would be the final global phase
                 if trainer.global_phase_count >= max_global_phases - 1:
