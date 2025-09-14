@@ -1022,9 +1022,18 @@ def run_training_phase(trainer, cycles=200):
                 if not np.isnan(ges1_ma_val) and not np.isnan(ges2_ma_val):
                     print(f"  GES moving averages: Agent1={ges1_ma_val:.2f}, Agent2={ges2_ma_val:.2f}")
                     if ges1_ma_val > trainer.early_stop_ges_threshold and ges2_ma_val > trainer.early_stop_ges_threshold:
-                        print("\nGES threshold met (second half): running novel symbol induction test, then stopping current training phase and proceeding to consolidation and addition...")
-                        early_stop_triggered = True
-                        break
+                        # Always increase the threshold when hit
+                        trainer.early_stop_ges_threshold += 25
+                        print(f"GES threshold increased to {trainer.early_stop_ges_threshold} for future checks.")
+
+                        # Stop training phase only on the first detection
+                        if not getattr(trainer, 'early_stop_triggered_once', False):
+                            print("\nGES threshold met (first detection): running novel symbol induction test, then stopping current training phase and proceeding to consolidation and addition...")
+                            trainer.early_stop_triggered_once = True
+                            early_stop_triggered = True
+                            break
+                        else:
+                            print("GES threshold met again; continuing training without stopping this phase.")
     
     accuracies_history = {
         'acc1_selection': acc1_selection_history,
@@ -1040,7 +1049,7 @@ def run_training_phase(trainer, cycles=200):
     # NEW: If early stop triggered, run the novel symbol induction test here, but DO NOT end the overall run.
     # We will signal to the phase controller to proceed to consolidation → addition → training (skip pretraining once).
     if early_stop_triggered:
-        summary = trainer.run_novel_symbol_induction_test(num_tests=100, temperature=0.1, log_file_path="novel_symbol_unseen_testing_log.txt")
+        summary = trainer.run_novel_symbol_induction_test(num_tests=100, temperature=0.1, log_file_path="novel_symbol_unseen_testing_log.txt", bidirectional=True)
         print(f"Novel symbol induction test accuracy: {summary['accuracy']:.3f} ({summary['correct']}/{summary['num_tests']})")
         # Signal controller to skip next pretraining
         trainer.skip_next_pretraining = True
@@ -1636,8 +1645,22 @@ def main():
                     continue
                 
                 # --- NEW: Unseen puzzle testing (100 questions) ---
-                unseen_summary = trainer.test_unseen_communication(num_tests=100, temperature=0.1, log_file_path="unseen_testing_log.txt")
-                log_file.write(f"Unseen testing summary: {unseen_summary['correct']}/{unseen_summary['num_tests']} correct (acc={unseen_summary['accuracy']:.3f})\n")
+                ges1_ma_val, ges2_ma_val = trainer._current_ges_ma()
+                log_file.write(f"GES (MA) at test time - Unseen: Agent1={ges1_ma_val:.2f}, Agent2={ges2_ma_val:.2f}\n")
+                unseen_summary = trainer.test_unseen_communication(num_tests=100, temperature=0.1, log_file_path="unseen_testing_log.txt", bidirectional=True)
+                log_file.write("Unseen testing summary (bidirectional):\n")
+                log_file.write(f"  A1→A2: {unseen_summary['a1_to_a2_correct']}/{100} correct (acc={unseen_summary['a1_to_a2_accuracy']:.3f})\n")
+                log_file.write(f"  A2→A1: {unseen_summary['a2_to_a1_correct']}/{100} correct (acc={unseen_summary['a2_to_a1_accuracy']:.3f})\n")
+                log_file.write(f"  Overall: {unseen_summary['correct']}/{unseen_summary['num_tests']} correct (acc={unseen_summary['accuracy']:.3f})\n")
+                log_file.write(f"  GES (MA): Agent1={unseen_summary['ges1_ma']:.2f}, Agent2={unseen_summary['ges2_ma']:.2f}\n")
+                # --- NEW: Novel symbol induction test alongside unseen ---
+                ges1_ma_val, ges2_ma_val = trainer._current_ges_ma()
+                novel_summary = trainer.run_novel_symbol_induction_test(num_tests=100, temperature=0.1, log_file_path="novel_symbol_unseen_testing_log.txt", bidirectional=True)
+                log_file.write("Novel symbol induction summary (bidirectional):\n")
+                log_file.write(f"  A1→A2: {novel_summary['a1_to_a2_correct']}/{100} correct (acc={novel_summary['a1_to_a2_accuracy']:.3f})\n")
+                log_file.write(f"  A2→A1: {novel_summary['a2_to_a1_correct']}/{100} correct (acc={novel_summary['a2_to_a1_accuracy']:.3f})\n")
+                log_file.write(f"  Overall: {novel_summary['correct']}/{novel_summary['num_tests']} correct (acc={novel_summary['accuracy']:.3f})\n")
+                log_file.write(f"  GES (MA): Agent1={novel_summary['ges1_ma']:.2f}, Agent2={novel_summary['ges2_ma']:.2f}\n")
                 log_file.flush()
                 
                 # Check if this is the final global phase

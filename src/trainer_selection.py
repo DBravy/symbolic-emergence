@@ -119,6 +119,7 @@ class ProgressiveSelectionTrainer:
         self.early_stop_min_cycles = 5
         self.early_stop_ges_threshold = 100
         self.early_stop_force = False
+        self.early_stop_triggered_once = False
         
                 # NEW: Skip pretraining once (set by controller after threshold)
         self.skip_next_pretraining = False
@@ -1094,7 +1095,7 @@ class ProgressiveSelectionTrainer:
         return entropy.mean()
 
     # --- NEW: Unseen puzzle generalization testing ---
-    def test_unseen_communication(self, num_tests: int = 100, temperature: float = 0.1, log_file_path: str = "unseen_testing_log.txt") -> dict:
+    def test_unseen_communication(self, num_tests: int = 100, temperature: float = 0.1, log_file_path: str = "unseen_testing_log.txt", bidirectional: bool = False) -> dict:
         """
         Evaluate sender→receiver communication on puzzles NOT used in training (unseen).
         Performs `num_tests` independent trials. For each trial, sample a target unseen puzzle
@@ -1122,7 +1123,9 @@ class ProgressiveSelectionTrainer:
         self.agent1.eval()
         self.agent2.eval()
         correct = 0
+        correct_rev = 0
         results = []
+        results_rev = []
         
         # Open log file for appending
         try:
@@ -1143,6 +1146,12 @@ class ProgressiveSelectionTrainer:
             log_f.write(header)
         else:
             print(header)
+        # Log GES (MA) at test time
+        ges1_ma_val, ges2_ma_val = self._current_ges_ma()
+        if log_f:
+            log_f.write(f"GES (MA) at test time: Agent1={ges1_ma_val:.2f}, Agent2={ges2_ma_val:.2f}\n")
+        else:
+            print(f"GES (MA) at test time: Agent1={ges1_ma_val:.2f}, Agent2={ges2_ma_val:.2f}")
         
         with torch.no_grad():
             for t_idx, dataset_idx in enumerate(target_dataset_indices, start=1):
@@ -1189,6 +1198,7 @@ class ProgressiveSelectionTrainer:
                     "candidate_dataset_indices": candidate_indices,
                     "predicted_candidate": predicted_idx,
                     "correct": bool(is_correct),
+                    "direction": "A1_to_A2",
                     "selection_probs": probs_list
                 }
                 results.append(test_record)
@@ -1196,22 +1206,82 @@ class ProgressiveSelectionTrainer:
                 # Log per-test details
                 if log_f:
                     log_f.write(
-                        f"Test {t_idx:03d}: target={dataset_idx}, predicted={predicted_idx}, correct={'✓' if is_correct else '✗'}\n"
+                        f"Test {t_idx:03d} [A1→A2]: target={dataset_idx}, predicted={predicted_idx}, correct={'✓' if is_correct else '✗'}\n"
                     )
                     for i, (cand_idx, prob) in enumerate(zip(candidate_indices, probs_list)):
                         marker = ' (target)' if i == 0 else ''
                         log_f.write(f"  cand[{i}] dataset_idx={cand_idx} prob={prob:.4f}{marker}\n")
+
+                # Optional reverse direction
+                if bidirectional:
+                    # Receiver becomes sender → Agent1 selects
+                    symbols_rev, _, _ = self.agent2.encode_puzzle_to_message(
+                        target_tensor, temperature=temperature, deterministic=True
+                    )
+                    selection_probs_rev, selection_logits_rev, _ = self.agent1.select_from_candidates(
+                        symbols_rev, candidates, temperature=temperature
+                    )
+                    predicted_idx_rev = int(selection_logits_rev.argmax(dim=-1).item())
+                    is_correct_rev = (predicted_idx_rev == 0)
+                    if is_correct_rev:
+                        correct_rev += 1
+                    probs_list_rev = [float(selection_probs_rev[0, i].item()) for i in range(selection_probs_rev.shape[1])]
+                    test_record_rev = {
+                        "test_number": t_idx,
+                        "target_dataset_idx": dataset_idx,
+                        "candidate_dataset_indices": candidate_indices,
+                        "predicted_candidate": predicted_idx_rev,
+                        "correct": bool(is_correct_rev),
+                        "direction": "A2_to_A1",
+                        "selection_probs": probs_list_rev
+                    }
+                    results_rev.append(test_record_rev)
+                    if log_f:
+                        log_f.write(
+                            f"Test {t_idx:03d} [A2→A1]: target={dataset_idx}, predicted={predicted_idx_rev}, correct={'✓' if is_correct_rev else '✗'}\n"
+                        )
+                        for i, (cand_idx, prob) in enumerate(zip(candidate_indices, probs_list_rev)):
+                            marker = ' (target)' if i == 0 else ''
+                            log_f.write(f"  cand[{i}] dataset_idx={cand_idx} prob={prob:.4f}{marker}\n")
                 
         # Summary
-        accuracy = (correct / num_tests) if num_tests > 0 else 0.0
-        summary = {"num_tests": num_tests, "correct": correct, "accuracy": accuracy, "results": results}
+        total_tests = num_tests * (2 if bidirectional else 1)
+        total_correct = correct + (correct_rev if bidirectional else 0)
+        accuracy = (total_correct / total_tests) if total_tests > 0 else 0.0
+        acc_a1_a2 = (correct / num_tests) if num_tests > 0 else 0.0
+        acc_a2_a1 = (correct_rev / num_tests) if (bidirectional and num_tests > 0) else None
+        combined_results = results + (results_rev if bidirectional else [])
+        # Reuse GES (MA) measured at test start
+        ges1_ma_val, ges2_ma_val = self._current_ges_ma()
+        summary = {
+            "num_tests": total_tests,
+            "correct": total_correct,
+            "accuracy": accuracy,
+            "a1_to_a2_correct": correct,
+            "a2_to_a1_correct": (correct_rev if bidirectional else None),
+            "a1_to_a2_accuracy": acc_a1_a2,
+            "a2_to_a1_accuracy": acc_a2_a1,
+            "ges1_ma": ges1_ma_val,
+            "ges2_ma": ges2_ma_val,
+            "results": combined_results
+        }
         
         if log_f:
-            log_f.write(f"Summary: {correct}/{num_tests} correct, accuracy={accuracy:.3f}\n")
+            log_f.write("Summary (bidirectional):\n")
+            log_f.write(f"  A1→A2: {correct}/{num_tests} correct (acc={acc_a1_a2:.3f})\n")
+            if bidirectional:
+                log_f.write(f"  A2→A1: {correct_rev}/{num_tests} correct (acc={acc_a2_a1:.3f})\n")
+            log_f.write(f"  Overall: {total_correct}/{total_tests} correct (acc={accuracy:.3f})\n")
+            log_f.write(f"  GES (MA): Agent1={ges1_ma_val:.2f}, Agent2={ges2_ma_val:.2f}\n")
             log_f.flush()
             log_f.close()
         else:
-            print(f"Summary: {correct}/{num_tests} correct, accuracy={accuracy:.3f}")
+            print("Summary (bidirectional):")
+            print(f"  A1→A2: {correct}/{num_tests} correct (acc={acc_a1_a2:.3f})")
+            if bidirectional:
+                print(f"  A2→A1: {correct_rev}/{num_tests} correct (acc={acc_a2_a1:.3f})")
+            print(f"  Overall: {total_correct}/{total_tests} correct (acc={accuracy:.3f})")
+            print(f"  GES (MA): Agent1={ges1_ma_val:.2f}, Agent2={ges2_ma_val:.2f}")
         
         # Restore train mode
         self.agent1.train()
@@ -1270,7 +1340,7 @@ class ProgressiveSelectionTrainer:
         self.agent1.train()
         self.agent2.train()
 
-    def run_novel_symbol_induction_test(self, num_tests: int = 100, temperature: float = 0.1, log_file_path: str = "novel_symbol_unseen_testing_log.txt") -> dict:
+    def run_novel_symbol_induction_test(self, num_tests: int = 100, temperature: float = 0.1, log_file_path: str = "novel_symbol_unseen_testing_log.txt", bidirectional: bool = False) -> dict:
         """
         NEW: After freezing, evaluate on unseen puzzles by inducing a novel symbol per puzzle.
         For each unseen test:
@@ -1312,7 +1382,9 @@ class ProgressiveSelectionTrainer:
         }
 
         correct = 0
+        correct_rev = 0
         results = []
+        results_rev = []
         # Open log file
         try:
             log_f = open(log_file_path, 'a')
@@ -1329,6 +1401,12 @@ class ProgressiveSelectionTrainer:
             log_f.write(header)
         else:
             print(header)
+        # Log GES (MA) at test time
+        ges1_ma_val, ges2_ma_val = self._current_ges_ma()
+        if log_f:
+            log_f.write(f"GES (MA) at test time: Agent1={ges1_ma_val:.2f}, Agent2={ges2_ma_val:.2f}\n")
+        else:
+            print(f"GES (MA) at test time: Agent1={ges1_ma_val:.2f}, Agent2={ges2_ma_val:.2f}")
         
         with torch.no_grad():
             for t_idx, dataset_idx in enumerate(target_dataset_indices, start=1):
@@ -1400,17 +1478,76 @@ class ProgressiveSelectionTrainer:
                     'predicted_candidate': predicted_idx,
                     'correct': bool(is_correct),
                     'selection_probs': probs_list,
-                    'candidate_dataset_indices': candidate_indices
+                    'candidate_dataset_indices': candidate_indices,
+                    'direction': 'A1_to_A2'
                 })
+
+                # Optional reverse direction
+                if bidirectional:
+                    # Predict embedding using receiver's encoder (now acting as sender)
+                    seq_emb_rev = self.agent2.embedding_system.embed_puzzle(target_tensor)
+                    pred_emb_rev = self.agent2.encoder.predict_symbol_embedding(seq_emb_rev, position=0)
+                    pred_emb_rev = F.normalize(pred_emb_rev, p=2, dim=-1)
+                    new_sym_idx_2 = self.agent2.add_new_symbol_with_embedding(pred_emb_rev)
+                    self.agent1.add_new_symbol_with_embedding(pred_emb_rev)
+
+                    local_comm_index_rev = new_sym_idx_2 - self.agent2.puzzle_symbols
+                    num_comm_rev = self.agent2.current_comm_symbols
+                    seq_len_rev = max(1, self.agent2.current_seq_length)
+                    message_rev = torch.zeros((1, seq_len_rev, num_comm_rev), device=self.device)
+                    if 0 <= local_comm_index_rev < num_comm_rev:
+                        message_rev[0, 0, local_comm_index_rev] = 1.0
+                    else:
+                        message_rev[0, 0, num_comm_rev - 1] = 1.0
+
+                    selection_probs_rev, selection_logits_rev, _ = self.agent1.select_from_candidates(
+                        message_rev, candidates, temperature=0.1
+                    )
+                    predicted_idx_rev = int(selection_logits_rev.argmax(dim=-1).item())
+                    is_correct_rev = (predicted_idx_rev == 0)
+                    if is_correct_rev:
+                        correct_rev += 1
+                    probs_list_rev = [float(selection_probs_rev[0, i].item()) for i in range(selection_probs_rev.shape[1])]
+                    if log_f:
+                        log_f.write(
+                            f"Test {t_idx:03d} [A2→A1]: target={dataset_idx}, predicted={predicted_idx_rev}, correct={'✓' if is_correct_rev else '✗'}\n"
+                        )
+                        for i, (cand_idx, prob) in enumerate(zip(candidate_indices, probs_list_rev)):
+                            marker = ' (target)' if i == 0 else ''
+                            log_f.write(f"  cand[{i}] dataset_idx={cand_idx} prob={prob:.4f}{marker}\n")
+                    results_rev.append({
+                        'test_number': t_idx,
+                        'target_dataset_idx': dataset_idx,
+                        'predicted_candidate': predicted_idx_rev,
+                        'correct': bool(is_correct_rev),
+                        'selection_probs': probs_list_rev,
+                        'candidate_dataset_indices': candidate_indices,
+                        'direction': 'A2_to_A1'
+                    })
         
-        accuracy = (correct / num_tests) if num_tests > 0 else 0.0
-        summary = {"num_tests": num_tests, "correct": correct, "accuracy": accuracy, "results": results}
+        total_tests = num_tests * (2 if bidirectional else 1)
+        total_correct = correct + (correct_rev if bidirectional else 0)
+        accuracy = (total_correct / total_tests) if total_tests > 0 else 0.0
+        acc_a1_a2 = (correct / num_tests) if num_tests > 0 else 0.0
+        acc_a2_a1 = (correct_rev / num_tests) if (bidirectional and num_tests > 0) else None
+        ges1_ma_val, ges2_ma_val = self._current_ges_ma()
+        summary = {"num_tests": total_tests, "correct": total_correct, "accuracy": accuracy, "a1_to_a2_correct": correct, "a2_to_a1_correct": (correct_rev if bidirectional else None), "a1_to_a2_accuracy": acc_a1_a2, "a2_to_a1_accuracy": acc_a2_a1, "ges1_ma": ges1_ma_val, "ges2_ma": ges2_ma_val, "results": results + (results_rev if bidirectional else [])}
         if log_f:
-            log_f.write(f"Summary: {correct}/{num_tests} correct, accuracy={accuracy:.3f}\n")
+            log_f.write("Summary (bidirectional):\n")
+            log_f.write(f"  A1→A2: {correct}/{num_tests} correct (acc={acc_a1_a2:.3f})\n")
+            if bidirectional:
+                log_f.write(f"  A2→A1: {correct_rev}/{num_tests} correct (acc={acc_a2_a1:.3f})\n")
+            log_f.write(f"  Overall: {total_correct}/{total_tests} correct (acc={accuracy:.3f})\n")
+            log_f.write(f"  GES (MA): Agent1={ges1_ma_val:.2f}, Agent2={ges2_ma_val:.2f}\n")
             log_f.flush()
             log_f.close()
         else:
-            print(f"Summary: {correct}/{num_tests} correct, accuracy={accuracy:.3f}")
+            print("Summary (bidirectional):")
+            print(f"  A1→A2: {correct}/{num_tests} correct (acc={acc_a1_a2:.3f})")
+            if bidirectional:
+                print(f"  A2→A1: {correct_rev}/{num_tests} correct (acc={acc_a2_a1:.3f})")
+            print(f"  Overall: {total_correct}/{total_tests} correct (acc={accuracy:.3f})")
+            print(f"  GES (MA): Agent1={ges1_ma_val:.2f}, Agent2={ges2_ma_val:.2f}")
         
         # Restore embedding tables and vocab sizes (non-destructive test)
         with torch.no_grad():
