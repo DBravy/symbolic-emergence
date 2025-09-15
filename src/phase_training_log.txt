@@ -4,7 +4,7 @@ Phase cycle: pretraining → training → consolidation → remedial → additio
 Training cycles per phase: 25
 Repetitions per puzzle: 1
 Consolidation tests: 5
-Puzzles per addition: 2
+Puzzles per addition: 3
 ==================================================
 
 

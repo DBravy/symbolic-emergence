@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML Training Interface</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Progressive Selection Training Interface</h1>
+            <div class="status-bar">
+                <span id="connection-status">Connected</span>
+                <span id="training-status">Idle</span>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Training Controls -->
+            <section class="controls-section">
+                <h2>Training Controls</h2>
+                <div class="button-group">
+                    <button id="start-btn" onclick="startTraining()">Start Training</button>
+                    <button id="stop-btn" onclick="stopTraining()" disabled>Stop Training</button>
+                    <button onclick="loadConfig()">Reload Config</button>
+                </div>
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div id="progress-fill" class="progress-fill"></div>
+                    </div>
+                    <span id="progress-text">0%</span>
+                </div>
+            </section>
+
+            <!-- Configuration Panel -->
+            <section class="config-section">
+                <h2>Configuration</h2>
+                <div class="config-tabs">
+                    <button class="tab-btn active" onclick="showTab('basic')">Basic</button>
+                    <button class="tab-btn" onclick="showTab('advanced')">Advanced</button>
+                    <button class="tab-btn" onclick="showTab('architecture')">Architecture</button>
+                </div>
+
+                <!-- Basic Config -->
+                <div id="basic-tab" class="tab-content active">
+                    <div class="form-group">
+                        <label for="max_global_phases">Max Global Phases:</label>
+                        <input type="number" id="max_global_phases" min="1" max="1000" value="100">
+                        <span class="help-text">Number of complete training cycles</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="initial_puzzle_count">Initial Puzzles:</label>
+                        <input type="number" id="initial_puzzle_count" min="1" max="20" value="4">
+                        <span class="help-text">Number of puzzles to start with</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="training_cycles">Training Cycles:</label>
+                        <input type="number" id="training_cycles" min="1" max="500" value="25">
+                        <span class="help-text">Cycles per training phase</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="puzzles_per_addition">Puzzles per Addition:</label>
+                        <input type="number" id="puzzles_per_addition" min="1" max="10" value="3">
+                        <span class="help-text">New puzzles added each cycle</span>
+                    </div>
+                </div>
+
+                <!-- Advanced Config -->
+                <div id="advanced-tab" class="tab-content">
+                    <div class="form-group">
+                        <label for="learning_rate">Learning Rate:</label>
+                        <input type="number" id="learning_rate" step="0.0000001" value="0.0000007">
+                        <span class="help-text">Neural network learning rate</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="num_distractors">Number of Distractors:</label>
+                        <input type="number" id="num_distractors" min="1" max="10" value="3">
+                        <span class="help-text">Distractor puzzles in selection task</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="distractor_strategy">Distractor Strategy:</label>
+                        <select id="distractor_strategy">
+                            <option value="random">Random</option>
+                            <option value="similar_size">Similar Size</option>
+                            <option value="hard">Hard</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="phase_change_indicator">Phase Change Indicator:</label>
+                        <select id="phase_change_indicator">
+                            <option value="ges">GES Threshold</option>
+                            <option value="novel_test">Novel Test</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Architecture Config -->
+                <div id="architecture-tab" class="tab-content">
+                    <div class="form-group">
+                        <label for="embedding_dim">Embedding Dimension:</label>
+                        <input type="number" id="embedding_dim" min="64" max="2048" step="64" value="512">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="hidden_dim">Hidden Dimension:</label>
+                        <input type="number" id="hidden_dim" min="128" max="4096" step="128" value="1024">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="num_symbols">Max Symbols:</label>
+                        <input type="number" id="num_symbols" min="20" max="500" value="100">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="puzzle_symbols">Puzzle Symbols:</label>
+                        <input type="number" id="puzzle_symbols" min="5" max="50" value="10">
+                    </div>
+                </div>
+
+                <div class="config-actions">
+                    <button onclick="saveConfig()">Save Configuration</button>
+                    <button onclick="resetConfig()">Reset to Defaults</button>
+                </div>
+            </section>
+
+            <!-- Status and Logs -->
+            <div class="bottom-panel">
+                <section class="status-section">
+                    <h3>Training Status</h3>
+                    <div id="detailed-status">
+                        <p><strong>Phase:</strong> <span id="current-phase">Idle</span></p>
+                        <p><strong>Progress:</strong> <span id="progress-detail">0%</span></p>
+                        <p><strong>Message:</strong> <span id="status-message">Ready to start</span></p>
+                        <p><strong>PID:</strong> <span id="process-pid">None</span></p>
+                    </div>
+                </section>
+
+                <section class="logs-section">
+                    <h3>Training Logs</h3>
+                    <div class="log-controls">
+                        <button onclick="clearLogs()">Clear</button>
+                        <button onclick="toggleAutoScroll()">Auto-scroll: <span id="autoscroll-status">ON</span></button>
+                    </div>
+                    <div id="log-container">
+                        <div id="log-output"></div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Plots Section -->
+            <section class="plots-section">
+                <h3>Training Plots</h3>
+                <div class="plot-controls">
+                    <button onclick="refreshPlots()">Refresh Plots</button>
+                    <select id="plot-selector" onchange="showPlot()">
+                        <option value="">Select a plot...</option>
+                    </select>
+                </div>
+                <div id="plot-display">
+                    <p>No plot selected</p>
+                </div>
+            </section>
+
+            <!-- NEW: Test Scores Section -->
+            <section class="scores-section">
+                <h3>Test Scores</h3>
+                <div id="scores-container">
+                    <div class="score-card">
+                        <h4>Unseen Puzzle Test</h4>
+                        <div id="unseen-score">No data yet</div>
+                    </div>
+                    <div class="score-card">
+                        <h4>Novel Symbol Test</h4>
+                        <div id="novel-score">No data yet</div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

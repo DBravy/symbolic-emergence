@@ -25,11 +25,19 @@ class ProgressiveSelectionTrainer:
         puzzles_per_addition: int = 5,        # Puzzles to add each addition phase
         repetitions_per_puzzle: int = 5,      # How many times to repeat each puzzle
         initial_puzzle_count: int = 5,        # NEW: Initial number of puzzles to start with
-        initial_comm_symbols: int = None      # NEW: Initial communication symbols (defaults to initial_puzzle_count)
+        initial_comm_symbols: int = None,     # NEW: Initial communication symbols (defaults to initial_puzzle_count)
+        # NEW: Phase-change indicator toggle and novel test config
+        phase_change_indicator: str = 'ges',  # 'ges' or 'novel_test'
+        novel_test_interval_cycles: int = 10,
+        novel_test_threshold_correct: int = 110,
+        novel_test_bidirectional: bool = True,
+        novel_test_log_summary_only: bool = True,
+        web_mode: bool = False                # NEW: Reduced logging for web interface
     ):
         # NEW: Store initial configuration
         self.initial_puzzle_count = initial_puzzle_count
         self.initial_comm_symbols = initial_comm_symbols if initial_comm_symbols is not None else initial_puzzle_count
+        self.web_mode = web_mode
         
         # Update agents with initial communication symbols before moving to device
         agent1.set_initial_comm_symbols(self.initial_comm_symbols)
@@ -129,6 +137,13 @@ class ProgressiveSelectionTrainer:
 
         # NEW: Permanently skip all future pretraining once threshold hit
         self.skip_pretraining_always = False
+
+        # NEW: Phase-change indicator configuration
+        self.phase_change_indicator = phase_change_indicator  # 'ges' or 'novel_test'
+        self.novel_test_interval_cycles = novel_test_interval_cycles
+        self.novel_test_threshold_correct = novel_test_threshold_correct
+        self.novel_test_bidirectional = novel_test_bidirectional
+        self.novel_test_log_summary_only = novel_test_log_summary_only
 
     def set_puzzle_dataset(self, puzzles: List[Puzzle]):
         """Set the full ARC puzzle dataset"""
@@ -362,10 +377,13 @@ class ProgressiveSelectionTrainer:
         """
         from collections import defaultdict
 
-        print(f"\n{'='*50}")
-        print(f"CONSOLIDATION PHASE - Testing Symbol Accuracy")
-        print(f"Modified: 10 selection tests per puzzle with {self.num_distractors} distractors each")
-        print(f"{'='*50}")
+        if not self.web_mode:
+            print(f"\n{'='*50}")
+            print(f"CONSOLIDATION PHASE - Testing Symbol Accuracy")
+            print(f"Modified: 10 selection tests per puzzle with {self.num_distractors} distractors each")
+            print(f"{'='*50}")
+        else:
+            print(f"\nConsolidation phase: testing {len(list(self.puzzle_symbol_mapping.keys()))} symbols...")
 
         self.agent1.eval()
         self.agent2.eval()
@@ -379,14 +397,16 @@ class ProgressiveSelectionTrainer:
 
         with torch.no_grad():
             mapped_puzzle_indices = list(self.puzzle_symbol_mapping.keys())
-            print(f"Testing {len(mapped_puzzle_indices)} puzzles with symbol mappings")
+            if not self.web_mode:
+                print(f"Testing {len(mapped_puzzle_indices)} puzzles with symbol mappings")
 
             for puzzle_idx in mapped_puzzle_indices:
                 puzzle = self.active_puzzles[puzzle_idx]
                 puzzle_tensor = torch.tensor(puzzle.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
 
                 symbol = self.puzzle_symbol_mapping[puzzle_idx]
-                print(f"\nTesting Puzzle {puzzle_idx} (Symbol {symbol}) - 10 selection tests:")
+                if not self.web_mode:
+                    print(f"\nTesting Puzzle {puzzle_idx} (Symbol {symbol}) - 10 selection tests:")
 
                 correct = 0
                 for test_num in range(10):
@@ -431,15 +451,19 @@ class ProgressiveSelectionTrainer:
                     by_symbol[symbol].append(record)
 
                     # A little progress print
-                    if test_num < 3 or test_num == 9:
+                    if not self.web_mode and (test_num < 3 or test_num == 9):
                         status = "✓" if is_correct else "✗"
                         tgt_conf = float(selection_probs[0, 0].item())
                         print(f"    Test {test_num+1}/10: Selected candidate {predicted_idx} {status} (target conf: {tgt_conf:.3f})")
 
                 acc = correct / 10
-                print(f"  → Final accuracy: {correct}/10 ({acc:.1%})")
-                if correct == 0:
-                    print(f"  → WARNING: Puzzle {puzzle_idx} was NEVER selected correctly!")
+                if not self.web_mode:
+                    print(f"  → Final accuracy: {correct}/10 ({acc:.1%})")
+                    if correct == 0:
+                        print(f"  → WARNING: Puzzle {puzzle_idx} was NEVER selected correctly!")
+                elif correct == 0:
+                    # Still show critical warnings in web mode
+                    print(f"  WARNING: Symbol {symbol} never selected correctly!")
 
         # Build confusion_data in the format expected by identify_recessive_symbols
         confusion_data = {}
@@ -479,8 +503,13 @@ class ProgressiveSelectionTrainer:
 
         consolidation_filename = 'consolidation_analysis.txt'
 
-        header = f"{'='*50}\nANALYZING SYMBOL PERFORMANCE (10 tests per symbol)\n{'='*50}"
-        print(header)
+        if not self.web_mode:
+            header = f"{'='*50}\nANALYZING SYMBOL PERFORMANCE (10 tests per symbol)\n{'='*50}"
+            print(header)
+        else:
+            header = f"Analyzing symbol performance..."
+            print(header)
+        
         with open(consolidation_filename, 'a') as log_file:
             log_file.write(f"\n{header}\n")
 
@@ -491,7 +520,8 @@ class ProgressiveSelectionTrainer:
             accuracy = (correct_predictions / total_tests) if total_tests > 0 else 0.0
 
             symbol_line = f"Symbol {symbol}: {correct_predictions}/{total_tests} tests correct ({accuracy:.1%})"
-            print(symbol_line)
+            if not self.web_mode:
+                print(symbol_line)
             with open(consolidation_filename, 'a') as log_file:
                 log_file.write(f"{symbol_line}\n")
 
@@ -507,22 +537,38 @@ class ProgressiveSelectionTrainer:
             else:
                 status_line = f"  → GOOD PERFORMANCE: Symbol {symbol} performing well"
 
-            print(status_line)
+            if not self.web_mode:
+                print(status_line)
             with open(consolidation_filename, 'a') as log_file:
                 log_file.write(f"{status_line}\n")
 
+        if not self.web_mode:
+            summary_text = (
+                f"\nSummary:\n"
+                f"  Total symbols tested: {len(confusion_data)}\n"
+                f"  Recessive symbols (≤30% accuracy): {len(recessive_symbols)}\n"
+                f"  Symbols to be removed: {sorted(recessive_symbols) if recessive_symbols else 'None'}"
+            )
+            print(summary_text)
+        else:
+            # Simplified summary for web mode
+            if recessive_symbols:
+                print(f"Found {len(recessive_symbols)} recessive symbols to remove: {sorted(recessive_symbols)}")
+            else:
+                print("No recessive symbols found - all symbols performing well")
+        
+        # Always write full summary to file
         summary_text = (
             f"\nSummary:\n"
             f"  Total symbols tested: {len(confusion_data)}\n"
             f"  Recessive symbols (≤30% accuracy): {len(recessive_symbols)}\n"
             f"  Symbols to be removed: {sorted(recessive_symbols) if recessive_symbols else 'None'}"
         )
-        print(summary_text)
         with open(consolidation_filename, 'a') as log_file:
             log_file.write(f"{summary_text}\n")
 
         # --- Visual debugging for recessive symbols (now all ≤30% performers) ---
-        if recessive_symbols:
+        if recessive_symbols and not self.web_mode:
             debug_header = (
                 f"\n{'='*70}\n"
                 f"VISUAL DEBUG: WRONG ANSWERS FOR RECESSIVE SYMBOLS (≤30% accuracy)\n"
@@ -704,12 +750,16 @@ class ProgressiveSelectionTrainer:
     def remove_recessive_symbols(self, recessive_symbols: Set[int]):
         """Remove recessive symbols but keep their associated puzzles"""
         if not recessive_symbols:
-            print("No recessive symbols to remove")
+            if not self.web_mode:
+                print("No recessive symbols to remove")
             return
         
-        print(f"\n{'='*50}")
-        print(f"REMOVING RECESSIVE SYMBOLS: {recessive_symbols}")
-        print(f"{'='*50}")
+        if not self.web_mode:
+            print(f"\n{'='*50}")
+            print(f"REMOVING RECESSIVE SYMBOLS: {recessive_symbols}")
+            print(f"{'='*50}")
+        else:
+            print(f"Removing {len(recessive_symbols)} recessive symbols...")
         
         # Find puzzles that will lose their symbol mappings
         orphaned_puzzles = []
@@ -718,8 +768,9 @@ class ProgressiveSelectionTrainer:
                 puzzle_idx = self.symbol_puzzle_mapping[symbol]
                 orphaned_puzzles.append(puzzle_idx)
         
-        print(f"Puzzles that will lose symbol mappings: {orphaned_puzzles}")
-        print(f"These puzzles will remain active but won't have dedicated symbols")
+        if not self.web_mode:
+            print(f"Puzzles that will lose symbol mappings: {orphaned_puzzles}")
+            print(f"These puzzles will remain active but won't have dedicated symbols")
         
         # STORE ORIGINAL MAPPINGS BEFORE REMOVAL
         original_puzzle_symbol_mapping = self.puzzle_symbol_mapping.copy()
@@ -728,7 +779,8 @@ class ProgressiveSelectionTrainer:
         for symbol in recessive_symbols:
             if symbol in self.symbol_puzzle_mapping:
                 puzzle_idx = self.symbol_puzzle_mapping[symbol]
-                print(f"Removing symbol mapping: Puzzle {puzzle_idx} <-> Symbol {symbol}")
+                if not self.web_mode:
+                    print(f"Removing symbol mapping: Puzzle {puzzle_idx} <-> Symbol {symbol}")
                 
                 # Remove from both mappings
                 del self.symbol_puzzle_mapping[symbol]
@@ -756,7 +808,8 @@ class ProgressiveSelectionTrainer:
             # Track the transfer (only if symbol actually changes)
             if old_symbol != new_symbol:
                 symbol_transfer_mapping[old_symbol] = new_symbol
-                print(f"Symbol transfer: {old_symbol} -> {new_symbol} (puzzle {puzzle_idx})")
+                if not self.web_mode:
+                    print(f"Symbol transfer: {old_symbol} -> {new_symbol} (puzzle {puzzle_idx})")
             
             new_symbol_idx += 1
         
@@ -766,7 +819,8 @@ class ProgressiveSelectionTrainer:
         
         # TRANSFER EMBEDDINGS FOR REMAPPED SYMBOLS
         if symbol_transfer_mapping:
-            print(f"\nTransferring embeddings for {len(symbol_transfer_mapping)} remapped symbols...")
+            if not self.web_mode:
+                print(f"\nTransferring embeddings for {len(symbol_transfer_mapping)} remapped symbols...")
             
             with torch.no_grad():
                 # Transfer embeddings for Agent 1
@@ -774,18 +828,22 @@ class ProgressiveSelectionTrainer:
                     self.agent1.communication_embedding.weight[new_symbol].copy_(
                         self.agent1.communication_embedding.weight[old_symbol]
                     )
-                    print(f"  Agent1: Copied embedding {old_symbol} -> {new_symbol}")
+                    if not self.web_mode:
+                        print(f"  Agent1: Copied embedding {old_symbol} -> {new_symbol}")
                 
                 # Transfer embeddings for Agent 2
                 for old_symbol, new_symbol in symbol_transfer_mapping.items():
                     self.agent2.communication_embedding.weight[new_symbol].copy_(
                         self.agent2.communication_embedding.weight[old_symbol]
                     )
-                    print(f"  Agent2: Copied embedding {old_symbol} -> {new_symbol}")
+                    if not self.web_mode:
+                        print(f"  Agent2: Copied embedding {old_symbol} -> {new_symbol}")
             
-            print(f"Embedding transfer complete: {len(symbol_transfer_mapping)} transfers")
+            if not self.web_mode:
+                print(f"Embedding transfer complete: {len(symbol_transfer_mapping)} transfers")
         else:
-            print("No embedding transfers needed (symbols remain in same positions)")
+            if not self.web_mode:
+                print("No embedding transfers needed (symbols remain in same positions)")
         
         # Update agent vocabularies based on remaining mapped symbols
         self.agent1.current_comm_symbols = len(self.puzzle_symbol_mapping)
@@ -796,13 +854,16 @@ class ProgressiveSelectionTrainer:
         # Track removed symbols
         self.removed_symbols.update(recessive_symbols)
         
-        print(f"\nResults:")
-        print(f"  Total puzzles (unchanged): {len(self.active_puzzles)}")
-        print(f"  Puzzles with symbol mappings: {len(self.puzzle_symbol_mapping)}")
-        print(f"  Puzzles without symbol mappings: {len(self.active_puzzles) - len(self.puzzle_symbol_mapping)}")
-        print(f"  Active communication symbols: {self.agent1.current_comm_symbols}")
-        print(f"  New symbol mapping: {self.puzzle_symbol_mapping}")
-        print(f"  Embeddings preserved for surviving symbols: ✓")
+        if not self.web_mode:
+            print(f"\nResults:")
+            print(f"  Total puzzles (unchanged): {len(self.active_puzzles)}")
+            print(f"  Puzzles with symbol mappings: {len(self.puzzle_symbol_mapping)}")
+            print(f"  Puzzles without symbol mappings: {len(self.active_puzzles) - len(self.puzzle_symbol_mapping)}")
+            print(f"  Active communication symbols: {self.agent1.current_comm_symbols}")
+            print(f"  New symbol mapping: {self.puzzle_symbol_mapping}")
+            print(f"  Embeddings preserved for surviving symbols: ✓")
+        else:
+            print(f"Consolidation complete: {self.agent1.current_comm_symbols} active symbols remaining")
     
     def add_new_puzzles(self):
         """
@@ -811,12 +872,15 @@ class ProgressiveSelectionTrainer:
         - Before threshold: assign NEW symbols using the next contiguous index (random embeddings).
         - After threshold: allocate NEW symbols at encoder-predicted embeddings (no pretraining).
         """
-        print(f"\n{'='*50}")
-        if self.intelligent_addition_enabled:
-            print(f"ADDITION PHASE - Adding {self.puzzles_per_addition} new puzzles (predicted-embedding symbols)")
+        if not self.web_mode:
+            print(f"\n{'='*50}")
+            if self.intelligent_addition_enabled:
+                print(f"ADDITION PHASE - Adding {self.puzzles_per_addition} new puzzles (predicted-embedding symbols)")
+            else:
+                print(f"ADDITION PHASE - Adding {self.puzzles_per_addition} new puzzles (random symbol initialization)")
+            print(f"{'='*50}")
         else:
-            print(f"ADDITION PHASE - Adding {self.puzzles_per_addition} new puzzles (random symbol initialization)")
-        print(f"{'='*50}")
+            print(f"Adding {self.puzzles_per_addition} new puzzles...")
         
         # Find unused puzzle indices
         all_indices = set(range(len(self.available_arc_puzzles)))
@@ -858,13 +922,15 @@ class ProgressiveSelectionTrainer:
                 self.agent2.add_new_symbol_with_embedding(pred_emb)
                 self.puzzle_symbol_mapping[active_puzzle_idx] = new_sym_idx_1
                 self.symbol_puzzle_mapping[new_sym_idx_1] = active_puzzle_idx
-                print(f"Added dataset puzzle {dataset_idx} as active puzzle {active_puzzle_idx} with symbol {new_sym_idx_1} (predicted embedding)")
+                if not self.web_mode:
+                    print(f"Added dataset puzzle {dataset_idx} as active puzzle {active_puzzle_idx} with symbol {new_sym_idx_1} (predicted embedding)")
             else:
                 # Random symbol initialization: assign next contiguous symbol index
                 next_symbol = self.agent1.puzzle_symbols + len(self.puzzle_symbol_mapping)
                 self.puzzle_symbol_mapping[active_puzzle_idx] = next_symbol
                 self.symbol_puzzle_mapping[next_symbol] = active_puzzle_idx
-                print(f"Added dataset puzzle {dataset_idx} as active puzzle {active_puzzle_idx} with symbol {next_symbol} (random initialization)")
+                if not self.web_mode:
+                    print(f"Added dataset puzzle {dataset_idx} as active puzzle {active_puzzle_idx} with symbol {next_symbol} (random initialization)")
          
         # Update agent vocabularies to reflect the number of mapped puzzles
         self.agent1.current_comm_symbols = len(self.puzzle_symbol_mapping)
@@ -872,11 +938,14 @@ class ProgressiveSelectionTrainer:
         self.agent1.current_total_symbols = self.agent1.puzzle_symbols + len(self.puzzle_symbol_mapping)
         self.agent2.current_total_symbols = self.agent2.puzzle_symbols + len(self.puzzle_symbol_mapping)
         
-        print(f"Total active puzzles: {len(self.active_puzzles)}")
-        print(f"Selected new puzzle indices from dataset: {selected_new_indices}")
-        print(f"Total used puzzle indices: {len(self.used_puzzle_indices)}")
-        print(f"Remaining unused puzzles: {len(self.available_arc_puzzles) - len(self.used_puzzle_indices)}")
-        print(f"New symbol mapping: {self.puzzle_symbol_mapping}")
+        if not self.web_mode:
+            print(f"Total active puzzles: {len(self.active_puzzles)}")
+            print(f"Selected new puzzle indices from dataset: {selected_new_indices}")
+            print(f"Total used puzzle indices: {len(self.used_puzzle_indices)}")
+            print(f"Remaining unused puzzles: {len(self.available_arc_puzzles) - len(self.used_puzzle_indices)}")
+            print(f"New symbol mapping: {self.puzzle_symbol_mapping}")
+        else:
+            print(f"Added {len(new_puzzles)} puzzles. Total: {len(self.active_puzzles)} active puzzles, {self.agent1.current_comm_symbols} symbols")
         
         return new_puzzles
     
@@ -1340,7 +1409,7 @@ class ProgressiveSelectionTrainer:
         self.agent1.train()
         self.agent2.train()
 
-    def run_novel_symbol_induction_test(self, num_tests: int = 100, temperature: float = 0.1, log_file_path: str = "novel_symbol_unseen_testing_log.txt", bidirectional: bool = False) -> dict:
+    def run_novel_symbol_induction_test(self, num_tests: int = 100, temperature: float = 0.1, log_file_path: str = "novel_symbol_unseen_testing_log.txt", bidirectional: bool = False, log_summary_only: bool = False, disable_file_logging: bool = False) -> dict:
         """
         NEW: After freezing, evaluate on unseen puzzles by inducing a novel symbol per puzzle.
         For each unseen test:
@@ -1387,7 +1456,7 @@ class ProgressiveSelectionTrainer:
         results_rev = []
         # Open log file
         try:
-            log_f = open(log_file_path, 'a')
+            log_f = None if disable_file_logging else open(log_file_path, 'a')
         except Exception:
             log_f = None
         
@@ -1397,9 +1466,9 @@ class ProgressiveSelectionTrainer:
             f"Num tests: {num_tests} | Distractors per test: {self.num_distractors}\n"
             f"{'='*60}\n"
         )
-        if log_f:
+        if log_f and not log_summary_only:
             log_f.write(header)
-        else:
+        elif not log_f:
             print(header)
         # Log GES (MA) at test time
         ges1_ma_val, ges2_ma_val = self._current_ges_ma()
@@ -1464,7 +1533,7 @@ class ProgressiveSelectionTrainer:
                 # Log per-test
                 probs_list = [float(selection_probs[0, i].item()) for i in range(selection_probs.shape[1])]
                 candidate_indices = [dataset_idx] + distractor_dataset_indices
-                if log_f:
+                if log_f and not log_summary_only:
                     log_f.write(
                         f"Test {t_idx:03d}: target={dataset_idx}, predicted={predicted_idx}, correct={'✓' if is_correct else '✗'}\n"
                     )
@@ -1508,7 +1577,7 @@ class ProgressiveSelectionTrainer:
                     if is_correct_rev:
                         correct_rev += 1
                     probs_list_rev = [float(selection_probs_rev[0, i].item()) for i in range(selection_probs_rev.shape[1])]
-                    if log_f:
+                    if log_f and not log_summary_only:
                         log_f.write(
                             f"Test {t_idx:03d} [A2→A1]: target={dataset_idx}, predicted={predicted_idx_rev}, correct={'✓' if is_correct_rev else '✗'}\n"
                         )
@@ -1533,6 +1602,7 @@ class ProgressiveSelectionTrainer:
         ges1_ma_val, ges2_ma_val = self._current_ges_ma()
         summary = {"num_tests": total_tests, "correct": total_correct, "accuracy": accuracy, "a1_to_a2_correct": correct, "a2_to_a1_correct": (correct_rev if bidirectional else None), "a1_to_a2_accuracy": acc_a1_a2, "a2_to_a1_accuracy": acc_a2_a1, "ges1_ma": ges1_ma_val, "ges2_ma": ges2_ma_val, "results": results + (results_rev if bidirectional else [])}
         if log_f:
+            # Always write a concise summary when logging is enabled
             log_f.write("Summary (bidirectional):\n")
             log_f.write(f"  A1→A2: {correct}/{num_tests} correct (acc={acc_a1_a2:.3f})\n")
             if bidirectional:

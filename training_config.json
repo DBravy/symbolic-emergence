@@ -1,0 +1,22 @@
+{
+  "max_global_phases": 100,
+  "first_pretrain_epochs": 100,
+  "pretrain_epochs": 100,
+  "initial_puzzle_count": 3,
+  "initial_comm_symbols": 4,
+  "first_training_cycles": 50,
+  "training_cycles": 25,
+  "consolidation_tests": 5,
+  "puzzles_per_addition": 2,
+  "repetitions_per_puzzle": 1,
+  "num_distractors": 2,
+  "distractor_strategy": "random",
+  "phase_change_indicator": "ges",
+  "learning_rate": 7e-07,
+  "embedding_dim": 512,
+  "hidden_dim": 1024,
+  "num_symbols": 100,
+  "puzzle_symbols": 10,
+  "max_seq_length": 1,
+  "output_dir": "./outputs"
+}
