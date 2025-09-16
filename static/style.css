@@ -332,25 +332,95 @@ button:disabled {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
+/* Test Scores Section */
+.scores-section {
+    margin: 20px 0;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#scores-container {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.score-card {
+    flex: 1;
+    padding: 15px;
+    background: #f9f9f9;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    min-width: 0; /* Allow flex items to shrink */
+}
+
+.score-card h4 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-size: 1.1em;
+}
+
 /* Score history styles */
 .score-history {
-  margin-top: 8px;
-  border-top: 1px solid #ddd;
-  padding-top: 8px;
+    margin-top: 8px;
+    border-top: 1px solid #ddd;
+    padding-top: 8px;
+    max-height: 400px;
+    overflow-y: auto;
 }
+
 .score-history-item {
-  display: grid;
-  grid-template-columns: 50px 1fr 1fr 1fr 1fr;
-  gap: 6px 12px;
-  padding: 6px 0;
-  border-bottom: 1px dashed #eee;
-  font-size: 0.95em;
+    display: grid;
+    grid-template-columns: 40px 120px 80px 80px 120px;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px dashed #eee;
+    font-size: 0.9em;
+    line-height: 1.3;
 }
+
+.score-history-item:last-child {
+    border-bottom: none;
+}
+
 .score-history-index {
-  color: #888;
+    color: #888;
+    font-weight: bold;
+    text-align: center;
 }
+
+.score-history-overall {
+    font-weight: 500;
+}
+
+.score-history-a12, .score-history-a21 {
+    text-align: center;
+}
+
+.score-history-ges {
+    font-size: 0.85em;
+    color: #666;
+}
+
 .score-controls {
-  margin-bottom: 8px;
+    margin-bottom: 15px;
+}
+
+.score-controls label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.score-history-empty {
+    color: #999;
+    font-style: italic;
+    text-align: center;
+    padding: 20px;
 }
 
 /* Responsive Design */
