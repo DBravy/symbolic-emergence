@@ -458,6 +458,38 @@ function renderScoreHistory(elementId, history, label) {
     el.innerHTML = rows.join('');
 }
 
+async function saveReport() {
+    try {
+        const resp = await fetch('/api/report');
+        if (!resp.ok) {
+            // Try to parse error JSON
+            let msg = 'Failed to generate report';
+            try {
+                const err = await resp.json();
+                if (err && err.error) msg = err.error;
+            } catch (_) {}
+            showNotification(msg, 'error');
+            return;
+        }
+        const blob = await resp.blob();
+        // Prefer server-provided filename
+        const headerName = resp.headers.get('X-Report-Filename');
+        const filename = headerName || `run_report_${new Date().toISOString().replace(/[:.]/g, '-')}.pdf`;
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        showNotification('Report downloaded', 'success');
+    } catch (e) {
+        console.error('Report download error:', e);
+        showNotification('Error generating report', 'error');
+    }
+}
+
 // Notifications
 function showNotification(message, type = 'info') {
     // Create notification element

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, after_this_request
 import subprocess
 import json
 import os
@@ -13,6 +13,19 @@ import fcntl
 import select
 import re
 from collections import deque
+import tempfile
+import textwrap
+
+# Use non-interactive backend for matplotlib
+try:
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_pdf import PdfPages
+except Exception:
+    matplotlib = None
+    plt = None
+    PdfPages = None
 
 app = Flask(__name__)
 
@@ -673,19 +686,43 @@ def get_latest_plot():
         log_debug(f"Error selecting latest plot: {e}")
         return jsonify({'latest': None})
 
+
+def _find_latest_plot_path():
+    """Return latest plot file path or None."""
+    patterns = ['*.png', '*.jpg', '*.jpeg']
+    output_dir = current_config.get('output_dir', DEFAULT_CONFIG.get('output_dir', './outputs')) if current_config else DEFAULT_CONFIG.get('output_dir', './outputs')
+    candidates = []
+    try:
+        if output_dir and os.path.isdir(output_dir):
+            for pattern in patterns:
+                candidates.extend(glob.glob(os.path.join(output_dir, pattern)))
+    except Exception as e:
+        log_debug(f"Error scanning output_dir for latest plot: {e}")
+    for pattern in patterns:
+        candidates.extend(glob.glob(pattern))
+    if not candidates:
+        return None
+    try:
+        latest_path = max(candidates, key=lambda p: os.path.getmtime(p))
+        return latest_path
+    except Exception as e:
+        log_debug(f"Error selecting latest plot: {e}")
+        return None
+
+# --- restore plot serving route ---
 @app.route('/api/plot/<path:filename>')
 def serve_plot(filename):
     """Serve plot file from output_dir or cwd"""
     # Security: normalize path to avoid directory traversal
     safe_name = os.path.basename(filename)
-    
+
     # Determine output directory
     output_dir = current_config.get('output_dir', DEFAULT_CONFIG.get('output_dir', './outputs')) if current_config else DEFAULT_CONFIG.get('output_dir', './outputs')
     candidate_paths = []
     if output_dir:
         candidate_paths.append(os.path.join(output_dir, safe_name))
     candidate_paths.append(safe_name)
-    
+
     for path in candidate_paths:
         if os.path.exists(path) and path.endswith(('.png', '.jpg', '.jpeg')):
             try:
@@ -694,6 +731,178 @@ def serve_plot(filename):
                 log_debug(f"Error sending file {path}: {e}")
                 return jsonify({'error': 'Error reading file'}), 500
     return jsonify({'error': 'File not found'}), 404
+
+# --- NEW: Report generation API ---
+@app.route('/api/report', methods=['GET'])
+def generate_report():
+    """Generate a PDF report with latest plot, configuration, and score history."""
+    # Check matplotlib availability
+    if PdfPages is None or plt is None:
+        return jsonify({'error': 'Matplotlib is not available on the server to generate PDF reports.'}), 500
+
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    report_filename = f'run_report_{timestamp}.pdf'
+
+    # Gather data
+    cfg = current_config.copy() if current_config else DEFAULT_CONFIG.copy()
+
+    # Scores using existing helpers
+    output_dir = cfg.get('output_dir', DEFAULT_CONFIG.get('output_dir', './outputs'))
+    unseen_candidates = [
+        os.path.join(output_dir, 'unseen_testing_log.txt') if output_dir else None,
+        'unseen_testing_log.txt',
+        os.path.join('src', 'unseen_testing_log.txt')
+    ]
+    novel_candidates = [
+        os.path.join(output_dir, 'novel_symbol_unseen_testing_log.txt') if output_dir else None,
+        'novel_symbol_unseen_testing_log.txt',
+        os.path.join('src', 'novel_symbol_unseen_testing_log.txt')
+    ]
+    unseen_lines, unseen_path = _read_tail_lines(unseen_candidates)
+    novel_lines, novel_path = _read_tail_lines(novel_candidates)
+
+    unseen_latest = _parse_test_summary_from_lines(unseen_lines, 'Unseen testing summary') if unseen_lines is not None else None
+    novel_latest = _parse_test_summary_from_lines(novel_lines, 'Novel symbol induction summary') if novel_lines is not None else None
+
+    unseen_history = []
+    novel_history = []
+    if unseen_path:
+        all_unseen = _read_all_lines(unseen_path)
+        if all_unseen is not None:
+            unseen_history = _parse_all_summaries_from_lines(all_unseen, 'Unseen testing summary')
+    if novel_path:
+        all_novel = _read_all_lines(novel_path)
+        if all_novel is not None:
+            novel_history = _parse_all_summaries_from_lines(all_novel, 'Novel symbol induction summary')
+
+    latest_plot_path = _find_latest_plot_path()
+
+    # Create PDF
+    try:
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+        tmp_path = tmp.name
+        tmp.close()
+
+        with PdfPages(tmp_path) as pdf:
+            # Page 1: Title and configuration summary
+            fig = plt.figure(figsize=(8.27, 11.69))  # A4 portrait in inches
+            fig.suptitle('Run Report', fontsize=18, y=0.98)
+            ax = fig.add_axes([0.08, 0.08, 0.84, 0.84])
+            ax.axis('off')
+
+            lines = []
+            lines.append(f'Date: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+            lines.append('')
+            lines.append('Configuration:')
+            # Nicely format configuration
+            for key in sorted(cfg.keys()):
+                val = cfg[key]
+                line = f'  - {key}: {val}'
+                wrapped = textwrap.wrap(line, width=90)
+                lines.extend(wrapped)
+            lines.append('')
+            if unseen_latest:
+                lines.append('Latest Unseen Test:')
+                lines.append(f"  - Overall: {unseen_latest.get('correct','-')}/{unseen_latest.get('num_tests','-')} (acc={(unseen_latest.get('accuracy',0)*100):.1f}%)")
+                if 'a1_to_a2_accuracy' in unseen_latest:
+                    lines.append(f"  - A1→A2: {(unseen_latest.get('a1_to_a2_accuracy',0)*100):.1f}%  |  A2→A1: {(unseen_latest.get('a2_to_a1_accuracy',0)*100):.1f}%")
+                if 'ges1_ma' in unseen_latest or 'ges2_ma' in unseen_latest:
+                    lines.append(f"  - GES (MA): A1={unseen_latest.get('ges1_ma','-')}, A2={unseen_latest.get('ges2_ma','-')}")
+                lines.append('')
+            if novel_latest:
+                lines.append('Latest Novel Symbol Test:')
+                lines.append(f"  - Overall: {novel_latest.get('correct','-')}/{novel_latest.get('num_tests','-')} (acc={(novel_latest.get('accuracy',0)*100):.1f}%)")
+                if 'a1_to_a2_accuracy' in novel_latest:
+                    lines.append(f"  - A1→A2: {(novel_latest.get('a1_to_a2_accuracy',0)*100):.1f}%  |  A2→A1: {(novel_latest.get('a2_to_a1_accuracy',0)*100):.1f}%")
+                if 'ges1_ma' in novel_latest or 'ges2_ma' in novel_latest:
+                    lines.append(f"  - GES (MA): A1={novel_latest.get('ges1_ma','-')}, A2={novel_latest.get('ges2_ma','-')}")
+
+            y = 0.95
+            for line in lines:
+                ax.text(0.02, y, line, va='top', ha='left', fontsize=10, family='monospace', transform=ax.transAxes)
+                y -= 0.03
+                if y < 0.05:
+                    break  # avoid overflow on the first page
+            pdf.savefig(fig)
+            plt.close(fig)
+
+            # Page 2: Latest plot image (if any)
+            fig = plt.figure(figsize=(8.27, 11.69))
+            ax = fig.add_axes([0.05, 0.05, 0.9, 0.9])
+            ax.axis('off')
+            if latest_plot_path and os.path.exists(latest_plot_path):
+                try:
+                    img = plt.imread(latest_plot_path)
+                    ax.imshow(img)
+                    ax.set_title(f'Latest Plot: {os.path.basename(latest_plot_path)}', fontsize=12)
+                except Exception as e:
+                    ax.text(0.5, 0.5, f'Error loading plot: {e}', ha='center', va='center')
+            else:
+                ax.text(0.5, 0.5, 'No plot available', ha='center', va='center')
+            pdf.savefig(fig)
+            plt.close(fig)
+
+            # Page 3: Unseen history (most recent first, capped)
+            if unseen_history:
+                fig = plt.figure(figsize=(8.27, 11.69))
+                ax = fig.add_axes([0.08, 0.08, 0.84, 0.84])
+                ax.axis('off')
+                ax.set_title('Unseen Test History (most recent first)', fontsize=14, pad=10)
+                max_items = 60
+                items = list(reversed(unseen_history))[-max_items:]
+                y = 0.95
+                idx_total = len(items)
+                for i, s in enumerate(reversed(items), start=1):
+                    overall = f"{s.get('correct','-')}/{s.get('num_tests','-')} ({(s.get('accuracy',0)*100):.1f}%)"
+                    a12 = f"{(s.get('a1_to_a2_accuracy',0)*100):.1f}%" if 'a1_to_a2_accuracy' in s else '-'
+                    a21 = f"{(s.get('a2_to_a1_accuracy',0)*100):.1f}%" if 'a2_to_a1_accuracy' in s else '-'
+                    ges = f"A1={s.get('ges1_ma','-')}, A2={s.get('ges2_ma','-')}"
+                    line = f"#{idx_total - i + 1:03d}  Overall: {overall}  |  A1→A2: {a12}  |  A2→A1: {a21}  |  GES: {ges}"
+                    ax.text(0.02, y, line, va='top', ha='left', fontsize=9, family='monospace', transform=ax.transAxes)
+                    y -= 0.025
+                    if y < 0.05:
+                        break
+                pdf.savefig(fig)
+                plt.close(fig)
+
+            # Page 4: Novel history (most recent first, capped)
+            if novel_history:
+                fig = plt.figure(figsize=(8.27, 11.69))
+                ax = fig.add_axes([0.08, 0.08, 0.84, 0.84])
+                ax.axis('off')
+                ax.set_title('Novel Symbol Test History (most recent first)', fontsize=14, pad=10)
+                max_items = 60
+                items = list(reversed(novel_history))[-max_items:]
+                y = 0.95
+                idx_total = len(items)
+                for i, s in enumerate(reversed(items), start=1):
+                    overall = f"{s.get('correct','-')}/{s.get('num_tests','-')} ({(s.get('accuracy',0)*100):.1f}%)"
+                    a12 = f"{(s.get('a1_to_a2_accuracy',0)*100):.1f}%" if 'a1_to_a2_accuracy' in s else '-'
+                    a21 = f"{(s.get('a2_to_a1_accuracy',0)*100):.1f}%" if 'a2_to_a1_accuracy' in s else '-'
+                    ges = f"A1={s.get('ges1_ma','-')}, A2={s.get('ges2_ma','-')}"
+                    line = f"#{idx_total - i + 1:03d}  Overall: {overall}  |  A1→A2: {a12}  |  A2→A1: {a21}  |  GES: {ges}"
+                    ax.text(0.02, y, line, va='top', ha='left', fontsize=9, family='monospace', transform=ax.transAxes)
+                    y -= 0.025
+                    if y < 0.05:
+                        break
+                pdf.savefig(fig)
+                plt.close(fig)
+
+        @after_this_request
+        def remove_file(response):
+            try:
+                os.remove(tmp_path)
+            except Exception as e:
+                log_debug(f"Error deleting temporary report file: {e}")
+            # Add a header to help client name the file
+            response.headers['X-Report-Filename'] = report_filename
+            return response
+
+        return send_file(tmp_path, mimetype='application/pdf', as_attachment=True, download_name=report_filename)
+
+    except Exception as e:
+        log_debug(f"Error generating report: {e}")
+        return jsonify({'error': f'Failed to generate report: {str(e)}'}), 500
 
 # --- NEW: Scores API ---
 
