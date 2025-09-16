@@ -822,6 +822,26 @@ def _read_tail_lines(path_candidates, max_lines=2000):
     return None, None
 
 
+def _read_all_lines(path, max_bytes=5*1024*1024, tail_fallback_lines=20000):
+    """Read entire file if size <= max_bytes, otherwise tail as fallback.
+    Returns list of lines or None on error.
+    """
+    try:
+        if not os.path.exists(path):
+            return None
+        size = os.path.getsize(path)
+        if size <= max_bytes:
+            with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                return f.readlines()
+        # Fallback: large file, read a larger tail window
+        with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+            dq = deque(f, maxlen=tail_fallback_lines)
+            return list(dq)
+    except Exception as e:
+        log_debug(f"Error reading all lines from {path}: {e}")
+        return None
+
+
 @app.route('/api/scores', methods=['GET'])
 def get_scores():
     """Return latest parsed scores for unseen and novel tests, plus optional history."""
@@ -850,18 +870,30 @@ def get_scores():
     
     if unseen_lines is not None:
         unseen = _parse_test_summary_from_lines(unseen_lines, 'Unseen testing summary')
-        unseen_history = _parse_all_summaries_from_lines(unseen_lines, 'Unseen testing summary')
         try:
             unseen_mtime = os.path.getmtime(unseen_path)
         except Exception:
             unseen_mtime = None
     if novel_lines is not None:
         novel = _parse_test_summary_from_lines(novel_lines, 'Novel symbol induction summary')
-        novel_history = _parse_all_summaries_from_lines(novel_lines, 'Novel symbol induction summary')
         try:
             novel_mtime = os.path.getmtime(novel_path)
         except Exception:
             novel_mtime = None
+    
+    # For history, parse the full file (or a large tail for very large files)
+    if unseen_path:
+        all_unseen = _read_all_lines(unseen_path)
+        if all_unseen is not None:
+            unseen_history = _parse_all_summaries_from_lines(all_unseen, 'Unseen testing summary')
+        elif unseen_lines is not None:
+            unseen_history = _parse_all_summaries_from_lines(unseen_lines, 'Unseen testing summary')
+    if novel_path:
+        all_novel = _read_all_lines(novel_path)
+        if all_novel is not None:
+            novel_history = _parse_all_summaries_from_lines(all_novel, 'Novel symbol induction summary')
+        elif novel_lines is not None:
+            novel_history = _parse_all_summaries_from_lines(novel_lines, 'Novel symbol induction summary')
     
     return jsonify({
         'unseen': unseen,
