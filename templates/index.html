@@ -171,14 +171,22 @@
             <!-- NEW: Test Scores Section -->
             <section class="scores-section">
                 <h3>Test Scores</h3>
+                <div class="score-controls">
+                    <label>
+                        <input type="checkbox" id="show-history-toggle" onchange="toggleScoreHistory()">
+                        Show full history
+                    </label>
+                </div>
                 <div id="scores-container">
                     <div class="score-card">
                         <h4>Unseen Puzzle Test</h4>
                         <div id="unseen-score">No data yet</div>
+                        <div id="unseen-history" class="score-history" style="display:none"></div>
                     </div>
                     <div class="score-card">
                         <h4>Novel Symbol Test</h4>
                         <div id="novel-score">No data yet</div>
+                        <div id="novel-history" class="score-history" style="display:none"></div>
                     </div>
                 </div>
             </section>

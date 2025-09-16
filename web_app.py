@@ -267,6 +267,22 @@ def start_training():
         except Exception as e:
             log_debug(f"Could not create output_dir: {e}")
         
+        # Clear previous score logs to reset history between runs
+        try:
+            for fname in ['unseen_testing_log.txt', 'novel_symbol_unseen_testing_log.txt', 'phase_training_log.txt']:
+                # Try clearing in output_dir and cwd
+                candidates = []
+                if output_dir:
+                    candidates.append(os.path.join(output_dir, fname))
+                candidates.append(fname)
+                for p in candidates:
+                    if os.path.exists(p):
+                        with open(p, 'w') as f:
+                            f.write('')
+                        log_debug(f"Cleared log file at start: {p}")
+        except Exception as e:
+            log_debug(f"Error clearing score logs: {e}")
+        
         # Check if the training script exists
         training_script = 'src/train_selection.py'
         if not os.path.exists(training_script):
@@ -681,6 +697,7 @@ def serve_plot(filename):
 
 # --- NEW: Scores API ---
 
+
 def _parse_test_summary_from_lines(lines, summary_header):
     """Parse the most recent summary block following a given header.
     Returns dict or None.
@@ -691,18 +708,26 @@ def _parse_test_summary_from_lines(lines, summary_header):
         if summary_header in lines[i]:
             header_idx = i
             break
+    # Fallback: some logs use a generic header
     if header_idx is None:
-        return None
-    # Expect the next lines to contain A1→A2, A2→A1, Overall, GES lines
-    result = {}
+        for i in range(len(lines) - 1, -1, -1):
+            if 'Summary (bidirectional):' in lines[i]:
+                header_idx = i
+                break
     # Helper regexes (robust to arrow variations and spacing)
     r_pair = re.compile(r"A1.*A2:\s*(\d+)/(\d+)\s+correct\s+\(acc=([0-9.]+)\)")
     r_pair_rev = re.compile(r"A2.*A1:\s*(\d+)/(\d+)\s+correct\s+\(acc=([0-9.]+)\)")
     r_overall = re.compile(r"Overall:\s*(\d+)/(\d+)\s+correct\s+\(acc=([0-9.]+)\)")
     r_ges = re.compile(r"GES.*Agent1=([0-9.\-]+),\s*Agent2=([0-9.\-]+)")
     
-    # Scan a window of lines after header
-    window = lines[header_idx + 1: header_idx + 8]
+    # Build a scan window
+    if header_idx is not None:
+        window = lines[header_idx: header_idx + 12]
+    else:
+        # Fallback: scan the last chunk of the file for the latest summary
+        window = lines[-60:]
+    
+    result = {}
     for line in window:
         m = r_pair.search(line)
         if m:
@@ -733,6 +758,53 @@ def _parse_test_summary_from_lines(lines, summary_header):
     return result
 
 
+def _parse_all_summaries_from_lines(lines, primary_header):
+    """Parse all summary blocks in a log file and return a list of dicts in file order.
+    Recognizes either the primary header or the generic 'Summary (bidirectional):'.
+    """
+    if not lines:
+        return []
+    r_pair = re.compile(r"A1.*A2:\s*(\d+)/(\d+)\s+correct\s+\(acc=([0-9.]+)\)")
+    r_pair_rev = re.compile(r"A2.*A1:\s*(\d+)/(\d+)\s+correct\s+\(acc=([0-9.]+)\)")
+    r_overall = re.compile(r"Overall:\s*(\d+)/(\d+)\s+correct\s+\(acc=([0-9.]+)\)")
+    r_ges = re.compile(r"GES.*Agent1=([0-9.\-]+),\s*Agent2=([0-9.\-]+)")
+    headers = []
+    for i, line in enumerate(lines):
+        if (primary_header in line) or ('Summary (bidirectional):' in line):
+            headers.append(i)
+    summaries = []
+    for idx in headers:
+        window = lines[idx: idx + 12]
+        result = {}
+        for line in window:
+            m = r_pair.search(line)
+            if m:
+                result['a1_to_a2_correct'] = int(m.group(1))
+                result['a1_to_a2_total'] = int(m.group(2))
+                result['a1_to_a2_accuracy'] = float(m.group(3))
+                continue
+            m = r_pair_rev.search(line)
+            if m:
+                result['a2_to_a1_correct'] = int(m.group(1))
+                result['a2_to_a1_total'] = int(m.group(2))
+                result['a2_to_a1_accuracy'] = float(m.group(3))
+                continue
+            m = r_overall.search(line)
+            if m:
+                result['correct'] = int(m.group(1))
+                result['num_tests'] = int(m.group(2))
+                result['accuracy'] = float(m.group(3))
+                continue
+            m = r_ges.search(line)
+            if m:
+                result['ges1_ma'] = float(m.group(1))
+                result['ges2_ma'] = float(m.group(2))
+                continue
+        if 'accuracy' in result:
+            summaries.append(result)
+    return summaries
+
+
 def _read_tail_lines(path_candidates, max_lines=2000):
     """Read the tail lines of the first existing file in candidates.
     Returns (lines, path) or (None, None) if not found.
@@ -752,7 +824,7 @@ def _read_tail_lines(path_candidates, max_lines=2000):
 
 @app.route('/api/scores', methods=['GET'])
 def get_scores():
-    """Return latest parsed scores for unseen and novel tests."""
+    """Return latest parsed scores for unseen and novel tests, plus optional history."""
     # Determine candidate paths in output_dir and cwd and src/
     output_dir = current_config.get('output_dir', DEFAULT_CONFIG.get('output_dir', './outputs')) if current_config else DEFAULT_CONFIG.get('output_dir', './outputs')
     unseen_candidates = [
@@ -773,15 +845,19 @@ def get_scores():
     novel = None
     unseen_mtime = None
     novel_mtime = None
+    unseen_history = []
+    novel_history = []
     
     if unseen_lines is not None:
         unseen = _parse_test_summary_from_lines(unseen_lines, 'Unseen testing summary')
+        unseen_history = _parse_all_summaries_from_lines(unseen_lines, 'Unseen testing summary')
         try:
             unseen_mtime = os.path.getmtime(unseen_path)
         except Exception:
             unseen_mtime = None
     if novel_lines is not None:
         novel = _parse_test_summary_from_lines(novel_lines, 'Novel symbol induction summary')
+        novel_history = _parse_all_summaries_from_lines(novel_lines, 'Novel symbol induction summary')
         try:
             novel_mtime = os.path.getmtime(novel_path)
         except Exception:
@@ -791,9 +867,11 @@ def get_scores():
         'unseen': unseen,
         'unseen_path': unseen_path,
         'unseen_mtime': unseen_mtime,
+        'unseen_history': unseen_history,
         'novel': novel,
         'novel_path': novel_path,
-        'novel_mtime': novel_mtime
+        'novel_mtime': novel_mtime,
+        'novel_history': novel_history
     })
 
 if __name__ == '__main__':

@@ -332,6 +332,27 @@ button:disabled {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
+/* Score history styles */
+.score-history {
+  margin-top: 8px;
+  border-top: 1px solid #ddd;
+  padding-top: 8px;
+}
+.score-history-item {
+  display: grid;
+  grid-template-columns: 50px 1fr 1fr 1fr 1fr;
+  gap: 6px 12px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #eee;
+  font-size: 0.95em;
+}
+.score-history-index {
+  color: #888;
+}
+.score-controls {
+  margin-bottom: 8px;
+}
+
 /* Responsive Design */
 @media (max-width: 1200px) {
     .main-content {

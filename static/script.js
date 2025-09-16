@@ -4,6 +4,8 @@ let autoScroll = true;
 let statusInterval;
 let logsInterval;
 
+let showScoreHistory = false;
+
 // Live plot auto-refresh
 let livePlotInterval;
 let scoresInterval;
@@ -136,6 +138,9 @@ async function startTraining() {
             // Update UI to show running state
             document.getElementById('training-status').textContent = 'Running';
             document.getElementById('training-status').classList.add('running');
+            
+            // Clear score UI for new run
+            clearScoreUI();
         } else {
             showNotification(result.message || 'Error starting training', 'error');
         }
@@ -143,6 +148,15 @@ async function startTraining() {
         console.error('Error starting training:', error);
         showNotification('Error starting training', 'error');
     }
+}
+
+function clearScoreUI() {
+    document.getElementById('unseen-score').textContent = 'No data yet';
+    document.getElementById('novel-score').textContent = 'No data yet';
+    const uh = document.getElementById('unseen-history');
+    const nh = document.getElementById('novel-history');
+    if (uh) uh.innerHTML = '';
+    if (nh) nh.innerHTML = '';
 }
 
 async function stopTraining() {
@@ -390,6 +404,14 @@ async function updateScores() {
         const data = await resp.json();
         renderScore('unseen-score', data.unseen, 'Unseen');
         renderScore('novel-score', data.novel, 'Novel');
+        renderScoreHistory('unseen-history', data.unseen_history, 'Unseen');
+        renderScoreHistory('novel-history', data.novel_history, 'Novel');
+        // Toggle visibility based on checkbox
+        const display = showScoreHistory ? 'block' : 'none';
+        const uh = document.getElementById('unseen-history');
+        const nh = document.getElementById('novel-history');
+        if (uh) uh.style.display = display;
+        if (nh) nh.style.display = display;
     } catch (e) {
         console.error('Error updating scores:', e);
     }
@@ -408,6 +430,32 @@ function renderScore(elementId, score, label) {
         <div><strong>A2→A1</strong>: ${score.a2_to_a1_correct ?? '-'} / ${score.a2_to_a1_total ?? '-'} (acc=${score.a2_to_a1_accuracy != null ? (score.a2_to_a1_accuracy*100).toFixed(1)+'%' : '-'})</div>
         <div><strong>GES (MA)</strong>: A1=${score.ges1_ma != null ? score.ges1_ma.toFixed(2) : '-'}, A2=${score.ges2_ma != null ? score.ges2_ma.toFixed(2) : '-'}</div>
     `;
+}
+
+function renderScoreHistory(elementId, history, label) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (!history || history.length === 0) {
+        el.innerHTML = '<div class="score-history-empty">No history</div>';
+        return;
+    }
+    // Show most recent first
+    const items = history.slice().reverse();
+    const rows = items.map((s, idx) => {
+        const overall = `${s.correct}/${s.num_tests} (${(s.accuracy*100).toFixed(1)}%)`;
+        const a12 = (s.a1_to_a2_accuracy != null) ? `${(s.a1_to_a2_accuracy*100).toFixed(1)}%` : '-';
+        const a21 = (s.a2_to_a1_accuracy != null) ? `${(s.a2_to_a1_accuracy*100).toFixed(1)}%` : '-';
+        const ges1 = (s.ges1_ma != null) ? s.ges1_ma.toFixed(2) : '-';
+        const ges2 = (s.ges2_ma != null) ? s.ges2_ma.toFixed(2) : '-';
+        return `<div class="score-history-item">
+            <span class="score-history-index">#${items.length - idx}</span>
+            <span class="score-history-overall"><strong>Overall</strong>: ${overall}</span>
+            <span class="score-history-a12"><strong>A1→A2</strong>: ${a12}</span>
+            <span class="score-history-a21"><strong>A2→A1</strong>: ${a21}</span>
+            <span class="score-history-ges"><strong>GES</strong>: A1=${ges1}, A2=${ges2}</span>
+        </div>`;
+    });
+    el.innerHTML = rows.join('');
 }
 
 // Notifications
@@ -494,6 +542,12 @@ document.addEventListener('keydown', function(e) {
         }
     }
 });
+
+function toggleScoreHistory() {
+    showScoreHistory = document.getElementById('show-history-toggle').checked;
+    // Force refresh
+    updateScores();
+}
 
 // Cleanup intervals when page unloads
 window.addEventListener('beforeunload', function() {
