@@ -131,19 +131,23 @@ class ProgressiveSelectionTrainer:
         
                 # NEW: Skip pretraining once (set by controller after threshold)
         self.skip_next_pretraining = False
-
+        
         # NEW: Toggle to switch addition strategy after threshold
         self.intelligent_addition_enabled = False
-
+        
         # NEW: Permanently skip all future pretraining once threshold hit
         self.skip_pretraining_always = False
-
+        
         # NEW: Phase-change indicator configuration
         self.phase_change_indicator = phase_change_indicator  # 'ges' or 'novel_test'
         self.novel_test_interval_cycles = novel_test_interval_cycles
         self.novel_test_threshold_correct = novel_test_threshold_correct
         self.novel_test_bidirectional = novel_test_bidirectional
         self.novel_test_log_summary_only = novel_test_log_summary_only
+        
+        # NEW: Distractor scheduling state (based on first GES-threshold hit)
+        self.ges_threshold_hit_phase = None
+        self.base_num_distractors_at_threshold = None
 
     def set_puzzle_dataset(self, puzzles: List[Puzzle]):
         """Set the full ARC puzzle dataset"""
@@ -1011,6 +1015,9 @@ class ProgressiveSelectionTrainer:
         if self.current_phase == "pretraining" and self.global_phase_count > 0:
             print(f"Global Phase Cycle: {self.global_phase_count}")
         print(f"{'='*60}")
+        
+        # NEW: Update distractor scheduling after any phase change (uses current global_phase_count)
+        self._update_distractors_for_current_phase()
 
     def train_bidirectional_step(
         self,
@@ -1666,6 +1673,30 @@ class ProgressiveSelectionTrainer:
             }
         }
         return base_status
+
+    # NEW: mark and update helpers for distractor scheduling
+    def _mark_ges_threshold_hit(self):
+        if self.ges_threshold_hit_phase is None:
+            self.ges_threshold_hit_phase = self.global_phase_count
+            self.base_num_distractors_at_threshold = self.num_distractors
+            if not self.web_mode:
+                print(f"[Distractors] GES threshold hit at global phase {self.ges_threshold_hit_phase}. Baseline distractors: {self.base_num_distractors_at_threshold}")
+
+    def _update_distractors_for_current_phase(self):
+        if self.ges_threshold_hit_phase is None:
+            return
+        phase_diff = self.global_phase_count - self.ges_threshold_hit_phase
+        if phase_diff < 10:
+            return
+        increments = int((phase_diff - 10) // 3) + 1
+        base = self.base_num_distractors_at_threshold if self.base_num_distractors_at_threshold is not None else self.num_distractors
+        desired = min(10, base + increments)
+        desired = max(0, desired)
+        if desired > self.num_distractors:
+            old = self.num_distractors
+            self.num_distractors = desired
+            if not self.web_mode:
+                print(f"[Distractors] Increasing distractors: {old} → {self.num_distractors} (phase {self.global_phase_count})")
 
 
 # Create a factory function to replace the original CommunicationTrainer

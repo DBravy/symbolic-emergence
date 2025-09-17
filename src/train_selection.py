@@ -43,7 +43,8 @@ class LiveGrapher:
             'ges2': [],
             'active_symbols': [],
             'steps': [],
-            'total_puzzles': []
+            'total_puzzles': [],
+            'distractors': []
         }
         
         # Moving averages for smoothed display
@@ -122,7 +123,7 @@ class LiveGrapher:
         plt.tight_layout()
         
     def add_data_point(self, step, loss=None, acc1=None, acc2=None, 
-                     ges1=None, ges2=None, phase=None, total_puzzles=None):
+                     ges1=None, ges2=None, phase=None, total_puzzles=None, distractors=None):
         """Add a new data point and update the graph"""
         with self.lock:
             self.data['steps'].append(step)
@@ -133,6 +134,7 @@ class LiveGrapher:
             self.data['ges2'].append(ges2 if ges2 is not None else np.nan)
             self.data['active_symbols'].append(self.active_symbols_count)
             self.data['total_puzzles'].append(total_puzzles if total_puzzles is not None else np.nan)
+            self.data['distractors'].append(distractors if distractors is not None else np.nan)
             
             # Update moving averages and store MA values
             if loss is not None and not np.isnan(loss):
@@ -360,7 +362,7 @@ class LiveGrapher:
                         y_all = [ges2_series[i] for i in valid_idx]
                         self.axes[0, 2].plot(x_all, y_all, 'r--', label=f'Agent2 GES (MA-{self.ma_window})', alpha=0.8, linewidth=2)
                         has_ges_labels = True
-
+            
             # Plot raw GES data as faint background
             valid_ges1_raw = [(s, c) for s, c in zip(steps, self.data['ges1']) if not np.isnan(c)]
             valid_ges2_raw = [(s, c) for s, c in zip(steps, self.data['ges2']) if not np.isnan(c)]
@@ -381,7 +383,13 @@ class LiveGrapher:
                 self.axes[0, 2].legend()
             
             # Plot active symbols
-            self.axes[1, 0].plot(steps, self.data['active_symbols'], 'purple', linewidth=2)
+            self.axes[1, 0].plot(steps, self.data['active_symbols'], 'purple', linewidth=2, label='Active Symbols')
+            # Plot distractors on same axis
+            valid_dist = [(s, d) for s, d in zip(steps, self.data['distractors']) if not np.isnan(d)]
+            if valid_dist:
+                xs, ys = zip(*valid_dist)
+                self.axes[1, 0].plot(xs, ys, color='darkorange', linewidth=2, label='Distractors')
+            self.axes[1, 0].legend()
             
             # Set x-axis limits for all main plots to show all data (no sliding)
             if steps:
@@ -440,6 +448,8 @@ class LiveGrapher:
                     stats_text += f"Active Symbols: {recent_data['active_symbols'][-1]}\n"
                 if recent_data.get('total_puzzles'):
                     stats_text += f"Total Puzzles: {int(recent_data['total_puzzles'][-1])}\n"
+                if recent_data.get('distractors'):
+                    stats_text += f"Distractors: {int(recent_data['distractors'][-1])}\n"
                 
                 # Add phase info
                 if self.phase_markers:
@@ -458,6 +468,8 @@ class LiveGrapher:
                     stats_text += f"Agent1 GES (raw): {recent_data['ges1'][-1]:.2f}\n"
                 if recent_data['ges2']:
                     stats_text += f"Agent2 GES (raw): {recent_data['ges2'][-1]:.2f}\n"
+                if recent_data.get('distractors'):
+                    stats_text += f"Distractors (raw): {int(recent_data['distractors'][-1])}\n"
                 
                 self.axes[1, 2].text(0.05, 0.95, stats_text, fontsize=10, 
                                    verticalalignment='top', 
@@ -780,7 +792,8 @@ def run_pretraining_phase(trainer, target_puzzles=None, epochs=50):
                     step=global_step_counter,
                     loss=avg_loss,
                     acc1=accuracy,  # For pretraining, use accuracy as proxy
-                    total_puzzles=len(trainer.active_puzzles)
+                    total_puzzles=len(trainer.active_puzzles),
+                    distractors=trainer.num_distractors
                 )
                 global_step_counter += 1
             except Exception as e:
@@ -992,7 +1005,8 @@ def run_training_phase(trainer, cycles=200):
                         globals()['global_all_metrics_history'].append({
                             **metrics,
                             'phase': 'training',
-                            'active_symbols': metrics.get('mapped_puzzles', len(trainer.puzzle_symbol_mapping))
+                            'active_symbols': metrics.get('mapped_puzzles', len(trainer.puzzle_symbol_mapping)),
+                            'num_distractors': trainer.num_distractors
                         })
                     
                     if 'global_all_accuracies_history' in globals() and globals()['global_all_accuracies_history'] is not None:
@@ -1013,7 +1027,8 @@ def run_training_phase(trainer, cycles=200):
                                 acc2=metrics['agent2_selection_accuracy'],
                                 ges1=ges1_val,
                                 ges2=ges2_val,
-                                total_puzzles=metrics.get('active_puzzles', len(trainer.active_puzzles))
+                                total_puzzles=metrics.get('active_puzzles', len(trainer.active_puzzles)),
+                                distractors=trainer.num_distractors
                             )
                             global_step_counter += 1
                         except Exception as e:
@@ -1118,6 +1133,7 @@ def run_training_phase(trainer, cycles=200):
                             # Stop training phase only on the first detection
                             if not getattr(trainer, 'early_stop_triggered_once', False):
                                 print("\nGES threshold met (first detection): running novel symbol induction test, then stopping current training phase and proceeding to consolidation and addition...")
+                                trainer._mark_ges_threshold_hit()
                                 trainer.early_stop_triggered_once = True
                                 early_stop_triggered = True
                                 early_stop_reason = 'ges'
@@ -1269,14 +1285,15 @@ def run_remedial_phase(trainer, accuracy_threshold=0.7, tests=10, train_cycles_p
                     if live_grapher:
                         try:
                             live_grapher.add_data_point(
-                                step=global_step_counter,
-                                loss=metrics['total_loss'],
-                                acc1=metrics['agent1_selection_accuracy'],
-                                acc2=metrics['agent2_selection_accuracy'],
-                                ges1=ges1_val,
-                                ges2=ges2_val,
-                                total_puzzles=metrics.get('active_puzzles', len(trainer.active_puzzles))
-                            )
+                            step=global_step_counter,
+                            loss=metrics['total_loss'],
+                            acc1=metrics['agent1_selection_accuracy'],
+                            acc2=metrics['agent2_selection_accuracy'],
+                            ges1=ges1_val,
+                            ges2=ges2_val,
+                            total_puzzles=metrics.get('active_puzzles', len(trainer.active_puzzles)),
+                            distractors=trainer.num_distractors
+                        )
                             global_step_counter += 1
                         except Exception as e:
                             print(f"Warning: Live grapher update failed: {e}")
@@ -1336,7 +1353,7 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
         'addition': 'red',
         'remedial': 'magenta'
     }
-
+    
     def moving_average_with_reset(series, window, phases):
         values = []
         from collections import deque
@@ -1357,7 +1374,7 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
                 q.append(float(v))
                 values.append(sum(q) / len(q) if len(q) > 0 else np.nan)
         return values
-
+    
     # Prepare data
     steps = list(range(len(metrics_history)))
     losses_raw = [m.get('total_loss', np.nan) for m in metrics_history]
@@ -1365,7 +1382,8 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
     acc1_raw = [m.get('agent1_selection_accuracy', np.nan) for m in metrics_history]
     acc2_raw = [m.get('agent2_selection_accuracy', np.nan) for m in metrics_history]
     active_symbols = [m.get('active_symbols', np.nan) for m in metrics_history]
-
+    distractors_series = [m.get('num_distractors', np.nan) for m in metrics_history]
+    
     # Moving averages
     losses_ma = moving_average_with_reset(losses_raw, ma_window, phases_list)
     # Compute accuracy moving averages from raw series with phase resets to match LiveGrapher
@@ -1374,17 +1392,17 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
     # Keep GES moving averages as provided (training-only)
     ges1_ma = accuracies_history.get('ges1', [])
     ges2_ma = accuracies_history.get('ges2', [])
-
+    
     fig, axes = plt.subplots(2, 3, figsize=(18, 10))
     fig.suptitle('Live Training Progress', fontsize=16)
-
+    
     # Loss (axes[0, 0])
     axes[0, 0].set_title(f'Training Loss (Log Scale, MA-{ma_window})')
     axes[0, 0].set_xlabel('Step')
     axes[0, 0].set_ylabel('Loss')
     axes[0, 0].set_yscale('log')
     axes[0, 0].grid(True, alpha=0.3)
-
+    
     if steps:
         # Plot MA segmented by phase (matching LiveGrapher behavior)
         if phases_list and any(p is not None for p in phases_list):
@@ -1438,14 +1456,14 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
                 xs, ys = zip(*valid_raw)
                 axes[0, 0].plot(xs, ys, 'b-', alpha=0.2, linewidth=1, label='Raw Loss')
         axes[0, 0].legend()
-
+    
     # Selection Accuracies (axes[0, 1])
     axes[0, 1].set_title(f'Selection Accuracies (MA-{ma_window})')
     axes[0, 1].set_xlabel('Step')
     axes[0, 1].set_ylabel('Accuracy')
     axes[0, 1].set_ylim(0, 1.1)
     axes[0, 1].grid(True, alpha=0.3)
-
+    
     # Segment MA lines by phase to avoid cross-phase connections
     if steps and (acc1_ma or acc2_ma):
         # Agent 1
@@ -1492,17 +1510,17 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
         xs, ys = zip(*valid_acc2)
         axes[0, 1].plot(xs, ys, 'r-', alpha=0.2, linewidth=1)
     axes[0, 1].legend()
-
+    
     # GES (axes[0, 2])
     axes[0, 2].set_title(f'Generalization Efficiency Score (GES) (MA-{ma_window})')
     axes[0, 2].set_xlabel('Step')
     axes[0, 2].set_ylabel('GES')
     axes[0, 2].grid(True, alpha=0.3)
-
+    
     # Only plot GES for training phase
     # Build a mask of training indices
     training_mask = [ (ph == 'training') for ph in phases_list ] if phases_list else [False] * len(steps)
-
+    
     def mask_non_training(series):
         masked = []
         for i, v in enumerate(series):
@@ -1511,10 +1529,10 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
             else:
                 masked.append(np.nan)
         return masked
-
+    
     ges1_ma_masked = mask_non_training(ges1_ma)
     ges2_ma_masked = mask_non_training(ges2_ma)
-
+    
     # Segment GES MA by contiguous training ranges (no cross-phase connections)
     if ges1_ma_masked:
         first_label_g1 = False
@@ -1548,7 +1566,7 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
                 axes[0, 2].plot(xs, ys, 'r--', label=('Agent2 GES (MA)' if not first_label_g2 else None), alpha=0.8, linewidth=2)
                 first_label_g2 = True
                 in_range = False
-
+    
     # Raw GES overlays (computed like existing implementation), masked to training only and segmented
     raw_ges1, raw_ges2 = [], []
     for m in metrics_history:
@@ -1571,10 +1589,10 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
         except Exception:
             raw_ges1.append(np.nan)
             raw_ges2.append(np.nan)
-
+    
     raw_ges1 = mask_non_training(raw_ges1)
     raw_ges2 = mask_non_training(raw_ges2)
-
+    
     # Segment raw GES lines by contiguous training ranges
     start_idx = 0
     in_range = False
@@ -1602,10 +1620,10 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
             ys = [raw_ges2[j] for j in idxs]
             axes[0, 2].plot(xs, ys, 'r--', alpha=0.2, linewidth=1)
             in_range = False
-
+    
     axes[0, 2].axhline(y=0, color='gray', linestyle=':', linewidth=1)
     axes[0, 2].legend()
-
+    
     # Active Symbols (axes[1, 0])
     axes[1, 0].set_title('Active Symbols')
     axes[1, 0].set_xlabel('Step')
@@ -1621,8 +1639,13 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
     if valid_as:
         xs, ys = zip(*valid_as)
         axes[1, 0].plot(xs, ys, color='purple', linewidth=2, label='Active Symbols')
-        axes[1, 0].legend()
-
+    # Plot distractors alongside
+    valid_ds = [(s, v) for s, v in zip(steps, distractors_series) if not (isinstance(v, float) and np.isnan(v))]
+    if valid_ds:
+        xs, ys = zip(*valid_ds)
+        axes[1, 0].plot(xs, ys, color='darkorange', linewidth=2, label='Distractors')
+    axes[1, 0].legend()
+    
     # Phase timeline (axes[1, 1])
     axes[1, 1].set_title('Training Phases')
     axes[1, 1].set_xlabel('Step')
@@ -1647,7 +1670,7 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
         axes[1, 1].set_ylim(-0.1, 1.1)
         axes[1, 1].set_yticks([0.5])
         axes[1, 1].set_yticklabels(['Phases'])
-
+    
     # Current Statistics panel (axes[1, 2])
     axes[1, 2].set_title('Current Statistics')
     axes[1, 2].axis('off')
@@ -1663,6 +1686,7 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
     acc2_ma_last = last_valid(acc2_ma)
     ges1_ma_last = last_valid(ges1_ma)
     ges2_ma_last = last_valid(ges2_ma)
+    ds_last = last_valid(distractors_series)
     stats_lines.append('Smoothed (MA)')
     if loss_ma_last is not None:
         stats_lines.append(f"Loss (MA): {loss_ma_last:.4f}")
@@ -1674,10 +1698,16 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
         stats_lines.append(f"Agent1 GES (MA): {ges1_ma_last:.2f}")
     if ges2_ma_last is not None:
         stats_lines.append(f"Agent2 GES (MA): {ges2_ma_last:.2f}")
+    if ds_last is not None:
+        try:
+            stats_lines.append(f"Distractors: {int(ds_last)}")
+        except Exception:
+            pass
     # Recent raw values
     loss_raw_last = last_valid(losses_raw)
     acc1_raw_last = last_valid(acc1_raw)
     acc2_raw_last = last_valid(acc2_raw)
+    ds_raw_last = last_valid(distractors_series)
     stats_lines.append('')
     stats_lines.append('Raw Recent Values')
     if loss_raw_last is not None:
@@ -1686,6 +1716,11 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
         stats_lines.append(f"Agent1 Acc (raw): {acc1_raw_last:.3f}")
     if acc2_raw_last is not None:
         stats_lines.append(f"Agent2 Acc (raw): {acc2_raw_last:.3f}")
+    if ds_raw_last is not None:
+        try:
+            stats_lines.append(f"Distractors (raw): {int(ds_raw_last)}")
+        except Exception:
+            pass
     # Phase and symbols
     if phases_list:
         cur_phase = phase_info.get('current_phase', phases_list[-1] or 'unknown')
@@ -1703,9 +1738,9 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
             pass
     stats_text = "\n".join(stats_lines)
     axes[1, 2].text(0.05, 0.95, stats_text, fontsize=10, verticalalignment='top', bbox=dict(boxstyle="round,pad=0.3", facecolor="lightblue", alpha=0.7))
-
+    
     plt.tight_layout()
-
+    
     # Save stable and timestamped images like before
     try:
         import os as _os
@@ -2049,6 +2084,7 @@ def main():
                                     'agent1_selection_accuracy': float(epoch_accs[i]) if epoch_accs[i] is not None else np.nan,
                                     'agent2_selection_accuracy': np.nan,
                                     'active_symbols': len(trainer.puzzle_symbol_mapping),
+                                    'num_distractors': trainer.num_distractors,
                                     'phase': 'pretraining'
                                 })
                             # Keep accuracies arrays aligned with metrics length
@@ -2090,7 +2126,8 @@ def main():
                 all_metrics_history.extend([
                     {**m,
                      'phase': 'training',
-                     'active_symbols': m.get('mapped_puzzles', len(trainer.puzzle_symbol_mapping))}
+                     'active_symbols': m.get('mapped_puzzles', len(trainer.puzzle_symbol_mapping)),
+                     'num_distractors': trainer.num_distractors}
                     for m in training_metrics
                 ])
                 for key in all_accuracies_history:
@@ -2125,6 +2162,7 @@ def main():
                         'agent1_selection_accuracy': np.nan,
                         'agent2_selection_accuracy': np.nan,
                         'active_symbols': len(trainer.puzzle_symbol_mapping),
+                        'num_distractors': trainer.num_distractors,
                         'phase': 'consolidation'
                     })
                     for key in all_accuracies_history:
@@ -2140,6 +2178,7 @@ def main():
                         'agent1_selection_accuracy': np.nan,
                         'agent2_selection_accuracy': np.nan,
                         'active_symbols': len(trainer.puzzle_symbol_mapping),
+                        'num_distractors': trainer.num_distractors,
                         'phase': 'addition'
                     })
                     for key in all_accuracies_history:
@@ -2222,6 +2261,7 @@ def main():
                     'agent1_selection_accuracy': np.nan,
                     'agent2_selection_accuracy': np.nan,
                     'active_symbols': len(trainer.puzzle_symbol_mapping),
+                    'num_distractors': trainer.num_distractors,
                     'phase': 'consolidation'
                 })
                 for key in all_accuracies_history:
@@ -2254,7 +2294,8 @@ def main():
                 all_metrics_history.extend([
                     {**m,
                      'phase': 'remedial',
-                     'active_symbols': m.get('mapped_puzzles', len(trainer.puzzle_symbol_mapping))}
+                     'active_symbols': m.get('mapped_puzzles', len(trainer.puzzle_symbol_mapping)),
+                     'num_distractors': trainer.num_distractors}
                     for m in remedial_metrics
                 ])
                 for key in all_accuracies_history:
