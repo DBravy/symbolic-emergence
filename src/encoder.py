@@ -154,6 +154,7 @@ class ProgressiveSimilarityEncoder(nn.Module):
                 d_model=embedding_dim,
                 nhead=nhead,
                 dropout=dropout,
+                dim_feedforward=embedding_dim * 4,  # Scale with embedding_dim instead of hardcoded 2048
                 batch_first=True
             ) for _ in range(num_layers)
         ])
