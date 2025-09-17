@@ -847,46 +847,68 @@ def generate_report():
                 fig = plt.figure(figsize=(8.27, 11.69))
                 ax = fig.add_axes([0.08, 0.08, 0.84, 0.84])
                 ax.axis('off')
-                ax.set_title('Unseen Test History (most recent first)', fontsize=14, pad=10)
-                max_items = 60
-                items = list(reversed(unseen_history))[-max_items:]
+                ax.set_title('Unseen Test History (oldest first)', fontsize=14, pad=10)
+                plt.close(fig)
+                
+                def _new_unseen_page():
+                    figp = plt.figure(figsize=(8.27, 11.69))
+                    axp = figp.add_axes([0.08, 0.08, 0.84, 0.84])
+                    axp.axis('off')
+                    axp.set_title('Unseen Test History (oldest first)', fontsize=14, pad=10)
+                    return figp, axp
+                
+                figp, axp = _new_unseen_page()
                 y = 0.95
-                idx_total = len(items)
-                for i, s in enumerate(reversed(items), start=1):
+                for idx, s in enumerate(unseen_history, start=1):
                     overall = f"{s.get('correct','-')}/{s.get('num_tests','-')} ({(s.get('accuracy',0)*100):.1f}%)"
                     a12 = f"{(s.get('a1_to_a2_accuracy',0)*100):.1f}%" if 'a1_to_a2_accuracy' in s else '-'
                     a21 = f"{(s.get('a2_to_a1_accuracy',0)*100):.1f}%" if 'a2_to_a1_accuracy' in s else '-'
                     ges = f"A1={s.get('ges1_ma','-')}, A2={s.get('ges2_ma','-')}"
-                    line = f"#{idx_total - i + 1:03d}  Overall: {overall}  |  A1→A2: {a12}  |  A2→A1: {a21}  |  GES: {ges}"
-                    ax.text(0.02, y, line, va='top', ha='left', fontsize=9, family='monospace', transform=ax.transAxes)
+                    line = f"#{idx:03d}  Overall: {overall}  |  A1→A2: {a12}  |  A2→A1: {a21}  |  GES: {ges}"
+                    axp.text(0.02, y, line, va='top', ha='left', fontsize=9, family='monospace', transform=axp.transAxes)
                     y -= 0.025
                     if y < 0.05:
-                        break
-                pdf.savefig(fig)
-                plt.close(fig)
+                        pdf.savefig(figp)
+                        plt.close(figp)
+                        figp, axp = _new_unseen_page()
+                        y = 0.95
+                # Save the last (possibly partial) page
+                pdf.savefig(figp)
+                plt.close(figp)
 
             # Page 4: Novel history (most recent first, capped)
             if novel_history:
                 fig = plt.figure(figsize=(8.27, 11.69))
                 ax = fig.add_axes([0.08, 0.08, 0.84, 0.84])
                 ax.axis('off')
-                ax.set_title('Novel Symbol Test History (most recent first)', fontsize=14, pad=10)
-                max_items = 60
-                items = list(reversed(novel_history))[-max_items:]
+                ax.set_title('Novel Symbol Test History (oldest first)', fontsize=14, pad=10)
+                plt.close(fig)
+                
+                def _new_novel_page():
+                    figp = plt.figure(figsize=(8.27, 11.69))
+                    axp = figp.add_axes([0.08, 0.08, 0.84, 0.84])
+                    axp.axis('off')
+                    axp.set_title('Novel Symbol Test History (oldest first)', fontsize=14, pad=10)
+                    return figp, axp
+                
+                figp, axp = _new_novel_page()
                 y = 0.95
-                idx_total = len(items)
-                for i, s in enumerate(reversed(items), start=1):
+                for idx, s in enumerate(novel_history, start=1):
                     overall = f"{s.get('correct','-')}/{s.get('num_tests','-')} ({(s.get('accuracy',0)*100):.1f}%)"
                     a12 = f"{(s.get('a1_to_a2_accuracy',0)*100):.1f}%" if 'a1_to_a2_accuracy' in s else '-'
                     a21 = f"{(s.get('a2_to_a1_accuracy',0)*100):.1f}%" if 'a2_to_a1_accuracy' in s else '-'
                     ges = f"A1={s.get('ges1_ma','-')}, A2={s.get('ges2_ma','-')}"
-                    line = f"#{idx_total - i + 1:03d}  Overall: {overall}  |  A1→A2: {a12}  |  A2→A1: {a21}  |  GES: {ges}"
-                    ax.text(0.02, y, line, va='top', ha='left', fontsize=9, family='monospace', transform=ax.transAxes)
+                    line = f"#{idx:03d}  Overall: {overall}  |  A1→A2: {a12}  |  A2→A1: {a21}  |  GES: {ges}"
+                    axp.text(0.02, y, line, va='top', ha='left', fontsize=9, family='monospace', transform=axp.transAxes)
                     y -= 0.025
                     if y < 0.05:
-                        break
-                pdf.savefig(fig)
-                plt.close(fig)
+                        pdf.savefig(figp)
+                        plt.close(figp)
+                        figp, axp = _new_novel_page()
+                        y = 0.95
+                # Save the last (possibly partial) page
+                pdf.savefig(figp)
+                plt.close(figp)
 
         @after_this_request
         def remove_file(response):
