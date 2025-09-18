@@ -1753,6 +1753,14 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
             stamped_path = _os.path.join(output_dir, f"{base_name}_{timestamp}.png")
             plt.savefig(stable_path, dpi=150, bbox_inches='tight')
             plt.savefig(stamped_path, dpi=150, bbox_inches='tight')
+            # Also save PDF versions for report-quality summaries
+            try:
+                pdf_stable = _os.path.join(output_dir, f"{base_name}.pdf")
+                pdf_stamped = _os.path.join(output_dir, f"{base_name}_{timestamp}.pdf")
+                plt.savefig(pdf_stable, format='pdf', bbox_inches='tight')
+                plt.savefig(pdf_stamped, format='pdf', bbox_inches='tight')
+            except Exception:
+                pass
             # Retention: keep only the 5 most recent timestamped images for this base
             try:
                 directory = output_dir
@@ -1769,6 +1777,11 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
                 pass
         else:
             plt.savefig(f"{base_name}.png", dpi=150, bbox_inches='tight')
+            # Also save a PDF in current directory
+            try:
+                plt.savefig(f"{base_name}.pdf", format='pdf', bbox_inches='tight')
+            except Exception:
+                pass
             # Retention in current directory
             try:
                 directory = '.'
@@ -2142,11 +2155,15 @@ def main():
                     final_acc2 = training_accuracies['acc2_selection'][-1] if training_accuracies['acc2_selection'] else 0
                     avg_loss = np.mean([m['total_loss'] for m in training_metrics[-50:] if not np.isnan(m['total_loss'])])
                     
+                    # Record distractors used in this completed training phase for subsequent tests
+                    trainer.last_training_phase_distractors = trainer.num_distractors
+                    
                     log_file.write(f"Training completed ({cycles_for_this_phase} cycles, {trainer.repetitions_per_puzzle} reps/puzzle):\n")
                     log_file.write(f"  Final Agent1 accuracy: {final_acc1:.3f}\n")
                     log_file.write(f"  Final Agent2 accuracy: {final_acc2:.3f}\n")
                     log_file.write(f"  Average loss (last 50): {avg_loss:.4f}\n")
                     log_file.write(f"  Total training steps: {len(training_metrics)}\n")
+                    log_file.write(f"  Distractors used this training phase: {trainer.last_training_phase_distractors}\n")
                     log_file.flush()
                 
                 # --- MODIFIED: If early stop triggered, proceed immediately to consolidation → addition, then loop continues ---

@@ -68,6 +68,8 @@ class ProgressiveSelectionTrainer:
         self.num_distractors = num_distractors
         self.initial_num_distractors = num_distractors
         self.distractor_strategy = distractor_strategy
+        # NEW: track distractors used in the preceding training phase
+        self.last_training_phase_distractors = num_distractors
 
         self.used_puzzle_indices = set()
 
@@ -1192,6 +1194,7 @@ class ProgressiveSelectionTrainer:
         
         # Use fixed distractor count for unseen test
         fixed_distractors = getattr(self, 'initial_num_distractors', self.num_distractors)
+        training_phase_distractors = getattr(self, 'last_training_phase_distractors', self.num_distractors)
         
         # Helper: choose targets (with replacement if needed)
         if len(unseen_indices) >= num_tests:
@@ -1220,6 +1223,7 @@ class ProgressiveSelectionTrainer:
             f"Global phase count: {self.global_phase_count}\n"
             f"Active puzzles: {len(self.active_puzzles)} | Unused in dataset: {len(all_indices - set(self.used_puzzle_indices))}\n"
             f"Num tests: {num_tests} | Distractors per test: {fixed_distractors}\n"
+            f"Training phase distractors: {training_phase_distractors}\n"
             f"{'='*60}\n"
         )
         if log_f:
@@ -1344,7 +1348,8 @@ class ProgressiveSelectionTrainer:
             "ges1_ma": ges1_ma_val,
             "ges2_ma": ges2_ma_val,
             "results": combined_results,
-            "distractors_per_test": fixed_distractors
+            "distractors_per_test": fixed_distractors,
+            "training_phase_distractors": training_phase_distractors
         }
         
         if log_f:
@@ -1354,6 +1359,7 @@ class ProgressiveSelectionTrainer:
                 log_f.write(f"  A2→A1: {correct_rev}/{num_tests} correct (acc={acc_a2_a1:.3f})\n")
             log_f.write(f"  Overall: {total_correct}/{total_tests} correct (acc={accuracy:.3f})\n")
             log_f.write(f"  GES (MA): Agent1={ges1_ma_val:.2f}, Agent2={ges2_ma_val:.2f}\n")
+            log_f.write(f"  Training phase distractors: {training_phase_distractors}\n")
             log_f.flush()
             log_f.close()
         else:
@@ -1363,6 +1369,7 @@ class ProgressiveSelectionTrainer:
                 print(f"  A2→A1: {correct_rev}/{num_tests} correct (acc={acc_a2_a1:.3f})")
             print(f"  Overall: {total_correct}/{total_tests} correct (acc={accuracy:.3f})")
             print(f"  GES (MA): Agent1={ges1_ma_val:.2f}, Agent2={ges2_ma_val:.2f}")
+            print(f"  Training phase distractors: {training_phase_distractors}")
         
         # Restore train mode
         self.agent1.train()
@@ -1443,6 +1450,7 @@ class ProgressiveSelectionTrainer:
         
         # Use fixed distractor count for this test
         fixed_distractors = getattr(self, 'initial_num_distractors', self.num_distractors)
+        training_phase_distractors = getattr(self, 'last_training_phase_distractors', self.num_distractors)
         
         # Choose targets
         if len(unseen_indices) >= num_tests:
@@ -1479,6 +1487,7 @@ class ProgressiveSelectionTrainer:
             f"\n{'='*60}\n"
             f"NOVEL SYMBOL INDUCTION TEST (FROZEN MODELS)\n"
             f"Num tests: {num_tests} | Distractors per test: {fixed_distractors}\n"
+            f"Training phase distractors: {training_phase_distractors}\n"
             f"{'='*60}\n"
         )
         if log_f and not log_summary_only:
@@ -1624,6 +1633,7 @@ class ProgressiveSelectionTrainer:
                 log_f.write(f"  A2→A1: {correct_rev}/{num_tests} correct (acc={acc_a2_a1:.3f})\n")
             log_f.write(f"  Overall: {total_correct}/{total_tests} correct (acc={accuracy:.3f})\n")
             log_f.write(f"  GES (MA): Agent1={ges1_ma_val:.2f}, Agent2={ges2_ma_val:.2f}\n")
+            log_f.write(f"  Training phase distractors: {training_phase_distractors}\n")
             log_f.flush()
             log_f.close()
         else:
@@ -1633,6 +1643,7 @@ class ProgressiveSelectionTrainer:
                 print(f"  A2→A1: {correct_rev}/{num_tests} correct (acc={acc_a2_a1:.3f})")
             print(f"  Overall: {total_correct}/{total_tests} correct (acc={accuracy:.3f})")
             print(f"  GES (MA): Agent1={ges1_ma_val:.2f}, Agent2={ges2_ma_val:.2f}")
+            print(f"  Training phase distractors: {training_phase_distractors}")
         
         # Restore embedding tables and vocab sizes (non-destructive test)
         with torch.no_grad():
