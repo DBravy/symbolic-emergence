@@ -66,6 +66,7 @@ class ProgressiveSelectionTrainer:
 
         # Selection task parameters
         self.num_distractors = num_distractors
+        self.initial_num_distractors = num_distractors
         self.distractor_strategy = distractor_strategy
 
         self.used_puzzle_indices = set()
@@ -1060,7 +1061,7 @@ class ProgressiveSelectionTrainer:
             )
             
             # Prepare candidates: target + distractors
-            candidates1 = [puzzle] + distractors
+            candidates1 = [puzzle] + distractors  # each [1, H, W]
             
             # Receiver selects from candidates
             selection_probs1, selection_logits1, debug_info1 = self.agent2.select_from_candidates(
@@ -1189,6 +1190,9 @@ class ProgressiveSelectionTrainer:
             print("Warning: No unseen puzzles remaining. Falling back to sampling from full dataset for testing.")
             unseen_indices = list(all_indices)
         
+        # Use fixed distractor count for unseen test
+        fixed_distractors = getattr(self, 'initial_num_distractors', self.num_distractors)
+        
         # Helper: choose targets (with replacement if needed)
         if len(unseen_indices) >= num_tests:
             target_dataset_indices = random.sample(unseen_indices, num_tests)
@@ -1215,7 +1219,7 @@ class ProgressiveSelectionTrainer:
             f"UNSEEN TESTING AFTER TRAINING PHASE\n"
             f"Global phase count: {self.global_phase_count}\n"
             f"Active puzzles: {len(self.active_puzzles)} | Unused in dataset: {len(all_indices - set(self.used_puzzle_indices))}\n"
-            f"Num tests: {num_tests} | Distractors per test: {self.num_distractors}\n"
+            f"Num tests: {num_tests} | Distractors per test: {fixed_distractors}\n"
             f"{'='*60}\n"
         )
         if log_f:
@@ -1237,14 +1241,14 @@ class ProgressiveSelectionTrainer:
                 
                 # Build distractors: prefer unseen (excluding target), then fallback to all
                 candidate_distractors_pool = list(set(unseen_indices) - {dataset_idx})
-                if len(candidate_distractors_pool) < self.num_distractors:
+                if len(candidate_distractors_pool) < fixed_distractors:
                     fallback_pool = list(all_indices - {dataset_idx})
                     candidate_distractors_pool = fallback_pool
-                if len(candidate_distractors_pool) < self.num_distractors:
+                if len(candidate_distractors_pool) < fixed_distractors:
                     # If still not enough, allow repeats
-                    distractor_dataset_indices = [random.choice(candidate_distractors_pool) for _ in range(self.num_distractors)]
+                    distractor_dataset_indices = [random.choice(candidate_distractors_pool) for _ in range(fixed_distractors)]
                 else:
-                    distractor_dataset_indices = random.sample(candidate_distractors_pool, self.num_distractors)
+                    distractor_dataset_indices = random.sample(candidate_distractors_pool, fixed_distractors)
                 
                 # Convert candidates to tensors
                 candidates = [target_tensor]
@@ -1319,7 +1323,7 @@ class ProgressiveSelectionTrainer:
                         for i, (cand_idx, prob) in enumerate(zip(candidate_indices, probs_list_rev)):
                             marker = ' (target)' if i == 0 else ''
                             log_f.write(f"  cand[{i}] dataset_idx={cand_idx} prob={prob:.4f}{marker}\n")
-                
+        
         # Summary
         total_tests = num_tests * (2 if bidirectional else 1)
         total_correct = correct + (correct_rev if bidirectional else 0)
@@ -1339,7 +1343,8 @@ class ProgressiveSelectionTrainer:
             "a2_to_a1_accuracy": acc_a2_a1,
             "ges1_ma": ges1_ma_val,
             "ges2_ma": ges2_ma_val,
-            "results": combined_results
+            "results": combined_results,
+            "distractors_per_test": fixed_distractors
         }
         
         if log_f:
@@ -1436,6 +1441,9 @@ class ProgressiveSelectionTrainer:
             print("Warning: No unseen puzzles remaining. Falling back to sampling from full dataset for testing.")
             unseen_indices = list(all_indices)
         
+        # Use fixed distractor count for this test
+        fixed_distractors = getattr(self, 'initial_num_distractors', self.num_distractors)
+        
         # Choose targets
         if len(unseen_indices) >= num_tests:
             target_dataset_indices = random.sample(unseen_indices, num_tests)
@@ -1470,7 +1478,7 @@ class ProgressiveSelectionTrainer:
         header = (
             f"\n{'='*60}\n"
             f"NOVEL SYMBOL INDUCTION TEST (FROZEN MODELS)\n"
-            f"Num tests: {num_tests} | Distractors per test: {self.num_distractors}\n"
+            f"Num tests: {num_tests} | Distractors per test: {fixed_distractors}\n"
             f"{'='*60}\n"
         )
         if log_f and not log_summary_only:
@@ -1491,13 +1499,13 @@ class ProgressiveSelectionTrainer:
                 target_tensor = torch.tensor(target_puzzle.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
                 # Prefer unseen for distractors if possible
                 candidate_distractors_pool = list(set(unseen_indices) - {dataset_idx})
-                if len(candidate_distractors_pool) < self.num_distractors:
+                if len(candidate_distractors_pool) < fixed_distractors:
                     fallback_pool = list(all_indices - {dataset_idx})
                     candidate_distractors_pool = fallback_pool
-                if len(candidate_distractors_pool) < self.num_distractors:
-                    distractor_dataset_indices = [random.choice(candidate_distractors_pool) for _ in range(self.num_distractors)]
+                if len(candidate_distractors_pool) < fixed_distractors:
+                    distractor_dataset_indices = [random.choice(candidate_distractors_pool) for _ in range(fixed_distractors)]
                 else:
-                    distractor_dataset_indices = random.sample(candidate_distractors_pool, self.num_distractors)
+                    distractor_dataset_indices = random.sample(candidate_distractors_pool, fixed_distractors)
                 candidates = [target_tensor]
                 for d_idx in distractor_dataset_indices:
                     dp = self.available_arc_puzzles[d_idx]
