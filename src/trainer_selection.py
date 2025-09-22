@@ -152,6 +152,9 @@ class ProgressiveSelectionTrainer:
         self.ges_threshold_hit_phase = None
         self.base_num_distractors_at_threshold = None
 
+        # === NEW: Background decoder training state ===
+        self.decoder_background_enabled = False
+
     def set_puzzle_dataset(self, puzzles: List[Puzzle]):
         """Set the full ARC puzzle dataset"""
         self.available_arc_puzzles = puzzles
@@ -1162,6 +1165,21 @@ class ProgressiveSelectionTrainer:
             
             metrics_history.append(metrics)
             
+            # === NEW: If background decoder training is enabled, enqueue successful communications ===
+            if self.decoder_background_enabled:
+                # For Agent1→Agent2 direction
+                if int(pred1.item()) == 0:
+                    try:
+                        self.agent1.enqueue_successful_reconstruction(symbols1, puzzle)
+                    except Exception:
+                        pass
+                # For Agent2→Agent1 direction
+                if int(pred2.item()) == 0:
+                    try:
+                        self.agent2.enqueue_successful_reconstruction(symbols2, puzzle)
+                    except Exception:
+                        pass
+            
         return metrics_history
     
     def _calculate_symbol_entropy(self, symbol_probs):
@@ -1700,6 +1718,11 @@ class ProgressiveSelectionTrainer:
             self.base_num_distractors_at_threshold = self.num_distractors
             if not self.web_mode:
                 print(f"[Distractors] GES threshold hit at global phase {self.ges_threshold_hit_phase}. Baseline distractors: {self.base_num_distractors_at_threshold}")
+            # === NEW: Enable background decoder training when threshold is first hit ===
+            if not self.decoder_background_enabled:
+                self.agent1.enable_background_decoder_training()
+                self.agent2.enable_background_decoder_training()
+                self.decoder_background_enabled = True
 
     def _update_distractors_for_current_phase(self):
         if self.ges_threshold_hit_phase is None:

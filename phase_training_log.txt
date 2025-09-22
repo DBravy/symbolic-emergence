@@ -1,0 +1,179 @@
+Phase-Based Training Log with Puzzle Repetitions
+==================================================
+Phase cycle: pretraining → training → consolidation → remedial → addition
+Training cycles per phase: 25
+Repetitions per puzzle: 1
+Consolidation tests: 5
+Puzzles per addition: 2
+==================================================
+
+
+============================================================
+GLOBAL PHASE 1/100 - PRETRAINING
+============================================================
+
+============================================================
+GLOBAL PHASE 1/100 - TRAINING
+============================================================
+FIRST training phase - using 50 cycles
+Each puzzle repeated 1 times per cycle
+Training completed (50 cycles, 1 reps/puzzle):
+  Final Agent1 accuracy: 0.820
+  Final Agent2 accuracy: 0.820
+  Average loss (last 50): 2.1606
+  Total training steps: 150
+GES (MA) at test time - Unseen: Agent1=48.67, Agent2=48.67
+Unseen testing summary (bidirectional):
+  A1→A2: 37/100 correct (acc=0.370)
+  A2→A1: 37/100 correct (acc=0.370)
+  Overall: 74/200 correct (acc=0.370)
+  GES (MA): Agent1=48.67, Agent2=48.67
+Novel symbol induction summary (bidirectional):
+  A1→A2: 42/100 correct (acc=0.420)
+  A2→A1: 42/100 correct (acc=0.420)
+  Overall: 84/200 correct (acc=0.420)
+  GES (MA): Agent1=48.67, Agent2=48.67
+
+============================================================
+GLOBAL PHASE 1/100 - CONSOLIDATION
+============================================================
+Consolidation completed:
+  Tested symbols: 3
+  Removed symbols: 0
+  Remaining puzzles: 3
+
+============================================================
+GLOBAL PHASE 1/100 - ADDITION
+============================================================
+Addition completed:
+  Added puzzles: 2
+  Total active puzzles: 5
+
+============================================================
+GLOBAL PHASE 2/100 - PRETRAINING
+============================================================
+
+============================================================
+GLOBAL PHASE 2/100 - TRAINING
+============================================================
+Subsequent training phase #1 - using 25 cycles
+Each puzzle repeated 1 times per cycle
+Training completed (25 cycles, 1 reps/puzzle):
+  Final Agent1 accuracy: 0.680
+  Final Agent2 accuracy: 0.680
+  Average loss (last 50): 1.9504
+  Total training steps: 125
+GES (MA) at test time - Unseen: Agent1=34.67, Agent2=34.67
+Unseen testing summary (bidirectional):
+  A1→A2: 52/100 correct (acc=0.520)
+  A2→A1: 52/100 correct (acc=0.520)
+  Overall: 104/200 correct (acc=0.520)
+  GES (MA): Agent1=34.67, Agent2=34.67
+Novel symbol induction summary (bidirectional):
+  A1→A2: 57/100 correct (acc=0.570)
+  A2→A1: 57/100 correct (acc=0.570)
+  Overall: 114/200 correct (acc=0.570)
+  GES (MA): Agent1=34.67, Agent2=34.67
+
+============================================================
+GLOBAL PHASE 2/100 - CONSOLIDATION
+============================================================
+Consolidation completed:
+  Tested symbols: 5
+  Removed symbols: 1
+  Remaining puzzles: 5
+  Removed: {11}
+
+============================================================
+GLOBAL PHASE 2/100 - ADDITION
+============================================================
+Addition completed:
+  Added puzzles: 2
+  Total active puzzles: 7
+
+============================================================
+GLOBAL PHASE 3/100 - PRETRAINING
+============================================================
+
+============================================================
+GLOBAL PHASE 3/100 - TRAINING
+============================================================
+Subsequent training phase #2 - using 25 cycles
+Each puzzle repeated 1 times per cycle
+Training completed (25 cycles, 1 reps/puzzle):
+  Final Agent1 accuracy: 0.580
+  Final Agent2 accuracy: 0.640
+  Average loss (last 50): 2.0884
+  Total training steps: 175
+GES (MA) at test time - Unseen: Agent1=28.78, Agent2=35.78
+Unseen testing summary (bidirectional):
+  A1→A2: 61/100 correct (acc=0.610)
+  A2→A1: 53/100 correct (acc=0.530)
+  Overall: 114/200 correct (acc=0.570)
+  GES (MA): Agent1=28.78, Agent2=35.78
+Novel symbol induction summary (bidirectional):
+  A1→A2: 58/100 correct (acc=0.580)
+  A2→A1: 52/100 correct (acc=0.520)
+  Overall: 110/200 correct (acc=0.550)
+  GES (MA): Agent1=28.78, Agent2=35.78
+
+============================================================
+GLOBAL PHASE 3/100 - CONSOLIDATION
+============================================================
+Consolidation completed:
+  Tested symbols: 6
+  Removed symbols: 2
+  Remaining puzzles: 7
+  Removed: {10, 15}
+
+============================================================
+GLOBAL PHASE 3/100 - ADDITION
+============================================================
+Addition completed:
+  Added puzzles: 2
+  Total active puzzles: 9
+
+============================================================
+GLOBAL PHASE 4/100 - PRETRAINING
+============================================================
+
+============================================================
+GLOBAL PHASE 4/100 - TRAINING
+============================================================
+Subsequent training phase #3 - using 25 cycles
+Each puzzle repeated 1 times per cycle
+Training completed (25 cycles, 1 reps/puzzle):
+  Final Agent1 accuracy: 0.660
+  Final Agent2 accuracy: 0.620
+  Average loss (last 50): 2.0866
+  Total training steps: 225
+GES (MA) at test time - Unseen: Agent1=49.00, Agent2=43.00
+Unseen testing summary (bidirectional):
+  A1→A2: 53/100 correct (acc=0.530)
+  A2→A1: 45/100 correct (acc=0.450)
+  Overall: 98/200 correct (acc=0.490)
+  GES (MA): Agent1=49.00, Agent2=43.00
+Novel symbol induction summary (bidirectional):
+  A1→A2: 51/100 correct (acc=0.510)
+  A2→A1: 54/100 correct (acc=0.540)
+  Overall: 105/200 correct (acc=0.525)
+  GES (MA): Agent1=49.00, Agent2=43.00
+
+============================================================
+GLOBAL PHASE 4/100 - CONSOLIDATION
+============================================================
+Consolidation completed:
+  Tested symbols: 6
+  Removed symbols: 0
+  Remaining puzzles: 9
+
+============================================================
+GLOBAL PHASE 4/100 - ADDITION
+============================================================
+Addition completed:
+  Added puzzles: 2
+  Total active puzzles: 11
+
+============================================================
+GLOBAL PHASE 5/100 - PRETRAINING
+============================================================

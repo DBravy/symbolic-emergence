@@ -11,3 +11,93 @@ Puzzles per addition: 3
 ============================================================
 GLOBAL PHASE 1/100 - PRETRAINING
 ============================================================
+
+============================================================
+GLOBAL PHASE 1/100 - TRAINING
+============================================================
+FIRST training phase - using 50 cycles
+Each puzzle repeated 1 times per cycle
+Training completed (50 cycles, 1 reps/puzzle):
+  Final Agent1 accuracy: 0.800
+  Final Agent2 accuracy: 0.800
+  Average loss (last 50): 2.7133
+  Total training steps: 100
+  Distractors used this training phase: 3
+
+============================================================
+GLOBAL PHASE 1/100 - TRAINING
+============================================================
+FIRST training phase - using 50 cycles
+Each puzzle repeated 1 times per cycle
+Training completed (50 cycles, 1 reps/puzzle):
+  Final Agent1 accuracy: 0.780
+  Final Agent2 accuracy: 0.800
+  Average loss (last 50): 2.6990
+  Total training steps: 175
+  Distractors used this training phase: 3
+
+============================================================
+GLOBAL PHASE 1/100 - TRAINING
+============================================================
+FIRST training phase - using 50 cycles
+Each puzzle repeated 1 times per cycle
+Training completed (50 cycles, 1 reps/puzzle):
+  Final Agent1 accuracy: 0.680
+  Final Agent2 accuracy: 0.680
+  Average loss (last 50): 2.6521
+  Total training steps: 250
+  Distractors used this training phase: 3
+
+============================================================
+GLOBAL PHASE 1/100 - TRAINING
+============================================================
+FIRST training phase - using 50 cycles
+Each puzzle repeated 1 times per cycle
+Training completed (50 cycles, 1 reps/puzzle):
+  Final Agent1 accuracy: 0.680
+  Final Agent2 accuracy: 0.600
+  Average loss (last 50): 2.6411
+  Total training steps: 325
+  Distractors used this training phase: 3
+
+============================================================
+GLOBAL PHASE 1/100 - TRAINING
+============================================================
+FIRST training phase - using 50 cycles
+Each puzzle repeated 1 times per cycle
+Training completed (50 cycles, 1 reps/puzzle):
+  Final Agent1 accuracy: 0.600
+  Final Agent2 accuracy: 0.640
+  Average loss (last 50): 2.6353
+  Total training steps: 400
+  Distractors used this training phase: 3
+
+============================================================
+GLOBAL PHASE 1/100 - TRAINING
+============================================================
+FIRST training phase - using 50 cycles
+Each puzzle repeated 1 times per cycle
+Training completed (50 cycles, 1 reps/puzzle):
+  Final Agent1 accuracy: 0.540
+  Final Agent2 accuracy: 0.680
+  Average loss (last 50): 2.6119
+  Total training steps: 475
+  Distractors used this training phase: 3
+
+============================================================
+GLOBAL PHASE 1/100 - TRAINING
+============================================================
+FIRST training phase - using 50 cycles
+Each puzzle repeated 1 times per cycle
+Training completed (50 cycles, 1 reps/puzzle):
+  Final Agent1 accuracy: 0.700
+  Final Agent2 accuracy: 0.520
+  Average loss (last 50): 2.6081
+  Total training steps: 550
+  Distractors used this training phase: 3
+
+============================================================
+GLOBAL PHASE 1/100 - TRAINING
+============================================================
+FIRST training phase - using 50 cycles
+Each puzzle repeated 1 times per cycle

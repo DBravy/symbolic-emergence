@@ -1,0 +1,91 @@
+GES (MA) at test time: Agent1=49.00, Agent2=49.00
+Summary (bidirectional):
+  A1→A2: 37/100 correct (acc=0.370)
+  A2→A1: 37/100 correct (acc=0.370)
+  Overall: 74/200 correct (acc=0.370)
+  GES (MA): Agent1=49.00, Agent2=49.00
+  Training phase distractors: 3
+GES (MA) at test time: Agent1=57.17, Agent2=59.50
+Summary (bidirectional):
+  A1→A2: 65/100 correct (acc=0.650)
+  A2→A1: 65/100 correct (acc=0.650)
+  Overall: 130/200 correct (acc=0.650)
+  GES (MA): Agent1=57.17, Agent2=59.50
+  Training phase distractors: 3
+GES (MA) at test time: Agent1=43.75, Agent2=38.75
+Summary (bidirectional):
+  A1→A2: 53/100 correct (acc=0.530)
+  A2→A1: 52/100 correct (acc=0.520)
+  Overall: 105/200 correct (acc=0.525)
+  GES (MA): Agent1=43.75, Agent2=38.75
+  Training phase distractors: 3
+GES (MA) at test time: Agent1=70.78, Agent2=53.44
+Summary (bidirectional):
+  A1→A2: 59/100 correct (acc=0.590)
+  A2→A1: 57/100 correct (acc=0.570)
+  Overall: 116/200 correct (acc=0.580)
+  GES (MA): Agent1=70.78, Agent2=53.44
+  Training phase distractors: 3
+GES (MA) at test time: Agent1=67.00, Agent2=67.00
+Summary (bidirectional):
+  A1→A2: 34/100 correct (acc=0.340)
+  A2→A1: 34/100 correct (acc=0.340)
+  Overall: 68/200 correct (acc=0.340)
+  GES (MA): Agent1=67.00, Agent2=67.00
+  Training phase distractors: 3
+GES (MA) at test time: Agent1=45.00, Agent2=47.00
+Summary (bidirectional):
+  A1→A2: 40/100 correct (acc=0.400)
+  A2→A1: 41/100 correct (acc=0.410)
+  Overall: 81/200 correct (acc=0.405)
+  GES (MA): Agent1=45.00, Agent2=47.00
+  Training phase distractors: 3
+GES (MA) at test time: Agent1=55.00, Agent2=55.00
+Summary (bidirectional):
+  A1→A2: 50/100 correct (acc=0.500)
+  A2→A1: 52/100 correct (acc=0.520)
+  Overall: 102/200 correct (acc=0.510)
+  GES (MA): Agent1=55.00, Agent2=55.00
+  Training phase distractors: 3
+GES (MA) at test time: Agent1=53.00, Agent2=55.00
+Summary (bidirectional):
+  A1→A2: 56/100 correct (acc=0.560)
+  A2→A1: 56/100 correct (acc=0.560)
+  Overall: 112/200 correct (acc=0.560)
+  GES (MA): Agent1=53.00, Agent2=55.00
+  Training phase distractors: 3
+GES (MA) at test time: Agent1=47.78, Agent2=47.78
+Summary (bidirectional):
+  A1→A2: 60/100 correct (acc=0.600)
+  A2→A1: 60/100 correct (acc=0.600)
+  Overall: 120/200 correct (acc=0.600)
+  GES (MA): Agent1=47.78, Agent2=47.78
+  Training phase distractors: 3
+GES (MA) at test time: Agent1=50.82, Agent2=41.36
+Summary (bidirectional):
+  A1→A2: 51/100 correct (acc=0.510)
+  A2→A1: 52/100 correct (acc=0.520)
+  Overall: 103/200 correct (acc=0.515)
+  GES (MA): Agent1=50.82, Agent2=41.36
+  Training phase distractors: 3
+GES (MA) at test time: Agent1=50.91, Agent2=56.73
+Summary (bidirectional):
+  A1→A2: 58/100 correct (acc=0.580)
+  A2→A1: 59/100 correct (acc=0.590)
+  Overall: 117/200 correct (acc=0.585)
+  GES (MA): Agent1=50.91, Agent2=56.73
+  Training phase distractors: 3
+GES (MA) at test time: Agent1=55.10, Agent2=81.70
+Summary (bidirectional):
+  A1→A2: 49/100 correct (acc=0.490)
+  A2→A1: 49/100 correct (acc=0.490)
+  Overall: 98/200 correct (acc=0.490)
+  GES (MA): Agent1=55.10, Agent2=81.70
+  Training phase distractors: 3
+GES (MA) at test time: Agent1=90.00, Agent2=54.00
+Summary (bidirectional):
+  A1→A2: 57/100 correct (acc=0.570)
+  A2→A1: 57/100 correct (acc=0.570)
+  Overall: 114/200 correct (acc=0.570)
+  GES (MA): Agent1=90.00, Agent2=54.00
+  Training phase distractors: 3

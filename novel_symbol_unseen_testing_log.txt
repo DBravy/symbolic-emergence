@@ -1,0 +1,3244 @@
+
+============================================================
+NOVEL SYMBOL INDUCTION TEST (FROZEN MODELS)
+Num tests: 100 | Distractors per test: 2
+============================================================
+GES (MA) at test time: Agent1=48.67, Agent2=48.67
+Test 001: target=272, predicted=1, correct=✗
+  cand[0] dataset_idx=272 prob=0.3448 (target)
+  cand[1] dataset_idx=672 prob=0.3699
+  cand[2] dataset_idx=707 prob=0.2852
+Test 001 [A2→A1]: target=272, predicted=1, correct=✗
+  cand[0] dataset_idx=272 prob=0.3443 (target)
+  cand[1] dataset_idx=672 prob=0.3695
+  cand[2] dataset_idx=707 prob=0.2863
+Test 002: target=524, predicted=0, correct=✓
+  cand[0] dataset_idx=524 prob=0.3579 (target)
+  cand[1] dataset_idx=95 prob=0.3545
+  cand[2] dataset_idx=489 prob=0.2876
+Test 002 [A2→A1]: target=524, predicted=0, correct=✓
+  cand[0] dataset_idx=524 prob=0.3575 (target)
+  cand[1] dataset_idx=95 prob=0.3546
+  cand[2] dataset_idx=489 prob=0.2879
+Test 003: target=592, predicted=0, correct=✓
+  cand[0] dataset_idx=592 prob=0.3667 (target)
+  cand[1] dataset_idx=291 prob=0.3457
+  cand[2] dataset_idx=53 prob=0.2876
+Test 003 [A2→A1]: target=592, predicted=0, correct=✓
+  cand[0] dataset_idx=592 prob=0.3666 (target)
+  cand[1] dataset_idx=291 prob=0.3455
+  cand[2] dataset_idx=53 prob=0.2880
+Test 004: target=294, predicted=0, correct=✓
+  cand[0] dataset_idx=294 prob=0.3710 (target)
+  cand[1] dataset_idx=661 prob=0.3076
+  cand[2] dataset_idx=654 prob=0.3214
+Test 004 [A2→A1]: target=294, predicted=0, correct=✓
+  cand[0] dataset_idx=294 prob=0.3703 (target)
+  cand[1] dataset_idx=661 prob=0.3065
+  cand[2] dataset_idx=654 prob=0.3232
+Test 005: target=547, predicted=1, correct=✗
+  cand[0] dataset_idx=547 prob=0.3270 (target)
+  cand[1] dataset_idx=445 prob=0.3602
+  cand[2] dataset_idx=78 prob=0.3129
+Test 005 [A2→A1]: target=547, predicted=1, correct=✗
+  cand[0] dataset_idx=547 prob=0.3267 (target)
+  cand[1] dataset_idx=445 prob=0.3596
+  cand[2] dataset_idx=78 prob=0.3137
+Test 006: target=407, predicted=0, correct=✓
+  cand[0] dataset_idx=407 prob=0.3555 (target)
+  cand[1] dataset_idx=39 prob=0.3076
+  cand[2] dataset_idx=237 prob=0.3368
+Test 006 [A2→A1]: target=407, predicted=0, correct=✓
+  cand[0] dataset_idx=407 prob=0.3588 (target)
+  cand[1] dataset_idx=39 prob=0.3052
+  cand[2] dataset_idx=237 prob=0.3360
+Test 007: target=162, predicted=1, correct=✗
+  cand[0] dataset_idx=162 prob=0.3211 (target)
+  cand[1] dataset_idx=418 prob=0.3643
+  cand[2] dataset_idx=590 prob=0.3146
+Test 007 [A2→A1]: target=162, predicted=1, correct=✗
+  cand[0] dataset_idx=162 prob=0.3208 (target)
+  cand[1] dataset_idx=418 prob=0.3647
+  cand[2] dataset_idx=590 prob=0.3145
+Test 008: target=158, predicted=1, correct=✗
+  cand[0] dataset_idx=158 prob=0.3000 (target)
+  cand[1] dataset_idx=711 prob=0.3567
+  cand[2] dataset_idx=581 prob=0.3432
+Test 008 [A2→A1]: target=158, predicted=1, correct=✗
+  cand[0] dataset_idx=158 prob=0.3004 (target)
+  cand[1] dataset_idx=711 prob=0.3566
+  cand[2] dataset_idx=581 prob=0.3431
+Test 009: target=587, predicted=1, correct=✗
+  cand[0] dataset_idx=587 prob=0.3143 (target)
+  cand[1] dataset_idx=613 prob=0.3455
+  cand[2] dataset_idx=701 prob=0.3402
+Test 009 [A2→A1]: target=587, predicted=1, correct=✗
+  cand[0] dataset_idx=587 prob=0.3184 (target)
+  cand[1] dataset_idx=613 prob=0.3444
+  cand[2] dataset_idx=701 prob=0.3372
+Test 010: target=60, predicted=0, correct=✓
+  cand[0] dataset_idx=60 prob=0.3782 (target)
+  cand[1] dataset_idx=260 prob=0.2590
+  cand[2] dataset_idx=286 prob=0.3628
+Test 010 [A2→A1]: target=60, predicted=0, correct=✓
+  cand[0] dataset_idx=60 prob=0.3784 (target)
+  cand[1] dataset_idx=260 prob=0.2592
+  cand[2] dataset_idx=286 prob=0.3624
+Test 011: target=633, predicted=2, correct=✗
+  cand[0] dataset_idx=633 prob=0.3178 (target)
+  cand[1] dataset_idx=83 prob=0.3369
+  cand[2] dataset_idx=374 prob=0.3453
+Test 011 [A2→A1]: target=633, predicted=2, correct=✗
+  cand[0] dataset_idx=633 prob=0.3185 (target)
+  cand[1] dataset_idx=83 prob=0.3366
+  cand[2] dataset_idx=374 prob=0.3450
+Test 012: target=528, predicted=0, correct=✓
+  cand[0] dataset_idx=528 prob=0.3430 (target)
+  cand[1] dataset_idx=41 prob=0.3259
+  cand[2] dataset_idx=315 prob=0.3312
+Test 012 [A2→A1]: target=528, predicted=0, correct=✓
+  cand[0] dataset_idx=528 prob=0.3426 (target)
+  cand[1] dataset_idx=41 prob=0.3256
+  cand[2] dataset_idx=315 prob=0.3319
+Test 013: target=477, predicted=0, correct=✓
+  cand[0] dataset_idx=477 prob=0.3599 (target)
+  cand[1] dataset_idx=717 prob=0.2947
+  cand[2] dataset_idx=325 prob=0.3454
+Test 013 [A2→A1]: target=477, predicted=0, correct=✓
+  cand[0] dataset_idx=477 prob=0.3594 (target)
+  cand[1] dataset_idx=717 prob=0.2952
+  cand[2] dataset_idx=325 prob=0.3454
+Test 014: target=159, predicted=0, correct=✓
+  cand[0] dataset_idx=159 prob=0.3628 (target)
+  cand[1] dataset_idx=575 prob=0.3596
+  cand[2] dataset_idx=625 prob=0.2776
+Test 014 [A2→A1]: target=159, predicted=0, correct=✓
+  cand[0] dataset_idx=159 prob=0.3625 (target)
+  cand[1] dataset_idx=575 prob=0.3595
+  cand[2] dataset_idx=625 prob=0.2780
+Test 015: target=557, predicted=2, correct=✗
+  cand[0] dataset_idx=557 prob=0.3347 (target)
+  cand[1] dataset_idx=648 prob=0.3296
+  cand[2] dataset_idx=218 prob=0.3357
+Test 015 [A2→A1]: target=557, predicted=2, correct=✗
+  cand[0] dataset_idx=557 prob=0.3351 (target)
+  cand[1] dataset_idx=648 prob=0.3294
+  cand[2] dataset_idx=218 prob=0.3355
+Test 016: target=104, predicted=0, correct=✓
+  cand[0] dataset_idx=104 prob=0.3576 (target)
+  cand[1] dataset_idx=607 prob=0.3014
+  cand[2] dataset_idx=531 prob=0.3410
+Test 016 [A2→A1]: target=104, predicted=0, correct=✓
+  cand[0] dataset_idx=104 prob=0.3573 (target)
+  cand[1] dataset_idx=607 prob=0.3021
+  cand[2] dataset_idx=531 prob=0.3406
+Test 017: target=217, predicted=1, correct=✗
+  cand[0] dataset_idx=217 prob=0.3461 (target)
+  cand[1] dataset_idx=266 prob=0.3483
+  cand[2] dataset_idx=63 prob=0.3055
+Test 017 [A2→A1]: target=217, predicted=1, correct=✗
+  cand[0] dataset_idx=217 prob=0.3458 (target)
+  cand[1] dataset_idx=266 prob=0.3479
+  cand[2] dataset_idx=63 prob=0.3062
+Test 018: target=378, predicted=0, correct=✓
+  cand[0] dataset_idx=378 prob=0.3620 (target)
+  cand[1] dataset_idx=253 prob=0.3566
+  cand[2] dataset_idx=211 prob=0.2814
+Test 018 [A2→A1]: target=378, predicted=0, correct=✓
+  cand[0] dataset_idx=378 prob=0.3617 (target)
+  cand[1] dataset_idx=253 prob=0.3563
+  cand[2] dataset_idx=211 prob=0.2820
+Test 019: target=611, predicted=0, correct=✓
+  cand[0] dataset_idx=611 prob=0.3522 (target)
+  cand[1] dataset_idx=683 prob=0.3458
+  cand[2] dataset_idx=102 prob=0.3020
+Test 019 [A2→A1]: target=611, predicted=0, correct=✓
+  cand[0] dataset_idx=611 prob=0.3557 (target)
+  cand[1] dataset_idx=683 prob=0.3457
+  cand[2] dataset_idx=102 prob=0.2987
+Test 020: target=515, predicted=1, correct=✗
+  cand[0] dataset_idx=515 prob=0.3312 (target)
+  cand[1] dataset_idx=726 prob=0.3673
+  cand[2] dataset_idx=420 prob=0.3015
+Test 020 [A2→A1]: target=515, predicted=1, correct=✗
+  cand[0] dataset_idx=515 prob=0.3312 (target)
+  cand[1] dataset_idx=726 prob=0.3671
+  cand[2] dataset_idx=420 prob=0.3018
+Test 021: target=702, predicted=0, correct=✓
+  cand[0] dataset_idx=702 prob=0.3522 (target)
+  cand[1] dataset_idx=529 prob=0.3470
+  cand[2] dataset_idx=162 prob=0.3008
+Test 021 [A2→A1]: target=702, predicted=0, correct=✓
+  cand[0] dataset_idx=702 prob=0.3518 (target)
+  cand[1] dataset_idx=529 prob=0.3465
+  cand[2] dataset_idx=162 prob=0.3017
+Test 022: target=439, predicted=1, correct=✗
+  cand[0] dataset_idx=439 prob=0.3325 (target)
+  cand[1] dataset_idx=398 prob=0.3592
+  cand[2] dataset_idx=356 prob=0.3083
+Test 022 [A2→A1]: target=439, predicted=1, correct=✗
+  cand[0] dataset_idx=439 prob=0.3326 (target)
+  cand[1] dataset_idx=398 prob=0.3588
+  cand[2] dataset_idx=356 prob=0.3087
+Test 023: target=232, predicted=0, correct=✓
+  cand[0] dataset_idx=232 prob=0.3768 (target)
+  cand[1] dataset_idx=501 prob=0.3079
+  cand[2] dataset_idx=498 prob=0.3153
+Test 023 [A2→A1]: target=232, predicted=0, correct=✓
+  cand[0] dataset_idx=232 prob=0.3757 (target)
+  cand[1] dataset_idx=501 prob=0.3090
+  cand[2] dataset_idx=498 prob=0.3153
+Test 024: target=156, predicted=2, correct=✗
+  cand[0] dataset_idx=156 prob=0.3123 (target)
+  cand[1] dataset_idx=723 prob=0.3418
+  cand[2] dataset_idx=528 prob=0.3460
+Test 024 [A2→A1]: target=156, predicted=2, correct=✗
+  cand[0] dataset_idx=156 prob=0.3148 (target)
+  cand[1] dataset_idx=723 prob=0.3415
+  cand[2] dataset_idx=528 prob=0.3437
+Test 025: target=718, predicted=1, correct=✗
+  cand[0] dataset_idx=718 prob=0.2999 (target)
+  cand[1] dataset_idx=500 prob=0.3788
+  cand[2] dataset_idx=279 prob=0.3212
+Test 025 [A2→A1]: target=718, predicted=1, correct=✗
+  cand[0] dataset_idx=718 prob=0.3023 (target)
+  cand[1] dataset_idx=500 prob=0.3795
+  cand[2] dataset_idx=279 prob=0.3182
+Test 026: target=328, predicted=2, correct=✗
+  cand[0] dataset_idx=328 prob=0.3151 (target)
+  cand[1] dataset_idx=286 prob=0.3423
+  cand[2] dataset_idx=257 prob=0.3426
+Test 026 [A2→A1]: target=328, predicted=2, correct=✗
+  cand[0] dataset_idx=328 prob=0.3153 (target)
+  cand[1] dataset_idx=286 prob=0.3419
+  cand[2] dataset_idx=257 prob=0.3428
+Test 027: target=687, predicted=0, correct=✓
+  cand[0] dataset_idx=687 prob=0.3918 (target)
+  cand[1] dataset_idx=718 prob=0.2552
+  cand[2] dataset_idx=439 prob=0.3531
+Test 027 [A2→A1]: target=687, predicted=0, correct=✓
+  cand[0] dataset_idx=687 prob=0.3916 (target)
+  cand[1] dataset_idx=718 prob=0.2551
+  cand[2] dataset_idx=439 prob=0.3533
+Test 028: target=426, predicted=2, correct=✗
+  cand[0] dataset_idx=426 prob=0.2971 (target)
+  cand[1] dataset_idx=726 prob=0.3481
+  cand[2] dataset_idx=378 prob=0.3549
+Test 028 [A2→A1]: target=426, predicted=2, correct=✗
+  cand[0] dataset_idx=426 prob=0.3005 (target)
+  cand[1] dataset_idx=726 prob=0.3473
+  cand[2] dataset_idx=378 prob=0.3523
+Test 029: target=620, predicted=0, correct=✓
+  cand[0] dataset_idx=620 prob=0.3483 (target)
+  cand[1] dataset_idx=138 prob=0.3440
+  cand[2] dataset_idx=604 prob=0.3077
+Test 029 [A2→A1]: target=620, predicted=0, correct=✓
+  cand[0] dataset_idx=620 prob=0.3480 (target)
+  cand[1] dataset_idx=138 prob=0.3438
+  cand[2] dataset_idx=604 prob=0.3081
+Test 030: target=531, predicted=1, correct=✗
+  cand[0] dataset_idx=531 prob=0.3315 (target)
+  cand[1] dataset_idx=147 prob=0.3410
+  cand[2] dataset_idx=429 prob=0.3274
+Test 030 [A2→A1]: target=531, predicted=1, correct=✗
+  cand[0] dataset_idx=531 prob=0.3312 (target)
+  cand[1] dataset_idx=147 prob=0.3411
+  cand[2] dataset_idx=429 prob=0.3276
+Test 031: target=94, predicted=0, correct=✓
+  cand[0] dataset_idx=94 prob=0.3506 (target)
+  cand[1] dataset_idx=78 prob=0.3034
+  cand[2] dataset_idx=461 prob=0.3460
+Test 031 [A2→A1]: target=94, predicted=0, correct=✓
+  cand[0] dataset_idx=94 prob=0.3501 (target)
+  cand[1] dataset_idx=78 prob=0.3047
+  cand[2] dataset_idx=461 prob=0.3452
+Test 032: target=117, predicted=1, correct=✗
+  cand[0] dataset_idx=117 prob=0.3447 (target)
+  cand[1] dataset_idx=36 prob=0.3981
+  cand[2] dataset_idx=504 prob=0.2572
+Test 032 [A2→A1]: target=117, predicted=1, correct=✗
+  cand[0] dataset_idx=117 prob=0.3457 (target)
+  cand[1] dataset_idx=36 prob=0.3972
+  cand[2] dataset_idx=504 prob=0.2571
+Test 033: target=69, predicted=0, correct=✓
+  cand[0] dataset_idx=69 prob=0.3581 (target)
+  cand[1] dataset_idx=746 prob=0.3283
+  cand[2] dataset_idx=210 prob=0.3136
+Test 033 [A2→A1]: target=69, predicted=0, correct=✓
+  cand[0] dataset_idx=69 prob=0.3582 (target)
+  cand[1] dataset_idx=746 prob=0.3283
+  cand[2] dataset_idx=210 prob=0.3135
+Test 034: target=651, predicted=1, correct=✗
+  cand[0] dataset_idx=651 prob=0.3284 (target)
+  cand[1] dataset_idx=382 prob=0.3741
+  cand[2] dataset_idx=473 prob=0.2975
+Test 034 [A2→A1]: target=651, predicted=1, correct=✗
+  cand[0] dataset_idx=651 prob=0.3290 (target)
+  cand[1] dataset_idx=382 prob=0.3734
+  cand[2] dataset_idx=473 prob=0.2976
+Test 035: target=171, predicted=2, correct=✗
+  cand[0] dataset_idx=171 prob=0.3577 (target)
+  cand[1] dataset_idx=430 prob=0.2845
+  cand[2] dataset_idx=251 prob=0.3579
+Test 035 [A2→A1]: target=171, predicted=2, correct=✗
+  cand[0] dataset_idx=171 prob=0.3574 (target)
+  cand[1] dataset_idx=430 prob=0.2851
+  cand[2] dataset_idx=251 prob=0.3576
+Test 036: target=379, predicted=0, correct=✓
+  cand[0] dataset_idx=379 prob=0.3549 (target)
+  cand[1] dataset_idx=255 prob=0.3509
+  cand[2] dataset_idx=420 prob=0.2941
+Test 036 [A2→A1]: target=379, predicted=0, correct=✓
+  cand[0] dataset_idx=379 prob=0.3548 (target)
+  cand[1] dataset_idx=255 prob=0.3509
+  cand[2] dataset_idx=420 prob=0.2943
+Test 037: target=680, predicted=1, correct=✗
+  cand[0] dataset_idx=680 prob=0.3355 (target)
+  cand[1] dataset_idx=29 prob=0.3478
+  cand[2] dataset_idx=76 prob=0.3167
+Test 037 [A2→A1]: target=680, predicted=1, correct=✗
+  cand[0] dataset_idx=680 prob=0.3353 (target)
+  cand[1] dataset_idx=29 prob=0.3473
+  cand[2] dataset_idx=76 prob=0.3174
+Test 038: target=113, predicted=2, correct=✗
+  cand[0] dataset_idx=113 prob=0.3178 (target)
+  cand[1] dataset_idx=0 prob=0.3131
+  cand[2] dataset_idx=26 prob=0.3691
+Test 038 [A2→A1]: target=113, predicted=2, correct=✗
+  cand[0] dataset_idx=113 prob=0.3207 (target)
+  cand[1] dataset_idx=0 prob=0.3121
+  cand[2] dataset_idx=26 prob=0.3672
+Test 039: target=564, predicted=1, correct=✗
+  cand[0] dataset_idx=564 prob=0.3326 (target)
+  cand[1] dataset_idx=357 prob=0.3469
+  cand[2] dataset_idx=519 prob=0.3204
+Test 039 [A2→A1]: target=564, predicted=1, correct=✗
+  cand[0] dataset_idx=564 prob=0.3307 (target)
+  cand[1] dataset_idx=357 prob=0.3466
+  cand[2] dataset_idx=519 prob=0.3228
+Test 040: target=214, predicted=1, correct=✗
+  cand[0] dataset_idx=214 prob=0.3085 (target)
+  cand[1] dataset_idx=456 prob=0.3502
+  cand[2] dataset_idx=90 prob=0.3413
+Test 040 [A2→A1]: target=214, predicted=1, correct=✗
+  cand[0] dataset_idx=214 prob=0.3103 (target)
+  cand[1] dataset_idx=456 prob=0.3490
+  cand[2] dataset_idx=90 prob=0.3406
+Test 041: target=274, predicted=2, correct=✗
+  cand[0] dataset_idx=274 prob=0.3185 (target)
+  cand[1] dataset_idx=468 prob=0.3052
+  cand[2] dataset_idx=138 prob=0.3763
+Test 041 [A2→A1]: target=274, predicted=2, correct=✗
+  cand[0] dataset_idx=274 prob=0.3187 (target)
+  cand[1] dataset_idx=468 prob=0.3057
+  cand[2] dataset_idx=138 prob=0.3755
+Test 042: target=105, predicted=0, correct=✓
+  cand[0] dataset_idx=105 prob=0.3985 (target)
+  cand[1] dataset_idx=469 prob=0.3175
+  cand[2] dataset_idx=412 prob=0.2839
+Test 042 [A2→A1]: target=105, predicted=0, correct=✓
+  cand[0] dataset_idx=105 prob=0.3974 (target)
+  cand[1] dataset_idx=469 prob=0.3174
+  cand[2] dataset_idx=412 prob=0.2853
+Test 043: target=712, predicted=2, correct=✗
+  cand[0] dataset_idx=712 prob=0.3184 (target)
+  cand[1] dataset_idx=601 prob=0.3385
+  cand[2] dataset_idx=666 prob=0.3431
+Test 043 [A2→A1]: target=712, predicted=2, correct=✗
+  cand[0] dataset_idx=712 prob=0.3184 (target)
+  cand[1] dataset_idx=601 prob=0.3385
+  cand[2] dataset_idx=666 prob=0.3431
+Test 044: target=322, predicted=2, correct=✗
+  cand[0] dataset_idx=322 prob=0.3538 (target)
+  cand[1] dataset_idx=114 prob=0.2891
+  cand[2] dataset_idx=226 prob=0.3571
+Test 044 [A2→A1]: target=322, predicted=2, correct=✗
+  cand[0] dataset_idx=322 prob=0.3534 (target)
+  cand[1] dataset_idx=114 prob=0.2898
+  cand[2] dataset_idx=226 prob=0.3568
+Test 045: target=41, predicted=2, correct=✗
+  cand[0] dataset_idx=41 prob=0.3217 (target)
+  cand[1] dataset_idx=530 prob=0.3349
+  cand[2] dataset_idx=145 prob=0.3434
+Test 045 [A2→A1]: target=41, predicted=2, correct=✗
+  cand[0] dataset_idx=41 prob=0.3225 (target)
+  cand[1] dataset_idx=530 prob=0.3345
+  cand[2] dataset_idx=145 prob=0.3431
+Test 046: target=682, predicted=2, correct=✗
+  cand[0] dataset_idx=682 prob=0.3270 (target)
+  cand[1] dataset_idx=459 prob=0.3330
+  cand[2] dataset_idx=231 prob=0.3399
+Test 046 [A2→A1]: target=682, predicted=2, correct=✗
+  cand[0] dataset_idx=682 prob=0.3270 (target)
+  cand[1] dataset_idx=459 prob=0.3336
+  cand[2] dataset_idx=231 prob=0.3394
+Test 047: target=459, predicted=2, correct=✗
+  cand[0] dataset_idx=459 prob=0.3290 (target)
+  cand[1] dataset_idx=291 prob=0.3155
+  cand[2] dataset_idx=134 prob=0.3555
+Test 047 [A2→A1]: target=459, predicted=2, correct=✗
+  cand[0] dataset_idx=459 prob=0.3291 (target)
+  cand[1] dataset_idx=291 prob=0.3153
+  cand[2] dataset_idx=134 prob=0.3556
+Test 048: target=137, predicted=1, correct=✗
+  cand[0] dataset_idx=137 prob=0.2983 (target)
+  cand[1] dataset_idx=438 prob=0.3527
+  cand[2] dataset_idx=582 prob=0.3490
+Test 048 [A2→A1]: target=137, predicted=1, correct=✗
+  cand[0] dataset_idx=137 prob=0.2989 (target)
+  cand[1] dataset_idx=438 prob=0.3524
+  cand[2] dataset_idx=582 prob=0.3487
+Test 049: target=421, predicted=2, correct=✗
+  cand[0] dataset_idx=421 prob=0.3161 (target)
+  cand[1] dataset_idx=565 prob=0.3168
+  cand[2] dataset_idx=381 prob=0.3671
+Test 049 [A2→A1]: target=421, predicted=2, correct=✗
+  cand[0] dataset_idx=421 prob=0.3169 (target)
+  cand[1] dataset_idx=565 prob=0.3169
+  cand[2] dataset_idx=381 prob=0.3662
+Test 050: target=367, predicted=2, correct=✗
+  cand[0] dataset_idx=367 prob=0.3292 (target)
+  cand[1] dataset_idx=615 prob=0.3300
+  cand[2] dataset_idx=618 prob=0.3408
+Test 050 [A2→A1]: target=367, predicted=2, correct=✗
+  cand[0] dataset_idx=367 prob=0.3292 (target)
+  cand[1] dataset_idx=615 prob=0.3302
+  cand[2] dataset_idx=618 prob=0.3407
+Test 051: target=704, predicted=0, correct=✓
+  cand[0] dataset_idx=704 prob=0.3796 (target)
+  cand[1] dataset_idx=192 prob=0.3240
+  cand[2] dataset_idx=96 prob=0.2964
+Test 051 [A2→A1]: target=704, predicted=0, correct=✓
+  cand[0] dataset_idx=704 prob=0.3822 (target)
+  cand[1] dataset_idx=192 prob=0.3223
+  cand[2] dataset_idx=96 prob=0.2955
+Test 052: target=591, predicted=2, correct=✗
+  cand[0] dataset_idx=591 prob=0.3235 (target)
+  cand[1] dataset_idx=516 prob=0.3200
+  cand[2] dataset_idx=219 prob=0.3565
+Test 052 [A2→A1]: target=591, predicted=2, correct=✗
+  cand[0] dataset_idx=591 prob=0.3237 (target)
+  cand[1] dataset_idx=516 prob=0.3204
+  cand[2] dataset_idx=219 prob=0.3559
+Test 053: target=433, predicted=1, correct=✗
+  cand[0] dataset_idx=433 prob=0.3152 (target)
+  cand[1] dataset_idx=573 prob=0.3569
+  cand[2] dataset_idx=91 prob=0.3279
+Test 053 [A2→A1]: target=433, predicted=1, correct=✗
+  cand[0] dataset_idx=433 prob=0.3161 (target)
+  cand[1] dataset_idx=573 prob=0.3564
+  cand[2] dataset_idx=91 prob=0.3276
+Test 054: target=130, predicted=0, correct=✓
+  cand[0] dataset_idx=130 prob=0.3539 (target)
+  cand[1] dataset_idx=597 prob=0.3266
+  cand[2] dataset_idx=24 prob=0.3195
+Test 054 [A2→A1]: target=130, predicted=0, correct=✓
+  cand[0] dataset_idx=130 prob=0.3535 (target)
+  cand[1] dataset_idx=597 prob=0.3267
+  cand[2] dataset_idx=24 prob=0.3198
+Test 055: target=40, predicted=0, correct=✓
+  cand[0] dataset_idx=40 prob=0.3349 (target)
+  cand[1] dataset_idx=39 prob=0.3324
+  cand[2] dataset_idx=461 prob=0.3327
+Test 055 [A2→A1]: target=40, predicted=0, correct=✓
+  cand[0] dataset_idx=40 prob=0.3350 (target)
+  cand[1] dataset_idx=39 prob=0.3325
+  cand[2] dataset_idx=461 prob=0.3325
+Test 056: target=483, predicted=0, correct=✓
+  cand[0] dataset_idx=483 prob=0.3636 (target)
+  cand[1] dataset_idx=625 prob=0.2740
+  cand[2] dataset_idx=670 prob=0.3625
+Test 056 [A2→A1]: target=483, predicted=0, correct=✓
+  cand[0] dataset_idx=483 prob=0.3634 (target)
+  cand[1] dataset_idx=625 prob=0.2742
+  cand[2] dataset_idx=670 prob=0.3624
+Test 057: target=224, predicted=0, correct=✓
+  cand[0] dataset_idx=224 prob=0.3360 (target)
+  cand[1] dataset_idx=723 prob=0.3287
+  cand[2] dataset_idx=603 prob=0.3352
+Test 057 [A2→A1]: target=224, predicted=0, correct=✓
+  cand[0] dataset_idx=224 prob=0.3359 (target)
+  cand[1] dataset_idx=723 prob=0.3288
+  cand[2] dataset_idx=603 prob=0.3352
+Test 058: target=522, predicted=0, correct=✓
+  cand[0] dataset_idx=522 prob=0.3379 (target)
+  cand[1] dataset_idx=616 prob=0.3265
+  cand[2] dataset_idx=324 prob=0.3356
+Test 058 [A2→A1]: target=522, predicted=0, correct=✓
+  cand[0] dataset_idx=522 prob=0.3378 (target)
+  cand[1] dataset_idx=616 prob=0.3266
+  cand[2] dataset_idx=324 prob=0.3355
+Test 059: target=671, predicted=0, correct=✓
+  cand[0] dataset_idx=671 prob=0.3670 (target)
+  cand[1] dataset_idx=420 prob=0.2932
+  cand[2] dataset_idx=21 prob=0.3398
+Test 059 [A2→A1]: target=671, predicted=0, correct=✓
+  cand[0] dataset_idx=671 prob=0.3665 (target)
+  cand[1] dataset_idx=420 prob=0.2938
+  cand[2] dataset_idx=21 prob=0.3397
+Test 060: target=619, predicted=0, correct=✓
+  cand[0] dataset_idx=619 prob=0.3442 (target)
+  cand[1] dataset_idx=137 prob=0.3131
+  cand[2] dataset_idx=635 prob=0.3427
+Test 060 [A2→A1]: target=619, predicted=0, correct=✓
+  cand[0] dataset_idx=619 prob=0.3439 (target)
+  cand[1] dataset_idx=137 prob=0.3137
+  cand[2] dataset_idx=635 prob=0.3424
+Test 061: target=34, predicted=0, correct=✓
+  cand[0] dataset_idx=34 prob=0.3586 (target)
+  cand[1] dataset_idx=743 prob=0.3364
+  cand[2] dataset_idx=213 prob=0.3051
+Test 061 [A2→A1]: target=34, predicted=0, correct=✓
+  cand[0] dataset_idx=34 prob=0.3579 (target)
+  cand[1] dataset_idx=743 prob=0.3359
+  cand[2] dataset_idx=213 prob=0.3062
+Test 062: target=172, predicted=1, correct=✗
+  cand[0] dataset_idx=172 prob=0.3302 (target)
+  cand[1] dataset_idx=135 prob=0.3390
+  cand[2] dataset_idx=26 prob=0.3307
+Test 062 [A2→A1]: target=172, predicted=1, correct=✗
+  cand[0] dataset_idx=172 prob=0.3299 (target)
+  cand[1] dataset_idx=135 prob=0.3399
+  cand[2] dataset_idx=26 prob=0.3302
+Test 063: target=460, predicted=1, correct=✗
+  cand[0] dataset_idx=460 prob=0.3347 (target)
+  cand[1] dataset_idx=618 prob=0.3523
+  cand[2] dataset_idx=514 prob=0.3130
+Test 063 [A2→A1]: target=460, predicted=1, correct=✗
+  cand[0] dataset_idx=460 prob=0.3346 (target)
+  cand[1] dataset_idx=618 prob=0.3521
+  cand[2] dataset_idx=514 prob=0.3132
+Test 064: target=689, predicted=0, correct=✓
+  cand[0] dataset_idx=689 prob=0.3718 (target)
+  cand[1] dataset_idx=279 prob=0.3112
+  cand[2] dataset_idx=392 prob=0.3170
+Test 064 [A2→A1]: target=689, predicted=0, correct=✓
+  cand[0] dataset_idx=689 prob=0.3716 (target)
+  cand[1] dataset_idx=279 prob=0.3106
+  cand[2] dataset_idx=392 prob=0.3178
+Test 065: target=55, predicted=0, correct=✓
+  cand[0] dataset_idx=55 prob=0.3416 (target)
+  cand[1] dataset_idx=317 prob=0.3188
+  cand[2] dataset_idx=219 prob=0.3396
+Test 065 [A2→A1]: target=55, predicted=0, correct=✓
+  cand[0] dataset_idx=55 prob=0.3413 (target)
+  cand[1] dataset_idx=317 prob=0.3194
+  cand[2] dataset_idx=219 prob=0.3392
+Test 066: target=169, predicted=0, correct=✓
+  cand[0] dataset_idx=169 prob=0.3453 (target)
+  cand[1] dataset_idx=351 prob=0.3183
+  cand[2] dataset_idx=202 prob=0.3365
+Test 066 [A2→A1]: target=169, predicted=0, correct=✓
+  cand[0] dataset_idx=169 prob=0.3451 (target)
+  cand[1] dataset_idx=351 prob=0.3188
+  cand[2] dataset_idx=202 prob=0.3361
+Test 067: target=571, predicted=2, correct=✗
+  cand[0] dataset_idx=571 prob=0.3396 (target)
+  cand[1] dataset_idx=712 prob=0.3168
+  cand[2] dataset_idx=725 prob=0.3436
+Test 067 [A2→A1]: target=571, predicted=2, correct=✗
+  cand[0] dataset_idx=571 prob=0.3395 (target)
+  cand[1] dataset_idx=712 prob=0.3168
+  cand[2] dataset_idx=725 prob=0.3437
+Test 068: target=538, predicted=2, correct=✗
+  cand[0] dataset_idx=538 prob=0.3231 (target)
+  cand[1] dataset_idx=600 prob=0.3213
+  cand[2] dataset_idx=544 prob=0.3556
+Test 068 [A2→A1]: target=538, predicted=2, correct=✗
+  cand[0] dataset_idx=538 prob=0.3228 (target)
+  cand[1] dataset_idx=600 prob=0.3225
+  cand[2] dataset_idx=544 prob=0.3547
+Test 069: target=135, predicted=2, correct=✗
+  cand[0] dataset_idx=135 prob=0.3353 (target)
+  cand[1] dataset_idx=433 prob=0.3135
+  cand[2] dataset_idx=33 prob=0.3512
+Test 069 [A2→A1]: target=135, predicted=2, correct=✗
+  cand[0] dataset_idx=135 prob=0.3356 (target)
+  cand[1] dataset_idx=433 prob=0.3135
+  cand[2] dataset_idx=33 prob=0.3509
+Test 070: target=406, predicted=0, correct=✓
+  cand[0] dataset_idx=406 prob=0.3576 (target)
+  cand[1] dataset_idx=80 prob=0.3172
+  cand[2] dataset_idx=22 prob=0.3252
+Test 070 [A2→A1]: target=406, predicted=0, correct=✓
+  cand[0] dataset_idx=406 prob=0.3571 (target)
+  cand[1] dataset_idx=80 prob=0.3178
+  cand[2] dataset_idx=22 prob=0.3251
+Test 071: target=131, predicted=1, correct=✗
+  cand[0] dataset_idx=131 prob=0.3560 (target)
+  cand[1] dataset_idx=350 prob=0.3590
+  cand[2] dataset_idx=126 prob=0.2850
+Test 071 [A2→A1]: target=131, predicted=1, correct=✗
+  cand[0] dataset_idx=131 prob=0.3555 (target)
+  cand[1] dataset_idx=350 prob=0.3585
+  cand[2] dataset_idx=126 prob=0.2860
+Test 072: target=470, predicted=1, correct=✗
+  cand[0] dataset_idx=470 prob=0.3212 (target)
+  cand[1] dataset_idx=365 prob=0.3705
+  cand[2] dataset_idx=0 prob=0.3083
+Test 072 [A2→A1]: target=470, predicted=1, correct=✗
+  cand[0] dataset_idx=470 prob=0.3214 (target)
+  cand[1] dataset_idx=365 prob=0.3691
+  cand[2] dataset_idx=0 prob=0.3095
+Test 073: target=62, predicted=0, correct=✓
+  cand[0] dataset_idx=62 prob=0.3433 (target)
+  cand[1] dataset_idx=13 prob=0.3216
+  cand[2] dataset_idx=183 prob=0.3352
+Test 073 [A2→A1]: target=62, predicted=0, correct=✓
+  cand[0] dataset_idx=62 prob=0.3484 (target)
+  cand[1] dataset_idx=13 prob=0.3190
+  cand[2] dataset_idx=183 prob=0.3326
+Test 074: target=541, predicted=2, correct=✗
+  cand[0] dataset_idx=541 prob=0.3299 (target)
+  cand[1] dataset_idx=383 prob=0.3319
+  cand[2] dataset_idx=711 prob=0.3383
+Test 074 [A2→A1]: target=541, predicted=2, correct=✗
+  cand[0] dataset_idx=541 prob=0.3299 (target)
+  cand[1] dataset_idx=383 prob=0.3318
+  cand[2] dataset_idx=711 prob=0.3382
+Test 075: target=313, predicted=2, correct=✗
+  cand[0] dataset_idx=313 prob=0.3376 (target)
+  cand[1] dataset_idx=568 prob=0.3089
+  cand[2] dataset_idx=577 prob=0.3535
+Test 075 [A2→A1]: target=313, predicted=2, correct=✗
+  cand[0] dataset_idx=313 prob=0.3377 (target)
+  cand[1] dataset_idx=568 prob=0.3086
+  cand[2] dataset_idx=577 prob=0.3537
+Test 076: target=661, predicted=2, correct=✗
+  cand[0] dataset_idx=661 prob=0.3047 (target)
+  cand[1] dataset_idx=82 prob=0.3415
+  cand[2] dataset_idx=527 prob=0.3538
+Test 076 [A2→A1]: target=661, predicted=2, correct=✗
+  cand[0] dataset_idx=661 prob=0.3044 (target)
+  cand[1] dataset_idx=82 prob=0.3421
+  cand[2] dataset_idx=527 prob=0.3536
+Test 077: target=53, predicted=1, correct=✗
+  cand[0] dataset_idx=53 prob=0.3296 (target)
+  cand[1] dataset_idx=464 prob=0.3597
+  cand[2] dataset_idx=388 prob=0.3107
+Test 077 [A2→A1]: target=53, predicted=1, correct=✗
+  cand[0] dataset_idx=53 prob=0.3327 (target)
+  cand[1] dataset_idx=464 prob=0.3560
+  cand[2] dataset_idx=388 prob=0.3113
+Test 078: target=284, predicted=0, correct=✓
+  cand[0] dataset_idx=284 prob=0.3520 (target)
+  cand[1] dataset_idx=239 prob=0.3297
+  cand[2] dataset_idx=281 prob=0.3183
+Test 078 [A2→A1]: target=284, predicted=0, correct=✓
+  cand[0] dataset_idx=284 prob=0.3519 (target)
+  cand[1] dataset_idx=239 prob=0.3297
+  cand[2] dataset_idx=281 prob=0.3184
+Test 079: target=145, predicted=0, correct=✓
+  cand[0] dataset_idx=145 prob=0.3528 (target)
+  cand[1] dataset_idx=15 prob=0.3255
+  cand[2] dataset_idx=633 prob=0.3216
+Test 079 [A2→A1]: target=145, predicted=0, correct=✓
+  cand[0] dataset_idx=145 prob=0.3525 (target)
+  cand[1] dataset_idx=15 prob=0.3252
+  cand[2] dataset_idx=633 prob=0.3223
+Test 080: target=259, predicted=0, correct=✓
+  cand[0] dataset_idx=259 prob=0.3480 (target)
+  cand[1] dataset_idx=285 prob=0.3201
+  cand[2] dataset_idx=733 prob=0.3319
+Test 080 [A2→A1]: target=259, predicted=0, correct=✓
+  cand[0] dataset_idx=259 prob=0.3486 (target)
+  cand[1] dataset_idx=285 prob=0.3194
+  cand[2] dataset_idx=733 prob=0.3320
+Test 081: target=143, predicted=0, correct=✓
+  cand[0] dataset_idx=143 prob=0.3423 (target)
+  cand[1] dataset_idx=534 prob=0.3171
+  cand[2] dataset_idx=58 prob=0.3405
+Test 081 [A2→A1]: target=143, predicted=0, correct=✓
+  cand[0] dataset_idx=143 prob=0.3422 (target)
+  cand[1] dataset_idx=534 prob=0.3174
+  cand[2] dataset_idx=58 prob=0.3404
+Test 082: target=223, predicted=0, correct=✓
+  cand[0] dataset_idx=223 prob=0.3392 (target)
+  cand[1] dataset_idx=604 prob=0.3312
+  cand[2] dataset_idx=611 prob=0.3296
+Test 082 [A2→A1]: target=223, predicted=0, correct=✓
+  cand[0] dataset_idx=223 prob=0.3382 (target)
+  cand[1] dataset_idx=604 prob=0.3315
+  cand[2] dataset_idx=611 prob=0.3303
+Test 083: target=350, predicted=0, correct=✓
+  cand[0] dataset_idx=350 prob=0.3700 (target)
+  cand[1] dataset_idx=285 prob=0.3409
+  cand[2] dataset_idx=720 prob=0.2891
+Test 083 [A2→A1]: target=350, predicted=0, correct=✓
+  cand[0] dataset_idx=350 prob=0.3698 (target)
+  cand[1] dataset_idx=285 prob=0.3404
+  cand[2] dataset_idx=720 prob=0.2898
+Test 084: target=397, predicted=1, correct=✗
+  cand[0] dataset_idx=397 prob=0.3492 (target)
+  cand[1] dataset_idx=558 prob=0.3621
+  cand[2] dataset_idx=706 prob=0.2887
+Test 084 [A2→A1]: target=397, predicted=1, correct=✗
+  cand[0] dataset_idx=397 prob=0.3484 (target)
+  cand[1] dataset_idx=558 prob=0.3617
+  cand[2] dataset_idx=706 prob=0.2899
+Test 085: target=518, predicted=2, correct=✗
+  cand[0] dataset_idx=518 prob=0.2951 (target)
+  cand[1] dataset_idx=750 prob=0.3277
+  cand[2] dataset_idx=438 prob=0.3771
+Test 085 [A2→A1]: target=518, predicted=2, correct=✗
+  cand[0] dataset_idx=518 prob=0.2960 (target)
+  cand[1] dataset_idx=750 prob=0.3277
+  cand[2] dataset_idx=438 prob=0.3763
+Test 086: target=201, predicted=2, correct=✗
+  cand[0] dataset_idx=201 prob=0.3306 (target)
+  cand[1] dataset_idx=714 prob=0.3127
+  cand[2] dataset_idx=177 prob=0.3566
+Test 086 [A2→A1]: target=201, predicted=2, correct=✗
+  cand[0] dataset_idx=201 prob=0.3303 (target)
+  cand[1] dataset_idx=714 prob=0.3135
+  cand[2] dataset_idx=177 prob=0.3562
+Test 087: target=236, predicted=0, correct=✓
+  cand[0] dataset_idx=236 prob=0.3854 (target)
+  cand[1] dataset_idx=655 prob=0.3079
+  cand[2] dataset_idx=452 prob=0.3067
+Test 087 [A2→A1]: target=236, predicted=0, correct=✓
+  cand[0] dataset_idx=236 prob=0.3855 (target)
+  cand[1] dataset_idx=655 prob=0.3076
+  cand[2] dataset_idx=452 prob=0.3069
+Test 088: target=310, predicted=1, correct=✗
+  cand[0] dataset_idx=310 prob=0.3437 (target)
+  cand[1] dataset_idx=443 prob=0.3476
+  cand[2] dataset_idx=345 prob=0.3087
+Test 088 [A2→A1]: target=310, predicted=1, correct=✗
+  cand[0] dataset_idx=310 prob=0.3438 (target)
+  cand[1] dataset_idx=443 prob=0.3476
+  cand[2] dataset_idx=345 prob=0.3086
+Test 089: target=532, predicted=0, correct=✓
+  cand[0] dataset_idx=532 prob=0.3542 (target)
+  cand[1] dataset_idx=189 prob=0.3439
+  cand[2] dataset_idx=550 prob=0.3019
+Test 089 [A2→A1]: target=532, predicted=0, correct=✓
+  cand[0] dataset_idx=532 prob=0.3544 (target)
+  cand[1] dataset_idx=189 prob=0.3437
+  cand[2] dataset_idx=550 prob=0.3019
+Test 090: target=86, predicted=1, correct=✗
+  cand[0] dataset_idx=86 prob=0.3216 (target)
+  cand[1] dataset_idx=443 prob=0.3433
+  cand[2] dataset_idx=253 prob=0.3351
+Test 090 [A2→A1]: target=86, predicted=1, correct=✗
+  cand[0] dataset_idx=86 prob=0.3220 (target)
+  cand[1] dataset_idx=443 prob=0.3430
+  cand[2] dataset_idx=253 prob=0.3350
+Test 091: target=123, predicted=2, correct=✗
+  cand[0] dataset_idx=123 prob=0.3104 (target)
+  cand[1] dataset_idx=100 prob=0.3102
+  cand[2] dataset_idx=4 prob=0.3794
+Test 091 [A2→A1]: target=123, predicted=2, correct=✗
+  cand[0] dataset_idx=123 prob=0.3102 (target)
+  cand[1] dataset_idx=100 prob=0.3107
+  cand[2] dataset_idx=4 prob=0.3791
+Test 092: target=296, predicted=1, correct=✗
+  cand[0] dataset_idx=296 prob=0.3335 (target)
+  cand[1] dataset_idx=674 prob=0.3486
+  cand[2] dataset_idx=435 prob=0.3179
+Test 092 [A2→A1]: target=296, predicted=1, correct=✗
+  cand[0] dataset_idx=296 prob=0.3333 (target)
+  cand[1] dataset_idx=674 prob=0.3486
+  cand[2] dataset_idx=435 prob=0.3181
+Test 093: target=107, predicted=1, correct=✗
+  cand[0] dataset_idx=107 prob=0.3321 (target)
+  cand[1] dataset_idx=583 prob=0.3420
+  cand[2] dataset_idx=315 prob=0.3259
+Test 093 [A2→A1]: target=107, predicted=1, correct=✗
+  cand[0] dataset_idx=107 prob=0.3318 (target)
+  cand[1] dataset_idx=583 prob=0.3417
+  cand[2] dataset_idx=315 prob=0.3265
+Test 094: target=42, predicted=0, correct=✓
+  cand[0] dataset_idx=42 prob=0.3484 (target)
+  cand[1] dataset_idx=62 prob=0.3110
+  cand[2] dataset_idx=254 prob=0.3406
+Test 094 [A2→A1]: target=42, predicted=0, correct=✓
+  cand[0] dataset_idx=42 prob=0.3481 (target)
+  cand[1] dataset_idx=62 prob=0.3115
+  cand[2] dataset_idx=254 prob=0.3404
+Test 095: target=693, predicted=1, correct=✗
+  cand[0] dataset_idx=693 prob=0.3790 (target)
+  cand[1] dataset_idx=709 prob=0.3806
+  cand[2] dataset_idx=426 prob=0.2404
+Test 095 [A2→A1]: target=693, predicted=1, correct=✗
+  cand[0] dataset_idx=693 prob=0.3785 (target)
+  cand[1] dataset_idx=709 prob=0.3796
+  cand[2] dataset_idx=426 prob=0.2418
+Test 096: target=100, predicted=1, correct=✗
+  cand[0] dataset_idx=100 prob=0.2859 (target)
+  cand[1] dataset_idx=104 prob=0.3677
+  cand[2] dataset_idx=248 prob=0.3464
+Test 096 [A2→A1]: target=100, predicted=1, correct=✗
+  cand[0] dataset_idx=100 prob=0.2874 (target)
+  cand[1] dataset_idx=104 prob=0.3665
+  cand[2] dataset_idx=248 prob=0.3461
+Test 097: target=52, predicted=2, correct=✗
+  cand[0] dataset_idx=52 prob=0.3407 (target)
+  cand[1] dataset_idx=62 prob=0.3148
+  cand[2] dataset_idx=731 prob=0.3445
+Test 097 [A2→A1]: target=52, predicted=2, correct=✗
+  cand[0] dataset_idx=52 prob=0.3402 (target)
+  cand[1] dataset_idx=62 prob=0.3163
+  cand[2] dataset_idx=731 prob=0.3435
+Test 098: target=437, predicted=2, correct=✗
+  cand[0] dataset_idx=437 prob=0.3225 (target)
+  cand[1] dataset_idx=736 prob=0.3233
+  cand[2] dataset_idx=46 prob=0.3543
+Test 098 [A2→A1]: target=437, predicted=2, correct=✗
+  cand[0] dataset_idx=437 prob=0.3263 (target)
+  cand[1] dataset_idx=736 prob=0.3215
+  cand[2] dataset_idx=46 prob=0.3523
+Test 099: target=551, predicted=1, correct=✗
+  cand[0] dataset_idx=551 prob=0.3325 (target)
+  cand[1] dataset_idx=26 prob=0.3430
+  cand[2] dataset_idx=600 prob=0.3245
+Test 099 [A2→A1]: target=551, predicted=1, correct=✗
+  cand[0] dataset_idx=551 prob=0.3321 (target)
+  cand[1] dataset_idx=26 prob=0.3423
+  cand[2] dataset_idx=600 prob=0.3256
+Test 100: target=623, predicted=1, correct=✗
+  cand[0] dataset_idx=623 prob=0.3648 (target)
+  cand[1] dataset_idx=90 prob=0.3947
+  cand[2] dataset_idx=476 prob=0.2406
+Test 100 [A2→A1]: target=623, predicted=1, correct=✗
+  cand[0] dataset_idx=623 prob=0.3655 (target)
+  cand[1] dataset_idx=90 prob=0.3938
+  cand[2] dataset_idx=476 prob=0.2408
+Summary (bidirectional):
+  A1→A2: 42/100 correct (acc=0.420)
+  A2→A1: 42/100 correct (acc=0.420)
+  Overall: 84/200 correct (acc=0.420)
+  GES (MA): Agent1=48.67, Agent2=48.67
+
+============================================================
+NOVEL SYMBOL INDUCTION TEST (FROZEN MODELS)
+Num tests: 100 | Distractors per test: 2
+============================================================
+GES (MA) at test time: Agent1=34.67, Agent2=34.67
+Test 001: target=302, predicted=0, correct=✓
+  cand[0] dataset_idx=302 prob=0.5307 (target)
+  cand[1] dataset_idx=735 prob=0.3681
+  cand[2] dataset_idx=651 prob=0.1012
+Test 001 [A2→A1]: target=302, predicted=0, correct=✓
+  cand[0] dataset_idx=302 prob=0.5323 (target)
+  cand[1] dataset_idx=735 prob=0.3652
+  cand[2] dataset_idx=651 prob=0.1025
+Test 002: target=537, predicted=0, correct=✓
+  cand[0] dataset_idx=537 prob=0.5148 (target)
+  cand[1] dataset_idx=180 prob=0.1796
+  cand[2] dataset_idx=730 prob=0.3056
+Test 002 [A2→A1]: target=537, predicted=0, correct=✓
+  cand[0] dataset_idx=537 prob=0.5148 (target)
+  cand[1] dataset_idx=180 prob=0.1788
+  cand[2] dataset_idx=730 prob=0.3064
+Test 003: target=48, predicted=1, correct=✗
+  cand[0] dataset_idx=48 prob=0.3824 (target)
+  cand[1] dataset_idx=671 prob=0.3838
+  cand[2] dataset_idx=21 prob=0.2338
+Test 003 [A2→A1]: target=48, predicted=0, correct=✓
+  cand[0] dataset_idx=48 prob=0.3854 (target)
+  cand[1] dataset_idx=671 prob=0.3825
+  cand[2] dataset_idx=21 prob=0.2321
+Test 004: target=257, predicted=2, correct=✗
+  cand[0] dataset_idx=257 prob=0.3617 (target)
+  cand[1] dataset_idx=586 prob=0.2338
+  cand[2] dataset_idx=672 prob=0.4046
+Test 004 [A2→A1]: target=257, predicted=2, correct=✗
+  cand[0] dataset_idx=257 prob=0.3616 (target)
+  cand[1] dataset_idx=586 prob=0.2382
+  cand[2] dataset_idx=672 prob=0.4002
+Test 005: target=26, predicted=1, correct=✗
+  cand[0] dataset_idx=26 prob=0.3211 (target)
+  cand[1] dataset_idx=191 prob=0.3809
+  cand[2] dataset_idx=180 prob=0.2980
+Test 005 [A2→A1]: target=26, predicted=1, correct=✗
+  cand[0] dataset_idx=26 prob=0.3210 (target)
+  cand[1] dataset_idx=191 prob=0.3892
+  cand[2] dataset_idx=180 prob=0.2898
+Test 006: target=419, predicted=1, correct=✗
+  cand[0] dataset_idx=419 prob=0.2847 (target)
+  cand[1] dataset_idx=568 prob=0.3712
+  cand[2] dataset_idx=733 prob=0.3441
+Test 006 [A2→A1]: target=419, predicted=1, correct=✗
+  cand[0] dataset_idx=419 prob=0.2822 (target)
+  cand[1] dataset_idx=568 prob=0.3872
+  cand[2] dataset_idx=733 prob=0.3306
+Test 007: target=428, predicted=1, correct=✗
+  cand[0] dataset_idx=428 prob=0.4226 (target)
+  cand[1] dataset_idx=155 prob=0.5085
+  cand[2] dataset_idx=135 prob=0.0689
+Test 007 [A2→A1]: target=428, predicted=1, correct=✗
+  cand[0] dataset_idx=428 prob=0.4205 (target)
+  cand[1] dataset_idx=155 prob=0.5082
+  cand[2] dataset_idx=135 prob=0.0713
+Test 008: target=508, predicted=2, correct=✗
+  cand[0] dataset_idx=508 prob=0.3677 (target)
+  cand[1] dataset_idx=369 prob=0.1151
+  cand[2] dataset_idx=212 prob=0.5172
+Test 008 [A2→A1]: target=508, predicted=2, correct=✗
+  cand[0] dataset_idx=508 prob=0.3681 (target)
+  cand[1] dataset_idx=369 prob=0.1126
+  cand[2] dataset_idx=212 prob=0.5193
+Test 009: target=540, predicted=1, correct=✗
+  cand[0] dataset_idx=540 prob=0.3119 (target)
+  cand[1] dataset_idx=268 prob=0.3750
+  cand[2] dataset_idx=602 prob=0.3131
+Test 009 [A2→A1]: target=540, predicted=1, correct=✗
+  cand[0] dataset_idx=540 prob=0.3115 (target)
+  cand[1] dataset_idx=268 prob=0.3731
+  cand[2] dataset_idx=602 prob=0.3154
+Test 010: target=605, predicted=1, correct=✗
+  cand[0] dataset_idx=605 prob=0.3406 (target)
+  cand[1] dataset_idx=386 prob=0.3718
+  cand[2] dataset_idx=337 prob=0.2876
+Test 010 [A2→A1]: target=605, predicted=1, correct=✗
+  cand[0] dataset_idx=605 prob=0.3401 (target)
+  cand[1] dataset_idx=386 prob=0.3693
+  cand[2] dataset_idx=337 prob=0.2907
+Test 011: target=121, predicted=0, correct=✓
+  cand[0] dataset_idx=121 prob=0.8255 (target)
+  cand[1] dataset_idx=287 prob=0.0880
+  cand[2] dataset_idx=527 prob=0.0864
+Test 011 [A2→A1]: target=121, predicted=0, correct=✓
+  cand[0] dataset_idx=121 prob=0.8272 (target)
+  cand[1] dataset_idx=287 prob=0.0872
+  cand[2] dataset_idx=527 prob=0.0855
+Test 012: target=172, predicted=0, correct=✓
+  cand[0] dataset_idx=172 prob=0.3459 (target)
+  cand[1] dataset_idx=425 prob=0.3282
+  cand[2] dataset_idx=360 prob=0.3259
+Test 012 [A2→A1]: target=172, predicted=0, correct=✓
+  cand[0] dataset_idx=172 prob=0.3372 (target)
+  cand[1] dataset_idx=425 prob=0.3284
+  cand[2] dataset_idx=360 prob=0.3344
+Test 013: target=23, predicted=1, correct=✗
+  cand[0] dataset_idx=23 prob=0.2686 (target)
+  cand[1] dataset_idx=608 prob=0.5505
+  cand[2] dataset_idx=369 prob=0.1809
+Test 013 [A2→A1]: target=23, predicted=1, correct=✗
+  cand[0] dataset_idx=23 prob=0.2644 (target)
+  cand[1] dataset_idx=608 prob=0.5625
+  cand[2] dataset_idx=369 prob=0.1731
+Test 014: target=270, predicted=0, correct=✓
+  cand[0] dataset_idx=270 prob=0.4857 (target)
+  cand[1] dataset_idx=25 prob=0.2419
+  cand[2] dataset_idx=686 prob=0.2724
+Test 014 [A2→A1]: target=270, predicted=0, correct=✓
+  cand[0] dataset_idx=270 prob=0.4853 (target)
+  cand[1] dataset_idx=25 prob=0.2443
+  cand[2] dataset_idx=686 prob=0.2704
+Test 015: target=520, predicted=2, correct=✗
+  cand[0] dataset_idx=520 prob=0.2407 (target)
+  cand[1] dataset_idx=246 prob=0.1042
+  cand[2] dataset_idx=208 prob=0.6551
+Test 015 [A2→A1]: target=520, predicted=2, correct=✗
+  cand[0] dataset_idx=520 prob=0.2353 (target)
+  cand[1] dataset_idx=246 prob=0.1019
+  cand[2] dataset_idx=208 prob=0.6627
+Test 016: target=268, predicted=1, correct=✗
+  cand[0] dataset_idx=268 prob=0.3861 (target)
+  cand[1] dataset_idx=194 prob=0.3874
+  cand[2] dataset_idx=91 prob=0.2265
+Test 016 [A2→A1]: target=268, predicted=1, correct=✗
+  cand[0] dataset_idx=268 prob=0.3856 (target)
+  cand[1] dataset_idx=194 prob=0.3898
+  cand[2] dataset_idx=91 prob=0.2246
+Test 017: target=264, predicted=0, correct=✓
+  cand[0] dataset_idx=264 prob=0.3849 (target)
+  cand[1] dataset_idx=721 prob=0.2890
+  cand[2] dataset_idx=630 prob=0.3261
+Test 017 [A2→A1]: target=264, predicted=0, correct=✓
+  cand[0] dataset_idx=264 prob=0.3868 (target)
+  cand[1] dataset_idx=721 prob=0.2878
+  cand[2] dataset_idx=630 prob=0.3254
+Test 018: target=427, predicted=2, correct=✗
+  cand[0] dataset_idx=427 prob=0.2923 (target)
+  cand[1] dataset_idx=386 prob=0.1015
+  cand[2] dataset_idx=390 prob=0.6062
+Test 018 [A2→A1]: target=427, predicted=2, correct=✗
+  cand[0] dataset_idx=427 prob=0.2955 (target)
+  cand[1] dataset_idx=386 prob=0.1020
+  cand[2] dataset_idx=390 prob=0.6025
+Test 019: target=90, predicted=0, correct=✓
+  cand[0] dataset_idx=90 prob=0.5010 (target)
+  cand[1] dataset_idx=393 prob=0.1972
+  cand[2] dataset_idx=248 prob=0.3018
+Test 019 [A2→A1]: target=90, predicted=0, correct=✓
+  cand[0] dataset_idx=90 prob=0.4983 (target)
+  cand[1] dataset_idx=393 prob=0.1947
+  cand[2] dataset_idx=248 prob=0.3070
+Test 020: target=688, predicted=0, correct=✓
+  cand[0] dataset_idx=688 prob=0.3407 (target)
+  cand[1] dataset_idx=146 prob=0.3380
+  cand[2] dataset_idx=445 prob=0.3213
+Test 020 [A2→A1]: target=688, predicted=0, correct=✓
+  cand[0] dataset_idx=688 prob=0.3506 (target)
+  cand[1] dataset_idx=146 prob=0.3361
+  cand[2] dataset_idx=445 prob=0.3133
+Test 021: target=202, predicted=0, correct=✓
+  cand[0] dataset_idx=202 prob=0.3389 (target)
+  cand[1] dataset_idx=650 prob=0.3293
+  cand[2] dataset_idx=185 prob=0.3317
+Test 021 [A2→A1]: target=202, predicted=1, correct=✗
+  cand[0] dataset_idx=202 prob=0.3213 (target)
+  cand[1] dataset_idx=650 prob=0.3473
+  cand[2] dataset_idx=185 prob=0.3314
+Test 022: target=490, predicted=1, correct=✗
+  cand[0] dataset_idx=490 prob=0.3204 (target)
+  cand[1] dataset_idx=515 prob=0.3593
+  cand[2] dataset_idx=574 prob=0.3203
+Test 022 [A2→A1]: target=490, predicted=1, correct=✗
+  cand[0] dataset_idx=490 prob=0.3161 (target)
+  cand[1] dataset_idx=515 prob=0.3685
+  cand[2] dataset_idx=574 prob=0.3154
+Test 023: target=680, predicted=2, correct=✗
+  cand[0] dataset_idx=680 prob=0.2146 (target)
+  cand[1] dataset_idx=122 prob=0.3776
+  cand[2] dataset_idx=156 prob=0.4078
+Test 023 [A2→A1]: target=680, predicted=2, correct=✗
+  cand[0] dataset_idx=680 prob=0.1947 (target)
+  cand[1] dataset_idx=122 prob=0.3802
+  cand[2] dataset_idx=156 prob=0.4251
+Test 024: target=556, predicted=0, correct=✓
+  cand[0] dataset_idx=556 prob=0.6053 (target)
+  cand[1] dataset_idx=212 prob=0.1684
+  cand[2] dataset_idx=538 prob=0.2264
+Test 024 [A2→A1]: target=556, predicted=0, correct=✓
+  cand[0] dataset_idx=556 prob=0.6070 (target)
+  cand[1] dataset_idx=212 prob=0.1670
+  cand[2] dataset_idx=538 prob=0.2260
+Test 025: target=181, predicted=0, correct=✓
+  cand[0] dataset_idx=181 prob=0.4476 (target)
+  cand[1] dataset_idx=488 prob=0.2626
+  cand[2] dataset_idx=89 prob=0.2898
+Test 025 [A2→A1]: target=181, predicted=0, correct=✓
+  cand[0] dataset_idx=181 prob=0.4426 (target)
+  cand[1] dataset_idx=488 prob=0.2675
+  cand[2] dataset_idx=89 prob=0.2899
+Test 026: target=502, predicted=0, correct=✓
+  cand[0] dataset_idx=502 prob=0.6011 (target)
+  cand[1] dataset_idx=300 prob=0.1743
+  cand[2] dataset_idx=246 prob=0.2246
+Test 026 [A2→A1]: target=502, predicted=0, correct=✓
+  cand[0] dataset_idx=502 prob=0.6013 (target)
+  cand[1] dataset_idx=300 prob=0.1745
+  cand[2] dataset_idx=246 prob=0.2242
+Test 027: target=236, predicted=1, correct=✗
+  cand[0] dataset_idx=236 prob=0.2952 (target)
+  cand[1] dataset_idx=390 prob=0.5336
+  cand[2] dataset_idx=159 prob=0.1712
+Test 027 [A2→A1]: target=236, predicted=1, correct=✗
+  cand[0] dataset_idx=236 prob=0.2871 (target)
+  cand[1] dataset_idx=390 prob=0.5516
+  cand[2] dataset_idx=159 prob=0.1614
+Test 028: target=365, predicted=0, correct=✓
+  cand[0] dataset_idx=365 prob=0.4383 (target)
+  cand[1] dataset_idx=604 prob=0.1626
+  cand[2] dataset_idx=531 prob=0.3991
+Test 028 [A2→A1]: target=365, predicted=0, correct=✓
+  cand[0] dataset_idx=365 prob=0.4378 (target)
+  cand[1] dataset_idx=604 prob=0.1624
+  cand[2] dataset_idx=531 prob=0.3997
+Test 029: target=245, predicted=0, correct=✓
+  cand[0] dataset_idx=245 prob=0.5262 (target)
+  cand[1] dataset_idx=747 prob=0.1313
+  cand[2] dataset_idx=289 prob=0.3425
+Test 029 [A2→A1]: target=245, predicted=0, correct=✓
+  cand[0] dataset_idx=245 prob=0.5266 (target)
+  cand[1] dataset_idx=747 prob=0.1326
+  cand[2] dataset_idx=289 prob=0.3408
+Test 030: target=151, predicted=0, correct=✓
+  cand[0] dataset_idx=151 prob=0.7984 (target)
+  cand[1] dataset_idx=202 prob=0.1114
+  cand[2] dataset_idx=257 prob=0.0902
+Test 030 [A2→A1]: target=151, predicted=0, correct=✓
+  cand[0] dataset_idx=151 prob=0.7932 (target)
+  cand[1] dataset_idx=202 prob=0.1138
+  cand[2] dataset_idx=257 prob=0.0929
+Test 031: target=76, predicted=2, correct=✗
+  cand[0] dataset_idx=76 prob=0.2140 (target)
+  cand[1] dataset_idx=138 prob=0.0464
+  cand[2] dataset_idx=476 prob=0.7396
+Test 031 [A2→A1]: target=76, predicted=2, correct=✗
+  cand[0] dataset_idx=76 prob=0.2152 (target)
+  cand[1] dataset_idx=138 prob=0.0451
+  cand[2] dataset_idx=476 prob=0.7397
+Test 032: target=576, predicted=0, correct=✓
+  cand[0] dataset_idx=576 prob=0.5140 (target)
+  cand[1] dataset_idx=277 prob=0.3095
+  cand[2] dataset_idx=662 prob=0.1765
+Test 032 [A2→A1]: target=576, predicted=0, correct=✓
+  cand[0] dataset_idx=576 prob=0.5167 (target)
+  cand[1] dataset_idx=277 prob=0.3073
+  cand[2] dataset_idx=662 prob=0.1760
+Test 033: target=213, predicted=1, correct=✗
+  cand[0] dataset_idx=213 prob=0.2799 (target)
+  cand[1] dataset_idx=358 prob=0.6403
+  cand[2] dataset_idx=308 prob=0.0798
+Test 033 [A2→A1]: target=213, predicted=1, correct=✗
+  cand[0] dataset_idx=213 prob=0.2810 (target)
+  cand[1] dataset_idx=358 prob=0.6404
+  cand[2] dataset_idx=308 prob=0.0785
+Test 034: target=684, predicted=2, correct=✗
+  cand[0] dataset_idx=684 prob=0.3218 (target)
+  cand[1] dataset_idx=3 prob=0.1141
+  cand[2] dataset_idx=212 prob=0.5641
+Test 034 [A2→A1]: target=684, predicted=2, correct=✗
+  cand[0] dataset_idx=684 prob=0.3160 (target)
+  cand[1] dataset_idx=3 prob=0.1110
+  cand[2] dataset_idx=212 prob=0.5730
+Test 035: target=582, predicted=0, correct=✓
+  cand[0] dataset_idx=582 prob=0.4160 (target)
+  cand[1] dataset_idx=659 prob=0.2719
+  cand[2] dataset_idx=197 prob=0.3121
+Test 035 [A2→A1]: target=582, predicted=0, correct=✓
+  cand[0] dataset_idx=582 prob=0.4140 (target)
+  cand[1] dataset_idx=659 prob=0.2729
+  cand[2] dataset_idx=197 prob=0.3131
+Test 036: target=548, predicted=2, correct=✗
+  cand[0] dataset_idx=548 prob=0.2357 (target)
+  cand[1] dataset_idx=223 prob=0.2027
+  cand[2] dataset_idx=470 prob=0.5616
+Test 036 [A2→A1]: target=548, predicted=2, correct=✗
+  cand[0] dataset_idx=548 prob=0.2315 (target)
+  cand[1] dataset_idx=223 prob=0.1977
+  cand[2] dataset_idx=470 prob=0.5708
+Test 037: target=418, predicted=2, correct=✗
+  cand[0] dataset_idx=418 prob=0.3167 (target)
+  cand[1] dataset_idx=14 prob=0.2608
+  cand[2] dataset_idx=415 prob=0.4224
+Test 037 [A2→A1]: target=418, predicted=2, correct=✗
+  cand[0] dataset_idx=418 prob=0.3097 (target)
+  cand[1] dataset_idx=14 prob=0.2497
+  cand[2] dataset_idx=415 prob=0.4406
+Test 038: target=581, predicted=0, correct=✓
+  cand[0] dataset_idx=581 prob=0.3989 (target)
+  cand[1] dataset_idx=227 prob=0.2093
+  cand[2] dataset_idx=37 prob=0.3918
+Test 038 [A2→A1]: target=581, predicted=0, correct=✓
+  cand[0] dataset_idx=581 prob=0.3993 (target)
+  cand[1] dataset_idx=227 prob=0.2132
+  cand[2] dataset_idx=37 prob=0.3875
+Test 039: target=515, predicted=0, correct=✓
+  cand[0] dataset_idx=515 prob=0.4336 (target)
+  cand[1] dataset_idx=527 prob=0.1903
+  cand[2] dataset_idx=343 prob=0.3761
+Test 039 [A2→A1]: target=515, predicted=0, correct=✓
+  cand[0] dataset_idx=515 prob=0.4419 (target)
+  cand[1] dataset_idx=527 prob=0.1867
+  cand[2] dataset_idx=343 prob=0.3714
+Test 040: target=335, predicted=0, correct=✓
+  cand[0] dataset_idx=335 prob=0.3846 (target)
+  cand[1] dataset_idx=336 prob=0.2424
+  cand[2] dataset_idx=281 prob=0.3730
+Test 040 [A2→A1]: target=335, predicted=0, correct=✓
+  cand[0] dataset_idx=335 prob=0.3852 (target)
+  cand[1] dataset_idx=336 prob=0.2326
+  cand[2] dataset_idx=281 prob=0.3822
+Test 041: target=660, predicted=0, correct=✓
+  cand[0] dataset_idx=660 prob=0.6398 (target)
+  cand[1] dataset_idx=494 prob=0.0918
+  cand[2] dataset_idx=683 prob=0.2684
+Test 041 [A2→A1]: target=660, predicted=0, correct=✓
+  cand[0] dataset_idx=660 prob=0.6396 (target)
+  cand[1] dataset_idx=494 prob=0.0922
+  cand[2] dataset_idx=683 prob=0.2682
+Test 042: target=727, predicted=1, correct=✗
+  cand[0] dataset_idx=727 prob=0.3692 (target)
+  cand[1] dataset_idx=479 prob=0.4749
+  cand[2] dataset_idx=591 prob=0.1560
+Test 042 [A2→A1]: target=727, predicted=1, correct=✗
+  cand[0] dataset_idx=727 prob=0.3684 (target)
+  cand[1] dataset_idx=479 prob=0.4748
+  cand[2] dataset_idx=591 prob=0.1569
+Test 043: target=235, predicted=1, correct=✗
+  cand[0] dataset_idx=235 prob=0.3511 (target)
+  cand[1] dataset_idx=36 prob=0.4149
+  cand[2] dataset_idx=606 prob=0.2340
+Test 043 [A2→A1]: target=235, predicted=1, correct=✗
+  cand[0] dataset_idx=235 prob=0.3517 (target)
+  cand[1] dataset_idx=36 prob=0.4059
+  cand[2] dataset_idx=606 prob=0.2424
+Test 044: target=137, predicted=0, correct=✓
+  cand[0] dataset_idx=137 prob=0.4514 (target)
+  cand[1] dataset_idx=743 prob=0.1672
+  cand[2] dataset_idx=433 prob=0.3814
+Test 044 [A2→A1]: target=137, predicted=0, correct=✓
+  cand[0] dataset_idx=137 prob=0.4529 (target)
+  cand[1] dataset_idx=743 prob=0.1652
+  cand[2] dataset_idx=433 prob=0.3819
+Test 045: target=159, predicted=2, correct=✗
+  cand[0] dataset_idx=159 prob=0.4243 (target)
+  cand[1] dataset_idx=213 prob=0.1367
+  cand[2] dataset_idx=226 prob=0.4390
+Test 045 [A2→A1]: target=159, predicted=2, correct=✗
+  cand[0] dataset_idx=159 prob=0.4249 (target)
+  cand[1] dataset_idx=213 prob=0.1365
+  cand[2] dataset_idx=226 prob=0.4386
+Test 046: target=524, predicted=0, correct=✓
+  cand[0] dataset_idx=524 prob=0.3651 (target)
+  cand[1] dataset_idx=701 prob=0.2849
+  cand[2] dataset_idx=290 prob=0.3500
+Test 046 [A2→A1]: target=524, predicted=0, correct=✓
+  cand[0] dataset_idx=524 prob=0.3661 (target)
+  cand[1] dataset_idx=701 prob=0.2820
+  cand[2] dataset_idx=290 prob=0.3518
+Test 047: target=644, predicted=0, correct=✓
+  cand[0] dataset_idx=644 prob=0.4572 (target)
+  cand[1] dataset_idx=328 prob=0.3005
+  cand[2] dataset_idx=507 prob=0.2423
+Test 047 [A2→A1]: target=644, predicted=0, correct=✓
+  cand[0] dataset_idx=644 prob=0.4554 (target)
+  cand[1] dataset_idx=328 prob=0.3052
+  cand[2] dataset_idx=507 prob=0.2394
+Test 048: target=332, predicted=0, correct=✓
+  cand[0] dataset_idx=332 prob=0.3667 (target)
+  cand[1] dataset_idx=88 prob=0.2669
+  cand[2] dataset_idx=261 prob=0.3663
+Test 048 [A2→A1]: target=332, predicted=0, correct=✓
+  cand[0] dataset_idx=332 prob=0.3729 (target)
+  cand[1] dataset_idx=88 prob=0.2609
+  cand[2] dataset_idx=261 prob=0.3662
+Test 049: target=594, predicted=2, correct=✗
+  cand[0] dataset_idx=594 prob=0.3400 (target)
+  cand[1] dataset_idx=211 prob=0.3121
+  cand[2] dataset_idx=727 prob=0.3479
+Test 049 [A2→A1]: target=594, predicted=2, correct=✗
+  cand[0] dataset_idx=594 prob=0.3337 (target)
+  cand[1] dataset_idx=211 prob=0.3311
+  cand[2] dataset_idx=727 prob=0.3353
+Test 050: target=562, predicted=0, correct=✓
+  cand[0] dataset_idx=562 prob=0.3959 (target)
+  cand[1] dataset_idx=533 prob=0.3056
+  cand[2] dataset_idx=574 prob=0.2984
+Test 050 [A2→A1]: target=562, predicted=0, correct=✓
+  cand[0] dataset_idx=562 prob=0.4015 (target)
+  cand[1] dataset_idx=533 prob=0.3037
+  cand[2] dataset_idx=574 prob=0.2947
+Test 051: target=212, predicted=2, correct=✗
+  cand[0] dataset_idx=212 prob=0.3033 (target)
+  cand[1] dataset_idx=560 prob=0.0580
+  cand[2] dataset_idx=469 prob=0.6387
+Test 051 [A2→A1]: target=212, predicted=2, correct=✗
+  cand[0] dataset_idx=212 prob=0.3041 (target)
+  cand[1] dataset_idx=560 prob=0.0573
+  cand[2] dataset_idx=469 prob=0.6387
+Test 052: target=445, predicted=0, correct=✓
+  cand[0] dataset_idx=445 prob=0.5270 (target)
+  cand[1] dataset_idx=323 prob=0.4258
+  cand[2] dataset_idx=432 prob=0.0472
+Test 052 [A2→A1]: target=445, predicted=0, correct=✓
+  cand[0] dataset_idx=445 prob=0.5273 (target)
+  cand[1] dataset_idx=323 prob=0.4239
+  cand[2] dataset_idx=432 prob=0.0489
+Test 053: target=265, predicted=0, correct=✓
+  cand[0] dataset_idx=265 prob=0.4505 (target)
+  cand[1] dataset_idx=71 prob=0.3914
+  cand[2] dataset_idx=553 prob=0.1581
+Test 053 [A2→A1]: target=265, predicted=0, correct=✓
+  cand[0] dataset_idx=265 prob=0.4514 (target)
+  cand[1] dataset_idx=71 prob=0.3888
+  cand[2] dataset_idx=553 prob=0.1598
+Test 054: target=216, predicted=0, correct=✓
+  cand[0] dataset_idx=216 prob=0.4422 (target)
+  cand[1] dataset_idx=399 prob=0.3943
+  cand[2] dataset_idx=415 prob=0.1635
+Test 054 [A2→A1]: target=216, predicted=0, correct=✓
+  cand[0] dataset_idx=216 prob=0.4385 (target)
+  cand[1] dataset_idx=399 prob=0.3962
+  cand[2] dataset_idx=415 prob=0.1653
+Test 055: target=396, predicted=0, correct=✓
+  cand[0] dataset_idx=396 prob=0.8223 (target)
+  cand[1] dataset_idx=620 prob=0.0787
+  cand[2] dataset_idx=368 prob=0.0990
+Test 055 [A2→A1]: target=396, predicted=0, correct=✓
+  cand[0] dataset_idx=396 prob=0.8213 (target)
+  cand[1] dataset_idx=620 prob=0.0788
+  cand[2] dataset_idx=368 prob=0.0999
+Test 056: target=208, predicted=0, correct=✓
+  cand[0] dataset_idx=208 prob=0.6242 (target)
+  cand[1] dataset_idx=550 prob=0.1547
+  cand[2] dataset_idx=515 prob=0.2211
+Test 056 [A2→A1]: target=208, predicted=0, correct=✓
+  cand[0] dataset_idx=208 prob=0.6280 (target)
+  cand[1] dataset_idx=550 prob=0.1511
+  cand[2] dataset_idx=515 prob=0.2209
+Test 057: target=413, predicted=0, correct=✓
+  cand[0] dataset_idx=413 prob=0.6781 (target)
+  cand[1] dataset_idx=331 prob=0.0792
+  cand[2] dataset_idx=514 prob=0.2427
+Test 057 [A2→A1]: target=413, predicted=0, correct=✓
+  cand[0] dataset_idx=413 prob=0.6816 (target)
+  cand[1] dataset_idx=331 prob=0.0775
+  cand[2] dataset_idx=514 prob=0.2409
+Test 058: target=656, predicted=0, correct=✓
+  cand[0] dataset_idx=656 prob=0.7553 (target)
+  cand[1] dataset_idx=200 prob=0.1444
+  cand[2] dataset_idx=521 prob=0.1003
+Test 058 [A2→A1]: target=656, predicted=0, correct=✓
+  cand[0] dataset_idx=656 prob=0.7507 (target)
+  cand[1] dataset_idx=200 prob=0.1467
+  cand[2] dataset_idx=521 prob=0.1026
+Test 059: target=409, predicted=0, correct=✓
+  cand[0] dataset_idx=409 prob=0.8382 (target)
+  cand[1] dataset_idx=288 prob=0.0634
+  cand[2] dataset_idx=661 prob=0.0985
+Test 059 [A2→A1]: target=409, predicted=0, correct=✓
+  cand[0] dataset_idx=409 prob=0.8404 (target)
+  cand[1] dataset_idx=288 prob=0.0632
+  cand[2] dataset_idx=661 prob=0.0963
+Test 060: target=592, predicted=2, correct=✗
+  cand[0] dataset_idx=592 prob=0.3338 (target)
+  cand[1] dataset_idx=617 prob=0.3233
+  cand[2] dataset_idx=37 prob=0.3430
+Test 060 [A2→A1]: target=592, predicted=2, correct=✗
+  cand[0] dataset_idx=592 prob=0.3353 (target)
+  cand[1] dataset_idx=617 prob=0.3255
+  cand[2] dataset_idx=37 prob=0.3392
+Test 061: target=359, predicted=0, correct=✓
+  cand[0] dataset_idx=359 prob=0.5987 (target)
+  cand[1] dataset_idx=441 prob=0.2330
+  cand[2] dataset_idx=404 prob=0.1683
+Test 061 [A2→A1]: target=359, predicted=0, correct=✓
+  cand[0] dataset_idx=359 prob=0.6018 (target)
+  cand[1] dataset_idx=441 prob=0.2312
+  cand[2] dataset_idx=404 prob=0.1670
+Test 062: target=658, predicted=2, correct=✗
+  cand[0] dataset_idx=658 prob=0.3231 (target)
+  cand[1] dataset_idx=169 prob=0.2936
+  cand[2] dataset_idx=372 prob=0.3832
+Test 062 [A2→A1]: target=658, predicted=2, correct=✗
+  cand[0] dataset_idx=658 prob=0.3232 (target)
+  cand[1] dataset_idx=169 prob=0.2929
+  cand[2] dataset_idx=372 prob=0.3839
+Test 063: target=565, predicted=0, correct=✓
+  cand[0] dataset_idx=565 prob=0.5780 (target)
+  cand[1] dataset_idx=26 prob=0.2099
+  cand[2] dataset_idx=729 prob=0.2122
+Test 063 [A2→A1]: target=565, predicted=0, correct=✓
+  cand[0] dataset_idx=565 prob=0.5858 (target)
+  cand[1] dataset_idx=26 prob=0.2044
+  cand[2] dataset_idx=729 prob=0.2098
+Test 064: target=251, predicted=0, correct=✓
+  cand[0] dataset_idx=251 prob=0.3608 (target)
+  cand[1] dataset_idx=302 prob=0.3555
+  cand[2] dataset_idx=386 prob=0.2837
+Test 064 [A2→A1]: target=251, predicted=0, correct=✓
+  cand[0] dataset_idx=251 prob=0.3616 (target)
+  cand[1] dataset_idx=302 prob=0.3558
+  cand[2] dataset_idx=386 prob=0.2826
+Test 065: target=463, predicted=0, correct=✓
+  cand[0] dataset_idx=463 prob=0.5147 (target)
+  cand[1] dataset_idx=645 prob=0.1941
+  cand[2] dataset_idx=197 prob=0.2911
+Test 065 [A2→A1]: target=463, predicted=0, correct=✓
+  cand[0] dataset_idx=463 prob=0.5156 (target)
+  cand[1] dataset_idx=645 prob=0.1937
+  cand[2] dataset_idx=197 prob=0.2907
+Test 066: target=317, predicted=0, correct=✓
+  cand[0] dataset_idx=317 prob=0.4058 (target)
+  cand[1] dataset_idx=423 prob=0.3258
+  cand[2] dataset_idx=375 prob=0.2684
+Test 066 [A2→A1]: target=317, predicted=0, correct=✓
+  cand[0] dataset_idx=317 prob=0.4137 (target)
+  cand[1] dataset_idx=423 prob=0.3331
+  cand[2] dataset_idx=375 prob=0.2532
+Test 067: target=651, predicted=1, correct=✗
+  cand[0] dataset_idx=651 prob=0.4003 (target)
+  cand[1] dataset_idx=260 prob=0.5297
+  cand[2] dataset_idx=106 prob=0.0701
+Test 067 [A2→A1]: target=651, predicted=1, correct=✗
+  cand[0] dataset_idx=651 prob=0.3988 (target)
+  cand[1] dataset_idx=260 prob=0.5305
+  cand[2] dataset_idx=106 prob=0.0706
+Test 068: target=160, predicted=0, correct=✓
+  cand[0] dataset_idx=160 prob=0.6282 (target)
+  cand[1] dataset_idx=69 prob=0.1105
+  cand[2] dataset_idx=503 prob=0.2613
+Test 068 [A2→A1]: target=160, predicted=0, correct=✓
+  cand[0] dataset_idx=160 prob=0.6250 (target)
+  cand[1] dataset_idx=69 prob=0.1129
+  cand[2] dataset_idx=503 prob=0.2621
+Test 069: target=229, predicted=0, correct=✓
+  cand[0] dataset_idx=229 prob=0.5254 (target)
+  cand[1] dataset_idx=720 prob=0.1190
+  cand[2] dataset_idx=547 prob=0.3556
+Test 069 [A2→A1]: target=229, predicted=0, correct=✓
+  cand[0] dataset_idx=229 prob=0.5201 (target)
+  cand[1] dataset_idx=720 prob=0.1233
+  cand[2] dataset_idx=547 prob=0.3566
+Test 070: target=73, predicted=0, correct=✓
+  cand[0] dataset_idx=73 prob=0.5035 (target)
+  cand[1] dataset_idx=569 prob=0.2017
+  cand[2] dataset_idx=589 prob=0.2949
+Test 070 [A2→A1]: target=73, predicted=0, correct=✓
+  cand[0] dataset_idx=73 prob=0.4978 (target)
+  cand[1] dataset_idx=569 prob=0.2020
+  cand[2] dataset_idx=589 prob=0.3002
+Test 071: target=237, predicted=1, correct=✗
+  cand[0] dataset_idx=237 prob=0.2441 (target)
+  cand[1] dataset_idx=519 prob=0.5119
+  cand[2] dataset_idx=213 prob=0.2440
+Test 071 [A2→A1]: target=237, predicted=1, correct=✗
+  cand[0] dataset_idx=237 prob=0.2458 (target)
+  cand[1] dataset_idx=519 prob=0.5076
+  cand[2] dataset_idx=213 prob=0.2465
+Test 072: target=337, predicted=2, correct=✗
+  cand[0] dataset_idx=337 prob=0.2539 (target)
+  cand[1] dataset_idx=514 prob=0.2888
+  cand[2] dataset_idx=65 prob=0.4573
+Test 072 [A2→A1]: target=337, predicted=2, correct=✗
+  cand[0] dataset_idx=337 prob=0.2411 (target)
+  cand[1] dataset_idx=514 prob=0.2988
+  cand[2] dataset_idx=65 prob=0.4601
+Test 073: target=361, predicted=2, correct=✗
+  cand[0] dataset_idx=361 prob=0.2903 (target)
+  cand[1] dataset_idx=85 prob=0.1869
+  cand[2] dataset_idx=415 prob=0.5228
+Test 073 [A2→A1]: target=361, predicted=2, correct=✗
+  cand[0] dataset_idx=361 prob=0.2848 (target)
+  cand[1] dataset_idx=85 prob=0.1774
+  cand[2] dataset_idx=415 prob=0.5378
+Test 074: target=595, predicted=1, correct=✗
+  cand[0] dataset_idx=595 prob=0.3330 (target)
+  cand[1] dataset_idx=57 prob=0.3405
+  cand[2] dataset_idx=412 prob=0.3266
+Test 074 [A2→A1]: target=595, predicted=2, correct=✗
+  cand[0] dataset_idx=595 prob=0.3159 (target)
+  cand[1] dataset_idx=57 prob=0.3153
+  cand[2] dataset_idx=412 prob=0.3688
+Test 075: target=624, predicted=0, correct=✓
+  cand[0] dataset_idx=624 prob=0.3819 (target)
+  cand[1] dataset_idx=453 prob=0.2882
+  cand[2] dataset_idx=648 prob=0.3299
+Test 075 [A2→A1]: target=624, predicted=0, correct=✓
+  cand[0] dataset_idx=624 prob=0.3881 (target)
+  cand[1] dataset_idx=453 prob=0.2827
+  cand[2] dataset_idx=648 prob=0.3291
+Test 076: target=739, predicted=1, correct=✗
+  cand[0] dataset_idx=739 prob=0.3358 (target)
+  cand[1] dataset_idx=59 prob=0.3668
+  cand[2] dataset_idx=27 prob=0.2974
+Test 076 [A2→A1]: target=739, predicted=1, correct=✗
+  cand[0] dataset_idx=739 prob=0.3354 (target)
+  cand[1] dataset_idx=59 prob=0.3608
+  cand[2] dataset_idx=27 prob=0.3038
+Test 077: target=289, predicted=1, correct=✗
+  cand[0] dataset_idx=289 prob=0.3702 (target)
+  cand[1] dataset_idx=544 prob=0.3736
+  cand[2] dataset_idx=647 prob=0.2562
+Test 077 [A2→A1]: target=289, predicted=1, correct=✗
+  cand[0] dataset_idx=289 prob=0.3682 (target)
+  cand[1] dataset_idx=544 prob=0.3685
+  cand[2] dataset_idx=647 prob=0.2633
+Test 078: target=410, predicted=0, correct=✓
+  cand[0] dataset_idx=410 prob=0.8251 (target)
+  cand[1] dataset_idx=324 prob=0.0367
+  cand[2] dataset_idx=76 prob=0.1382
+Test 078 [A2→A1]: target=410, predicted=0, correct=✓
+  cand[0] dataset_idx=410 prob=0.8249 (target)
+  cand[1] dataset_idx=324 prob=0.0365
+  cand[2] dataset_idx=76 prob=0.1386
+Test 079: target=43, predicted=1, correct=✗
+  cand[0] dataset_idx=43 prob=0.3690 (target)
+  cand[1] dataset_idx=355 prob=0.4591
+  cand[2] dataset_idx=453 prob=0.1720
+Test 079 [A2→A1]: target=43, predicted=1, correct=✗
+  cand[0] dataset_idx=43 prob=0.3692 (target)
+  cand[1] dataset_idx=355 prob=0.4612
+  cand[2] dataset_idx=453 prob=0.1695
+Test 080: target=114, predicted=0, correct=✓
+  cand[0] dataset_idx=114 prob=0.5185 (target)
+  cand[1] dataset_idx=433 prob=0.3294
+  cand[2] dataset_idx=248 prob=0.1522
+Test 080 [A2→A1]: target=114, predicted=0, correct=✓
+  cand[0] dataset_idx=114 prob=0.5144 (target)
+  cand[1] dataset_idx=433 prob=0.3330
+  cand[2] dataset_idx=248 prob=0.1526
+Test 081: target=200, predicted=2, correct=✗
+  cand[0] dataset_idx=200 prob=0.3271 (target)
+  cand[1] dataset_idx=581 prob=0.3313
+  cand[2] dataset_idx=238 prob=0.3416
+Test 081 [A2→A1]: target=200, predicted=2, correct=✗
+  cand[0] dataset_idx=200 prob=0.3287 (target)
+  cand[1] dataset_idx=581 prob=0.3260
+  cand[2] dataset_idx=238 prob=0.3452
+Test 082: target=432, predicted=0, correct=✓
+  cand[0] dataset_idx=432 prob=0.6328 (target)
+  cand[1] dataset_idx=237 prob=0.2599
+  cand[2] dataset_idx=325 prob=0.1073
+Test 082 [A2→A1]: target=432, predicted=0, correct=✓
+  cand[0] dataset_idx=432 prob=0.6291 (target)
+  cand[1] dataset_idx=237 prob=0.2644
+  cand[2] dataset_idx=325 prob=0.1065
+Test 083: target=478, predicted=0, correct=✓
+  cand[0] dataset_idx=478 prob=0.8795 (target)
+  cand[1] dataset_idx=216 prob=0.0658
+  cand[2] dataset_idx=524 prob=0.0547
+Test 083 [A2→A1]: target=478, predicted=0, correct=✓
+  cand[0] dataset_idx=478 prob=0.8771 (target)
+  cand[1] dataset_idx=216 prob=0.0669
+  cand[2] dataset_idx=524 prob=0.0560
+Test 084: target=120, predicted=0, correct=✓
+  cand[0] dataset_idx=120 prob=0.8327 (target)
+  cand[1] dataset_idx=725 prob=0.0910
+  cand[2] dataset_idx=694 prob=0.0762
+Test 084 [A2→A1]: target=120, predicted=0, correct=✓
+  cand[0] dataset_idx=120 prob=0.8336 (target)
+  cand[1] dataset_idx=725 prob=0.0906
+  cand[2] dataset_idx=694 prob=0.0758
+Test 085: target=633, predicted=0, correct=✓
+  cand[0] dataset_idx=633 prob=0.4147 (target)
+  cand[1] dataset_idx=261 prob=0.3238
+  cand[2] dataset_idx=257 prob=0.2615
+Test 085 [A2→A1]: target=633, predicted=0, correct=✓
+  cand[0] dataset_idx=633 prob=0.4216 (target)
+  cand[1] dataset_idx=261 prob=0.3222
+  cand[2] dataset_idx=257 prob=0.2562
+Test 086: target=744, predicted=1, correct=✗
+  cand[0] dataset_idx=744 prob=0.3318 (target)
+  cand[1] dataset_idx=13 prob=0.3463
+  cand[2] dataset_idx=702 prob=0.3219
+Test 086 [A2→A1]: target=744, predicted=1, correct=✗
+  cand[0] dataset_idx=744 prob=0.3329 (target)
+  cand[1] dataset_idx=13 prob=0.3466
+  cand[2] dataset_idx=702 prob=0.3205
+Test 087: target=732, predicted=2, correct=✗
+  cand[0] dataset_idx=732 prob=0.2868 (target)
+  cand[1] dataset_idx=269 prob=0.2810
+  cand[2] dataset_idx=611 prob=0.4323
+Test 087 [A2→A1]: target=732, predicted=2, correct=✗
+  cand[0] dataset_idx=732 prob=0.2788 (target)
+  cand[1] dataset_idx=269 prob=0.2662
+  cand[2] dataset_idx=611 prob=0.4549
+Test 088: target=377, predicted=1, correct=✗
+  cand[0] dataset_idx=377 prob=0.3892 (target)
+  cand[1] dataset_idx=221 prob=0.3987
+  cand[2] dataset_idx=435 prob=0.2121
+Test 088 [A2→A1]: target=377, predicted=1, correct=✗
+  cand[0] dataset_idx=377 prob=0.3890 (target)
+  cand[1] dataset_idx=221 prob=0.3955
+  cand[2] dataset_idx=435 prob=0.2155
+Test 089: target=380, predicted=0, correct=✓
+  cand[0] dataset_idx=380 prob=0.3430 (target)
+  cand[1] dataset_idx=222 prob=0.3404
+  cand[2] dataset_idx=634 prob=0.3165
+Test 089 [A2→A1]: target=380, predicted=0, correct=✓
+  cand[0] dataset_idx=380 prob=0.3418 (target)
+  cand[1] dataset_idx=222 prob=0.3404
+  cand[2] dataset_idx=634 prob=0.3177
+Test 090: target=179, predicted=1, correct=✗
+  cand[0] dataset_idx=179 prob=0.3742 (target)
+  cand[1] dataset_idx=723 prob=0.3745
+  cand[2] dataset_idx=24 prob=0.2513
+Test 090 [A2→A1]: target=179, predicted=1, correct=✗
+  cand[0] dataset_idx=179 prob=0.3704 (target)
+  cand[1] dataset_idx=723 prob=0.3727
+  cand[2] dataset_idx=24 prob=0.2569
+Test 091: target=678, predicted=0, correct=✓
+  cand[0] dataset_idx=678 prob=0.6282 (target)
+  cand[1] dataset_idx=266 prob=0.1903
+  cand[2] dataset_idx=219 prob=0.1814
+Test 091 [A2→A1]: target=678, predicted=0, correct=✓
+  cand[0] dataset_idx=678 prob=0.6289 (target)
+  cand[1] dataset_idx=266 prob=0.1904
+  cand[2] dataset_idx=219 prob=0.1807
+Test 092: target=454, predicted=2, correct=✗
+  cand[0] dataset_idx=454 prob=0.3058 (target)
+  cand[1] dataset_idx=547 prob=0.3383
+  cand[2] dataset_idx=623 prob=0.3559
+Test 092 [A2→A1]: target=454, predicted=2, correct=✗
+  cand[0] dataset_idx=454 prob=0.3049 (target)
+  cand[1] dataset_idx=547 prob=0.3435
+  cand[2] dataset_idx=623 prob=0.3516
+Test 093: target=225, predicted=0, correct=✓
+  cand[0] dataset_idx=225 prob=0.4782 (target)
+  cand[1] dataset_idx=157 prob=0.2565
+  cand[2] dataset_idx=526 prob=0.2654
+Test 093 [A2→A1]: target=225, predicted=0, correct=✓
+  cand[0] dataset_idx=225 prob=0.4850 (target)
+  cand[1] dataset_idx=157 prob=0.2531
+  cand[2] dataset_idx=526 prob=0.2619
+Test 094: target=259, predicted=2, correct=✗
+  cand[0] dataset_idx=259 prob=0.3323 (target)
+  cand[1] dataset_idx=4 prob=0.3170
+  cand[2] dataset_idx=380 prob=0.3507
+Test 094 [A2→A1]: target=259, predicted=2, correct=✗
+  cand[0] dataset_idx=259 prob=0.3348 (target)
+  cand[1] dataset_idx=4 prob=0.3202
+  cand[2] dataset_idx=380 prob=0.3451
+Test 095: target=671, predicted=0, correct=✓
+  cand[0] dataset_idx=671 prob=0.4059 (target)
+  cand[1] dataset_idx=217 prob=0.3594
+  cand[2] dataset_idx=326 prob=0.2347
+Test 095 [A2→A1]: target=671, predicted=0, correct=✓
+  cand[0] dataset_idx=671 prob=0.4037 (target)
+  cand[1] dataset_idx=217 prob=0.3593
+  cand[2] dataset_idx=326 prob=0.2370
+Test 096: target=36, predicted=0, correct=✓
+  cand[0] dataset_idx=36 prob=0.4345 (target)
+  cand[1] dataset_idx=263 prob=0.2640
+  cand[2] dataset_idx=414 prob=0.3015
+Test 096 [A2→A1]: target=36, predicted=0, correct=✓
+  cand[0] dataset_idx=36 prob=0.4358 (target)
+  cand[1] dataset_idx=263 prob=0.2619
+  cand[2] dataset_idx=414 prob=0.3023
+Test 097: target=746, predicted=1, correct=✗
+  cand[0] dataset_idx=746 prob=0.3152 (target)
+  cand[1] dataset_idx=247 prob=0.3474
+  cand[2] dataset_idx=528 prob=0.3374
+Test 097 [A2→A1]: target=746, predicted=1, correct=✗
+  cand[0] dataset_idx=746 prob=0.3198 (target)
+  cand[1] dataset_idx=247 prob=0.3426
+  cand[2] dataset_idx=528 prob=0.3376
+Test 098: target=175, predicted=0, correct=✓
+  cand[0] dataset_idx=175 prob=0.6385 (target)
+  cand[1] dataset_idx=348 prob=0.0620
+  cand[2] dataset_idx=682 prob=0.2995
+Test 098 [A2→A1]: target=175, predicted=0, correct=✓
+  cand[0] dataset_idx=175 prob=0.6402 (target)
+  cand[1] dataset_idx=348 prob=0.0613
+  cand[2] dataset_idx=682 prob=0.2986
+Test 099: target=521, predicted=0, correct=✓
+  cand[0] dataset_idx=521 prob=0.3964 (target)
+  cand[1] dataset_idx=384 prob=0.3827
+  cand[2] dataset_idx=223 prob=0.2209
+Test 099 [A2→A1]: target=521, predicted=0, correct=✓
+  cand[0] dataset_idx=521 prob=0.3946 (target)
+  cand[1] dataset_idx=384 prob=0.3801
+  cand[2] dataset_idx=223 prob=0.2254
+Test 100: target=547, predicted=0, correct=✓
+  cand[0] dataset_idx=547 prob=0.4135 (target)
+  cand[1] dataset_idx=699 prob=0.3415
+  cand[2] dataset_idx=59 prob=0.2450
+Test 100 [A2→A1]: target=547, predicted=0, correct=✓
+  cand[0] dataset_idx=547 prob=0.4140 (target)
+  cand[1] dataset_idx=699 prob=0.3475
+  cand[2] dataset_idx=59 prob=0.2385
+Summary (bidirectional):
+  A1→A2: 57/100 correct (acc=0.570)
+  A2→A1: 57/100 correct (acc=0.570)
+  Overall: 114/200 correct (acc=0.570)
+  GES (MA): Agent1=34.67, Agent2=34.67
+
+============================================================
+NOVEL SYMBOL INDUCTION TEST (FROZEN MODELS)
+Num tests: 100 | Distractors per test: 2
+============================================================
+GES (MA) at test time: Agent1=28.78, Agent2=35.78
+Test 001: target=159, predicted=0, correct=✓
+  cand[0] dataset_idx=159 prob=0.4368 (target)
+  cand[1] dataset_idx=540 prob=0.4204
+  cand[2] dataset_idx=568 prob=0.1428
+Test 001 [A2→A1]: target=159, predicted=0, correct=✓
+  cand[0] dataset_idx=159 prob=0.4754 (target)
+  cand[1] dataset_idx=540 prob=0.3967
+  cand[2] dataset_idx=568 prob=0.1280
+Test 002: target=325, predicted=1, correct=✗
+  cand[0] dataset_idx=325 prob=0.2915 (target)
+  cand[1] dataset_idx=355 prob=0.4022
+  cand[2] dataset_idx=346 prob=0.3063
+Test 002 [A2→A1]: target=325, predicted=2, correct=✗
+  cand[0] dataset_idx=325 prob=0.3102 (target)
+  cand[1] dataset_idx=355 prob=0.1882
+  cand[2] dataset_idx=346 prob=0.5016
+Test 003: target=736, predicted=0, correct=✓
+  cand[0] dataset_idx=736 prob=0.3951 (target)
+  cand[1] dataset_idx=394 prob=0.2823
+  cand[2] dataset_idx=479 prob=0.3226
+Test 003 [A2→A1]: target=736, predicted=2, correct=✗
+  cand[0] dataset_idx=736 prob=0.2763 (target)
+  cand[1] dataset_idx=394 prob=0.1906
+  cand[2] dataset_idx=479 prob=0.5332
+Test 004: target=557, predicted=1, correct=✗
+  cand[0] dataset_idx=557 prob=0.1601 (target)
+  cand[1] dataset_idx=410 prob=0.7407
+  cand[2] dataset_idx=694 prob=0.0992
+Test 004 [A2→A1]: target=557, predicted=0, correct=✓
+  cand[0] dataset_idx=557 prob=0.4742 (target)
+  cand[1] dataset_idx=410 prob=0.2156
+  cand[2] dataset_idx=694 prob=0.3101
+Test 005: target=191, predicted=2, correct=✗
+  cand[0] dataset_idx=191 prob=0.3325 (target)
+  cand[1] dataset_idx=244 prob=0.1726
+  cand[2] dataset_idx=566 prob=0.4949
+Test 005 [A2→A1]: target=191, predicted=0, correct=✓
+  cand[0] dataset_idx=191 prob=0.3808 (target)
+  cand[1] dataset_idx=244 prob=0.3094
+  cand[2] dataset_idx=566 prob=0.3098
+Test 006: target=706, predicted=0, correct=✓
+  cand[0] dataset_idx=706 prob=0.8100 (target)
+  cand[1] dataset_idx=91 prob=0.1237
+  cand[2] dataset_idx=364 prob=0.0664
+Test 006 [A2→A1]: target=706, predicted=0, correct=✓
+  cand[0] dataset_idx=706 prob=0.7406 (target)
+  cand[1] dataset_idx=91 prob=0.1624
+  cand[2] dataset_idx=364 prob=0.0970
+Test 007: target=90, predicted=0, correct=✓
+  cand[0] dataset_idx=90 prob=0.3680 (target)
+  cand[1] dataset_idx=36 prob=0.3507
+  cand[2] dataset_idx=219 prob=0.2813
+Test 007 [A2→A1]: target=90, predicted=0, correct=✓
+  cand[0] dataset_idx=90 prob=0.3521 (target)
+  cand[1] dataset_idx=36 prob=0.3006
+  cand[2] dataset_idx=219 prob=0.3473
+Test 008: target=179, predicted=0, correct=✓
+  cand[0] dataset_idx=179 prob=0.4755 (target)
+  cand[1] dataset_idx=220 prob=0.4609
+  cand[2] dataset_idx=482 prob=0.0636
+Test 008 [A2→A1]: target=179, predicted=1, correct=✗
+  cand[0] dataset_idx=179 prob=0.3894 (target)
+  cand[1] dataset_idx=220 prob=0.5025
+  cand[2] dataset_idx=482 prob=0.1081
+Test 009: target=34, predicted=0, correct=✓
+  cand[0] dataset_idx=34 prob=0.3747 (target)
+  cand[1] dataset_idx=646 prob=0.2809
+  cand[2] dataset_idx=483 prob=0.3445
+Test 009 [A2→A1]: target=34, predicted=2, correct=✗
+  cand[0] dataset_idx=34 prob=0.3081 (target)
+  cand[1] dataset_idx=646 prob=0.3179
+  cand[2] dataset_idx=483 prob=0.3739
+Test 010: target=351, predicted=0, correct=✓
+  cand[0] dataset_idx=351 prob=0.4694 (target)
+  cand[1] dataset_idx=146 prob=0.2828
+  cand[2] dataset_idx=302 prob=0.2478
+Test 010 [A2→A1]: target=351, predicted=2, correct=✗
+  cand[0] dataset_idx=351 prob=0.2987 (target)
+  cand[1] dataset_idx=146 prob=0.3436
+  cand[2] dataset_idx=302 prob=0.3577
+Test 011: target=651, predicted=2, correct=✗
+  cand[0] dataset_idx=651 prob=0.4260 (target)
+  cand[1] dataset_idx=619 prob=0.0842
+  cand[2] dataset_idx=152 prob=0.4898
+Test 011 [A2→A1]: target=651, predicted=2, correct=✗
+  cand[0] dataset_idx=651 prob=0.4234 (target)
+  cand[1] dataset_idx=619 prob=0.1106
+  cand[2] dataset_idx=152 prob=0.4660
+Test 012: target=495, predicted=1, correct=✗
+  cand[0] dataset_idx=495 prob=0.3806 (target)
+  cand[1] dataset_idx=121 prob=0.5751
+  cand[2] dataset_idx=13 prob=0.0443
+Test 012 [A2→A1]: target=495, predicted=1, correct=✗
+  cand[0] dataset_idx=495 prob=0.3915 (target)
+  cand[1] dataset_idx=121 prob=0.5405
+  cand[2] dataset_idx=13 prob=0.0680
+Test 013: target=251, predicted=0, correct=✓
+  cand[0] dataset_idx=251 prob=0.5061 (target)
+  cand[1] dataset_idx=611 prob=0.1275
+  cand[2] dataset_idx=593 prob=0.3664
+Test 013 [A2→A1]: target=251, predicted=0, correct=✓
+  cand[0] dataset_idx=251 prob=0.5040 (target)
+  cand[1] dataset_idx=611 prob=0.1154
+  cand[2] dataset_idx=593 prob=0.3806
+Test 014: target=11, predicted=2, correct=✗
+  cand[0] dataset_idx=11 prob=0.3936 (target)
+  cand[1] dataset_idx=700 prob=0.1464
+  cand[2] dataset_idx=436 prob=0.4599
+Test 014 [A2→A1]: target=11, predicted=2, correct=✗
+  cand[0] dataset_idx=11 prob=0.3685 (target)
+  cand[1] dataset_idx=700 prob=0.2372
+  cand[2] dataset_idx=436 prob=0.3943
+Test 015: target=154, predicted=0, correct=✓
+  cand[0] dataset_idx=154 prob=0.7780 (target)
+  cand[1] dataset_idx=441 prob=0.1489
+  cand[2] dataset_idx=300 prob=0.0730
+Test 015 [A2→A1]: target=154, predicted=0, correct=✓
+  cand[0] dataset_idx=154 prob=0.7014 (target)
+  cand[1] dataset_idx=441 prob=0.1918
+  cand[2] dataset_idx=300 prob=0.1068
+Test 016: target=27, predicted=2, correct=✗
+  cand[0] dataset_idx=27 prob=0.3449 (target)
+  cand[1] dataset_idx=213 prob=0.2684
+  cand[2] dataset_idx=346 prob=0.3867
+Test 016 [A2→A1]: target=27, predicted=2, correct=✗
+  cand[0] dataset_idx=27 prob=0.2577 (target)
+  cand[1] dataset_idx=213 prob=0.1995
+  cand[2] dataset_idx=346 prob=0.5428
+Test 017: target=588, predicted=0, correct=✓
+  cand[0] dataset_idx=588 prob=0.4667 (target)
+  cand[1] dataset_idx=217 prob=0.1885
+  cand[2] dataset_idx=697 prob=0.3448
+Test 017 [A2→A1]: target=588, predicted=2, correct=✗
+  cand[0] dataset_idx=588 prob=0.3543 (target)
+  cand[1] dataset_idx=217 prob=0.2410
+  cand[2] dataset_idx=697 prob=0.4047
+Test 018: target=157, predicted=2, correct=✗
+  cand[0] dataset_idx=157 prob=0.4691 (target)
+  cand[1] dataset_idx=113 prob=0.0615
+  cand[2] dataset_idx=675 prob=0.4694
+Test 018 [A2→A1]: target=157, predicted=0, correct=✓
+  cand[0] dataset_idx=157 prob=0.4571 (target)
+  cand[1] dataset_idx=113 prob=0.1235
+  cand[2] dataset_idx=675 prob=0.4194
+Test 019: target=703, predicted=0, correct=✓
+  cand[0] dataset_idx=703 prob=0.4495 (target)
+  cand[1] dataset_idx=229 prob=0.3855
+  cand[2] dataset_idx=517 prob=0.1650
+Test 019 [A2→A1]: target=703, predicted=1, correct=✗
+  cand[0] dataset_idx=703 prob=0.3989 (target)
+  cand[1] dataset_idx=229 prob=0.4017
+  cand[2] dataset_idx=517 prob=0.1994
+Test 020: target=277, predicted=2, correct=✗
+  cand[0] dataset_idx=277 prob=0.4053 (target)
+  cand[1] dataset_idx=500 prob=0.1657
+  cand[2] dataset_idx=527 prob=0.4290
+Test 020 [A2→A1]: target=277, predicted=2, correct=✗
+  cand[0] dataset_idx=277 prob=0.3951 (target)
+  cand[1] dataset_idx=500 prob=0.1674
+  cand[2] dataset_idx=527 prob=0.4375
+Test 021: target=145, predicted=0, correct=✓
+  cand[0] dataset_idx=145 prob=0.5858 (target)
+  cand[1] dataset_idx=608 prob=0.2538
+  cand[2] dataset_idx=313 prob=0.1603
+Test 021 [A2→A1]: target=145, predicted=0, correct=✓
+  cand[0] dataset_idx=145 prob=0.5213 (target)
+  cand[1] dataset_idx=608 prob=0.1834
+  cand[2] dataset_idx=313 prob=0.2953
+Test 022: target=632, predicted=1, correct=✗
+  cand[0] dataset_idx=632 prob=0.2984 (target)
+  cand[1] dataset_idx=553 prob=0.5201
+  cand[2] dataset_idx=173 prob=0.1815
+Test 022 [A2→A1]: target=632, predicted=0, correct=✓
+  cand[0] dataset_idx=632 prob=0.4415 (target)
+  cand[1] dataset_idx=553 prob=0.2657
+  cand[2] dataset_idx=173 prob=0.2927
+Test 023: target=598, predicted=2, correct=✗
+  cand[0] dataset_idx=598 prob=0.3201 (target)
+  cand[1] dataset_idx=443 prob=0.3327
+  cand[2] dataset_idx=646 prob=0.3472
+Test 023 [A2→A1]: target=598, predicted=1, correct=✗
+  cand[0] dataset_idx=598 prob=0.2241 (target)
+  cand[1] dataset_idx=443 prob=0.4473
+  cand[2] dataset_idx=646 prob=0.3286
+Test 024: target=308, predicted=2, correct=✗
+  cand[0] dataset_idx=308 prob=0.4112 (target)
+  cand[1] dataset_idx=734 prob=0.1719
+  cand[2] dataset_idx=578 prob=0.4169
+Test 024 [A2→A1]: target=308, predicted=0, correct=✓
+  cand[0] dataset_idx=308 prob=0.4119 (target)
+  cand[1] dataset_idx=734 prob=0.2446
+  cand[2] dataset_idx=578 prob=0.3435
+Test 025: target=180, predicted=1, correct=✗
+  cand[0] dataset_idx=180 prob=0.3218 (target)
+  cand[1] dataset_idx=692 prob=0.4297
+  cand[2] dataset_idx=416 prob=0.2485
+Test 025 [A2→A1]: target=180, predicted=1, correct=✗
+  cand[0] dataset_idx=180 prob=0.3490 (target)
+  cand[1] dataset_idx=692 prob=0.3571
+  cand[2] dataset_idx=416 prob=0.2939
+Test 026: target=586, predicted=0, correct=✓
+  cand[0] dataset_idx=586 prob=0.4021 (target)
+  cand[1] dataset_idx=195 prob=0.3684
+  cand[2] dataset_idx=29 prob=0.2295
+Test 026 [A2→A1]: target=586, predicted=2, correct=✗
+  cand[0] dataset_idx=586 prob=0.2826 (target)
+  cand[1] dataset_idx=195 prob=0.3191
+  cand[2] dataset_idx=29 prob=0.3983
+Test 027: target=296, predicted=2, correct=✗
+  cand[0] dataset_idx=296 prob=0.3474 (target)
+  cand[1] dataset_idx=460 prob=0.1295
+  cand[2] dataset_idx=445 prob=0.5231
+Test 027 [A2→A1]: target=296, predicted=2, correct=✗
+  cand[0] dataset_idx=296 prob=0.3148 (target)
+  cand[1] dataset_idx=460 prob=0.2211
+  cand[2] dataset_idx=445 prob=0.4641
+Test 028: target=663, predicted=2, correct=✗
+  cand[0] dataset_idx=663 prob=0.2917 (target)
+  cand[1] dataset_idx=632 prob=0.2569
+  cand[2] dataset_idx=605 prob=0.4514
+Test 028 [A2→A1]: target=663, predicted=1, correct=✗
+  cand[0] dataset_idx=663 prob=0.2882 (target)
+  cand[1] dataset_idx=632 prob=0.3907
+  cand[2] dataset_idx=605 prob=0.3211
+Test 029: target=164, predicted=0, correct=✓
+  cand[0] dataset_idx=164 prob=0.3819 (target)
+  cand[1] dataset_idx=210 prob=0.2602
+  cand[2] dataset_idx=596 prob=0.3579
+Test 029 [A2→A1]: target=164, predicted=0, correct=✓
+  cand[0] dataset_idx=164 prob=0.4840 (target)
+  cand[1] dataset_idx=210 prob=0.1976
+  cand[2] dataset_idx=596 prob=0.3184
+Test 030: target=456, predicted=0, correct=✓
+  cand[0] dataset_idx=456 prob=0.4587 (target)
+  cand[1] dataset_idx=246 prob=0.2093
+  cand[2] dataset_idx=563 prob=0.3320
+Test 030 [A2→A1]: target=456, predicted=0, correct=✓
+  cand[0] dataset_idx=456 prob=0.5000 (target)
+  cand[1] dataset_idx=246 prob=0.2196
+  cand[2] dataset_idx=563 prob=0.2803
+Test 031: target=526, predicted=0, correct=✓
+  cand[0] dataset_idx=526 prob=0.4350 (target)
+  cand[1] dataset_idx=240 prob=0.3134
+  cand[2] dataset_idx=71 prob=0.2517
+Test 031 [A2→A1]: target=526, predicted=0, correct=✓
+  cand[0] dataset_idx=526 prob=0.3935 (target)
+  cand[1] dataset_idx=240 prob=0.2534
+  cand[2] dataset_idx=71 prob=0.3531
+Test 032: target=681, predicted=2, correct=✗
+  cand[0] dataset_idx=681 prob=0.2684 (target)
+  cand[1] dataset_idx=694 prob=0.0792
+  cand[2] dataset_idx=480 prob=0.6524
+Test 032 [A2→A1]: target=681, predicted=2, correct=✗
+  cand[0] dataset_idx=681 prob=0.2819 (target)
+  cand[1] dataset_idx=694 prob=0.0964
+  cand[2] dataset_idx=480 prob=0.6218
+Test 033: target=728, predicted=0, correct=✓
+  cand[0] dataset_idx=728 prob=0.5476 (target)
+  cand[1] dataset_idx=471 prob=0.0747
+  cand[2] dataset_idx=71 prob=0.3777
+Test 033 [A2→A1]: target=728, predicted=2, correct=✗
+  cand[0] dataset_idx=728 prob=0.4274 (target)
+  cand[1] dataset_idx=471 prob=0.0990
+  cand[2] dataset_idx=71 prob=0.4735
+Test 034: target=304, predicted=0, correct=✓
+  cand[0] dataset_idx=304 prob=0.4018 (target)
+  cand[1] dataset_idx=201 prob=0.1971
+  cand[2] dataset_idx=374 prob=0.4011
+Test 034 [A2→A1]: target=304, predicted=2, correct=✗
+  cand[0] dataset_idx=304 prob=0.3843 (target)
+  cand[1] dataset_idx=201 prob=0.2079
+  cand[2] dataset_idx=374 prob=0.4078
+Test 035: target=745, predicted=1, correct=✗
+  cand[0] dataset_idx=745 prob=0.3733 (target)
+  cand[1] dataset_idx=412 prob=0.5729
+  cand[2] dataset_idx=181 prob=0.0538
+Test 035 [A2→A1]: target=745, predicted=1, correct=✗
+  cand[0] dataset_idx=745 prob=0.3966 (target)
+  cand[1] dataset_idx=412 prob=0.5256
+  cand[2] dataset_idx=181 prob=0.0778
+Test 036: target=617, predicted=0, correct=✓
+  cand[0] dataset_idx=617 prob=0.3768 (target)
+  cand[1] dataset_idx=289 prob=0.3147
+  cand[2] dataset_idx=623 prob=0.3085
+Test 036 [A2→A1]: target=617, predicted=0, correct=✓
+  cand[0] dataset_idx=617 prob=0.3503 (target)
+  cand[1] dataset_idx=289 prob=0.3165
+  cand[2] dataset_idx=623 prob=0.3331
+Test 037: target=654, predicted=0, correct=✓
+  cand[0] dataset_idx=654 prob=0.7573 (target)
+  cand[1] dataset_idx=625 prob=0.1442
+  cand[2] dataset_idx=596 prob=0.0985
+Test 037 [A2→A1]: target=654, predicted=0, correct=✓
+  cand[0] dataset_idx=654 prob=0.6978 (target)
+  cand[1] dataset_idx=625 prob=0.1748
+  cand[2] dataset_idx=596 prob=0.1274
+Test 038: target=522, predicted=0, correct=✓
+  cand[0] dataset_idx=522 prob=0.7365 (target)
+  cand[1] dataset_idx=506 prob=0.1345
+  cand[2] dataset_idx=78 prob=0.1290
+Test 038 [A2→A1]: target=522, predicted=0, correct=✓
+  cand[0] dataset_idx=522 prob=0.6020 (target)
+  cand[1] dataset_idx=506 prob=0.1555
+  cand[2] dataset_idx=78 prob=0.2424
+Test 039: target=114, predicted=0, correct=✓
+  cand[0] dataset_idx=114 prob=0.6531 (target)
+  cand[1] dataset_idx=197 prob=0.1294
+  cand[2] dataset_idx=363 prob=0.2175
+Test 039 [A2→A1]: target=114, predicted=0, correct=✓
+  cand[0] dataset_idx=114 prob=0.5953 (target)
+  cand[1] dataset_idx=197 prob=0.1615
+  cand[2] dataset_idx=363 prob=0.2431
+Test 040: target=142, predicted=0, correct=✓
+  cand[0] dataset_idx=142 prob=0.6324 (target)
+  cand[1] dataset_idx=455 prob=0.2320
+  cand[2] dataset_idx=79 prob=0.1355
+Test 040 [A2→A1]: target=142, predicted=0, correct=✓
+  cand[0] dataset_idx=142 prob=0.4958 (target)
+  cand[1] dataset_idx=455 prob=0.2993
+  cand[2] dataset_idx=79 prob=0.2049
+Test 041: target=669, predicted=0, correct=✓
+  cand[0] dataset_idx=669 prob=0.4903 (target)
+  cand[1] dataset_idx=322 prob=0.4506
+  cand[2] dataset_idx=116 prob=0.0591
+Test 041 [A2→A1]: target=669, predicted=1, correct=✗
+  cand[0] dataset_idx=669 prob=0.4351 (target)
+  cand[1] dataset_idx=322 prob=0.4442
+  cand[2] dataset_idx=116 prob=0.1207
+Test 042: target=315, predicted=0, correct=✓
+  cand[0] dataset_idx=315 prob=0.7312 (target)
+  cand[1] dataset_idx=205 prob=0.1253
+  cand[2] dataset_idx=56 prob=0.1436
+Test 042 [A2→A1]: target=315, predicted=0, correct=✓
+  cand[0] dataset_idx=315 prob=0.7060 (target)
+  cand[1] dataset_idx=205 prob=0.1390
+  cand[2] dataset_idx=56 prob=0.1549
+Test 043: target=413, predicted=0, correct=✓
+  cand[0] dataset_idx=413 prob=0.4937 (target)
+  cand[1] dataset_idx=459 prob=0.1447
+  cand[2] dataset_idx=428 prob=0.3616
+Test 043 [A2→A1]: target=413, predicted=0, correct=✓
+  cand[0] dataset_idx=413 prob=0.4537 (target)
+  cand[1] dataset_idx=459 prob=0.1817
+  cand[2] dataset_idx=428 prob=0.3646
+Test 044: target=212, predicted=0, correct=✓
+  cand[0] dataset_idx=212 prob=0.5616 (target)
+  cand[1] dataset_idx=26 prob=0.2192
+  cand[2] dataset_idx=563 prob=0.2192
+Test 044 [A2→A1]: target=212, predicted=0, correct=✓
+  cand[0] dataset_idx=212 prob=0.5359 (target)
+  cand[1] dataset_idx=26 prob=0.2451
+  cand[2] dataset_idx=563 prob=0.2190
+Test 045: target=334, predicted=0, correct=✓
+  cand[0] dataset_idx=334 prob=0.3974 (target)
+  cand[1] dataset_idx=724 prob=0.3704
+  cand[2] dataset_idx=168 prob=0.2322
+Test 045 [A2→A1]: target=334, predicted=0, correct=✓
+  cand[0] dataset_idx=334 prob=0.3759 (target)
+  cand[1] dataset_idx=724 prob=0.3080
+  cand[2] dataset_idx=168 prob=0.3161
+Test 046: target=582, predicted=2, correct=✗
+  cand[0] dataset_idx=582 prob=0.3493 (target)
+  cand[1] dataset_idx=50 prob=0.2660
+  cand[2] dataset_idx=465 prob=0.3847
+Test 046 [A2→A1]: target=582, predicted=2, correct=✗
+  cand[0] dataset_idx=582 prob=0.3144 (target)
+  cand[1] dataset_idx=50 prob=0.2988
+  cand[2] dataset_idx=465 prob=0.3868
+Test 047: target=433, predicted=0, correct=✓
+  cand[0] dataset_idx=433 prob=0.5065 (target)
+  cand[1] dataset_idx=334 prob=0.2283
+  cand[2] dataset_idx=161 prob=0.2653
+Test 047 [A2→A1]: target=433, predicted=0, correct=✓
+  cand[0] dataset_idx=433 prob=0.3505 (target)
+  cand[1] dataset_idx=334 prob=0.3258
+  cand[2] dataset_idx=161 prob=0.3237
+Test 048: target=339, predicted=0, correct=✓
+  cand[0] dataset_idx=339 prob=0.4339 (target)
+  cand[1] dataset_idx=438 prob=0.1966
+  cand[2] dataset_idx=201 prob=0.3694
+Test 048 [A2→A1]: target=339, predicted=0, correct=✓
+  cand[0] dataset_idx=339 prob=0.3566 (target)
+  cand[1] dataset_idx=438 prob=0.3187
+  cand[2] dataset_idx=201 prob=0.3247
+Test 049: target=658, predicted=2, correct=✗
+  cand[0] dataset_idx=658 prob=0.3186 (target)
+  cand[1] dataset_idx=52 prob=0.2575
+  cand[2] dataset_idx=110 prob=0.4240
+Test 049 [A2→A1]: target=658, predicted=2, correct=✗
+  cand[0] dataset_idx=658 prob=0.3296 (target)
+  cand[1] dataset_idx=52 prob=0.2785
+  cand[2] dataset_idx=110 prob=0.3919
+Test 050: target=208, predicted=0, correct=✓
+  cand[0] dataset_idx=208 prob=0.7090 (target)
+  cand[1] dataset_idx=374 prob=0.1037
+  cand[2] dataset_idx=403 prob=0.1873
+Test 050 [A2→A1]: target=208, predicted=0, correct=✓
+  cand[0] dataset_idx=208 prob=0.6408 (target)
+  cand[1] dataset_idx=374 prob=0.1352
+  cand[2] dataset_idx=403 prob=0.2240
+Test 051: target=750, predicted=1, correct=✗
+  cand[0] dataset_idx=750 prob=0.2769 (target)
+  cand[1] dataset_idx=121 prob=0.5418
+  cand[2] dataset_idx=465 prob=0.1813
+Test 051 [A2→A1]: target=750, predicted=2, correct=✗
+  cand[0] dataset_idx=750 prob=0.3221 (target)
+  cand[1] dataset_idx=121 prob=0.1823
+  cand[2] dataset_idx=465 prob=0.4956
+Test 052: target=280, predicted=2, correct=✗
+  cand[0] dataset_idx=280 prob=0.3592 (target)
+  cand[1] dataset_idx=295 prob=0.2636
+  cand[2] dataset_idx=282 prob=0.3772
+Test 052 [A2→A1]: target=280, predicted=0, correct=✓
+  cand[0] dataset_idx=280 prob=0.3649 (target)
+  cand[1] dataset_idx=295 prob=0.2777
+  cand[2] dataset_idx=282 prob=0.3575
+Test 053: target=143, predicted=0, correct=✓
+  cand[0] dataset_idx=143 prob=0.4201 (target)
+  cand[1] dataset_idx=307 prob=0.3266
+  cand[2] dataset_idx=241 prob=0.2532
+Test 053 [A2→A1]: target=143, predicted=0, correct=✓
+  cand[0] dataset_idx=143 prob=0.4078 (target)
+  cand[1] dataset_idx=307 prob=0.3639
+  cand[2] dataset_idx=241 prob=0.2284
+Test 054: target=723, predicted=0, correct=✓
+  cand[0] dataset_idx=723 prob=0.4165 (target)
+  cand[1] dataset_idx=282 prob=0.3579
+  cand[2] dataset_idx=536 prob=0.2256
+Test 054 [A2→A1]: target=723, predicted=0, correct=✓
+  cand[0] dataset_idx=723 prob=0.3907 (target)
+  cand[1] dataset_idx=282 prob=0.3860
+  cand[2] dataset_idx=536 prob=0.2234
+Test 055: target=198, predicted=1, correct=✗
+  cand[0] dataset_idx=198 prob=0.3868 (target)
+  cand[1] dataset_idx=282 prob=0.4898
+  cand[2] dataset_idx=156 prob=0.1234
+Test 055 [A2→A1]: target=198, predicted=1, correct=✗
+  cand[0] dataset_idx=198 prob=0.3837 (target)
+  cand[1] dataset_idx=282 prob=0.5053
+  cand[2] dataset_idx=156 prob=0.1110
+Test 056: target=515, predicted=0, correct=✓
+  cand[0] dataset_idx=515 prob=0.8932 (target)
+  cand[1] dataset_idx=689 prob=0.0617
+  cand[2] dataset_idx=642 prob=0.0451
+Test 056 [A2→A1]: target=515, predicted=0, correct=✓
+  cand[0] dataset_idx=515 prob=0.8375 (target)
+  cand[1] dataset_idx=689 prob=0.0920
+  cand[2] dataset_idx=642 prob=0.0705
+Test 057: target=635, predicted=1, correct=✗
+  cand[0] dataset_idx=635 prob=0.3538 (target)
+  cand[1] dataset_idx=682 prob=0.3963
+  cand[2] dataset_idx=487 prob=0.2500
+Test 057 [A2→A1]: target=635, predicted=0, correct=✓
+  cand[0] dataset_idx=635 prob=0.4125 (target)
+  cand[1] dataset_idx=682 prob=0.3678
+  cand[2] dataset_idx=487 prob=0.2197
+Test 058: target=425, predicted=0, correct=✓
+  cand[0] dataset_idx=425 prob=0.4580 (target)
+  cand[1] dataset_idx=106 prob=0.2336
+  cand[2] dataset_idx=180 prob=0.3084
+Test 058 [A2→A1]: target=425, predicted=1, correct=✗
+  cand[0] dataset_idx=425 prob=0.3453 (target)
+  cand[1] dataset_idx=106 prob=0.3456
+  cand[2] dataset_idx=180 prob=0.3091
+Test 059: target=105, predicted=1, correct=✗
+  cand[0] dataset_idx=105 prob=0.4176 (target)
+  cand[1] dataset_idx=261 prob=0.5038
+  cand[2] dataset_idx=82 prob=0.0786
+Test 059 [A2→A1]: target=105, predicted=0, correct=✓
+  cand[0] dataset_idx=105 prob=0.4675 (target)
+  cand[1] dataset_idx=261 prob=0.3394
+  cand[2] dataset_idx=82 prob=0.1932
+Test 060: target=585, predicted=0, correct=✓
+  cand[0] dataset_idx=585 prob=0.4435 (target)
+  cand[1] dataset_idx=709 prob=0.2138
+  cand[2] dataset_idx=421 prob=0.3426
+Test 060 [A2→A1]: target=585, predicted=1, correct=✗
+  cand[0] dataset_idx=585 prob=0.2538 (target)
+  cand[1] dataset_idx=709 prob=0.4247
+  cand[2] dataset_idx=421 prob=0.3215
+Test 061: target=15, predicted=2, correct=✗
+  cand[0] dataset_idx=15 prob=0.4044 (target)
+  cand[1] dataset_idx=549 prob=0.1871
+  cand[2] dataset_idx=296 prob=0.4085
+Test 061 [A2→A1]: target=15, predicted=2, correct=✗
+  cand[0] dataset_idx=15 prob=0.3864 (target)
+  cand[1] dataset_idx=549 prob=0.2228
+  cand[2] dataset_idx=296 prob=0.3909
+Test 062: target=127, predicted=1, correct=✗
+  cand[0] dataset_idx=127 prob=0.4525 (target)
+  cand[1] dataset_idx=618 prob=0.4892
+  cand[2] dataset_idx=650 prob=0.0583
+Test 062 [A2→A1]: target=127, predicted=1, correct=✗
+  cand[0] dataset_idx=127 prob=0.3809 (target)
+  cand[1] dataset_idx=618 prob=0.4989
+  cand[2] dataset_idx=650 prob=0.1202
+Test 063: target=379, predicted=0, correct=✓
+  cand[0] dataset_idx=379 prob=0.6124 (target)
+  cand[1] dataset_idx=76 prob=0.1129
+  cand[2] dataset_idx=341 prob=0.2746
+Test 063 [A2→A1]: target=379, predicted=0, correct=✓
+  cand[0] dataset_idx=379 prob=0.4850 (target)
+  cand[1] dataset_idx=76 prob=0.2113
+  cand[2] dataset_idx=341 prob=0.3037
+Test 064: target=373, predicted=0, correct=✓
+  cand[0] dataset_idx=373 prob=0.8071 (target)
+  cand[1] dataset_idx=154 prob=0.1054
+  cand[2] dataset_idx=123 prob=0.0875
+Test 064 [A2→A1]: target=373, predicted=0, correct=✓
+  cand[0] dataset_idx=373 prob=0.7841 (target)
+  cand[1] dataset_idx=154 prob=0.0953
+  cand[2] dataset_idx=123 prob=0.1206
+Test 065: target=43, predicted=0, correct=✓
+  cand[0] dataset_idx=43 prob=0.5387 (target)
+  cand[1] dataset_idx=746 prob=0.2225
+  cand[2] dataset_idx=725 prob=0.2389
+Test 065 [A2→A1]: target=43, predicted=0, correct=✓
+  cand[0] dataset_idx=43 prob=0.5365 (target)
+  cand[1] dataset_idx=746 prob=0.2207
+  cand[2] dataset_idx=725 prob=0.2428
+Test 066: target=363, predicted=0, correct=✓
+  cand[0] dataset_idx=363 prob=0.4774 (target)
+  cand[1] dataset_idx=88 prob=0.2853
+  cand[2] dataset_idx=709 prob=0.2372
+Test 066 [A2→A1]: target=363, predicted=2, correct=✗
+  cand[0] dataset_idx=363 prob=0.2357 (target)
+  cand[1] dataset_idx=88 prob=0.3556
+  cand[2] dataset_idx=709 prob=0.4086
+Test 067: target=233, predicted=0, correct=✓
+  cand[0] dataset_idx=233 prob=0.5526 (target)
+  cand[1] dataset_idx=677 prob=0.3295
+  cand[2] dataset_idx=344 prob=0.1179
+Test 067 [A2→A1]: target=233, predicted=0, correct=✓
+  cand[0] dataset_idx=233 prob=0.5438 (target)
+  cand[1] dataset_idx=677 prob=0.2644
+  cand[2] dataset_idx=344 prob=0.1918
+Test 068: target=284, predicted=0, correct=✓
+  cand[0] dataset_idx=284 prob=0.6167 (target)
+  cand[1] dataset_idx=279 prob=0.2347
+  cand[2] dataset_idx=431 prob=0.1485
+Test 068 [A2→A1]: target=284, predicted=0, correct=✓
+  cand[0] dataset_idx=284 prob=0.4024 (target)
+  cand[1] dataset_idx=279 prob=0.2455
+  cand[2] dataset_idx=431 prob=0.3521
+Test 069: target=601, predicted=0, correct=✓
+  cand[0] dataset_idx=601 prob=0.5049 (target)
+  cand[1] dataset_idx=495 prob=0.0845
+  cand[2] dataset_idx=640 prob=0.4106
+Test 069 [A2→A1]: target=601, predicted=0, correct=✓
+  cand[0] dataset_idx=601 prob=0.4741 (target)
+  cand[1] dataset_idx=495 prob=0.1283
+  cand[2] dataset_idx=640 prob=0.3977
+Test 070: target=131, predicted=0, correct=✓
+  cand[0] dataset_idx=131 prob=0.4078 (target)
+  cand[1] dataset_idx=662 prob=0.4036
+  cand[2] dataset_idx=535 prob=0.1886
+Test 070 [A2→A1]: target=131, predicted=1, correct=✗
+  cand[0] dataset_idx=131 prob=0.3907 (target)
+  cand[1] dataset_idx=662 prob=0.4068
+  cand[2] dataset_idx=535 prob=0.2025
+Test 071: target=189, predicted=0, correct=✓
+  cand[0] dataset_idx=189 prob=0.3412 (target)
+  cand[1] dataset_idx=680 prob=0.3289
+  cand[2] dataset_idx=433 prob=0.3298
+Test 071 [A2→A1]: target=189, predicted=1, correct=✗
+  cand[0] dataset_idx=189 prob=0.3255 (target)
+  cand[1] dataset_idx=680 prob=0.3393
+  cand[2] dataset_idx=433 prob=0.3352
+Test 072: target=314, predicted=0, correct=✓
+  cand[0] dataset_idx=314 prob=0.3710 (target)
+  cand[1] dataset_idx=97 prob=0.2872
+  cand[2] dataset_idx=444 prob=0.3418
+Test 072 [A2→A1]: target=314, predicted=0, correct=✓
+  cand[0] dataset_idx=314 prob=0.3899 (target)
+  cand[1] dataset_idx=97 prob=0.2653
+  cand[2] dataset_idx=444 prob=0.3448
+Test 073: target=18, predicted=0, correct=✓
+  cand[0] dataset_idx=18 prob=0.5135 (target)
+  cand[1] dataset_idx=392 prob=0.1626
+  cand[2] dataset_idx=459 prob=0.3238
+Test 073 [A2→A1]: target=18, predicted=2, correct=✗
+  cand[0] dataset_idx=18 prob=0.4044 (target)
+  cand[1] dataset_idx=392 prob=0.1804
+  cand[2] dataset_idx=459 prob=0.4151
+Test 074: target=20, predicted=0, correct=✓
+  cand[0] dataset_idx=20 prob=0.5544 (target)
+  cand[1] dataset_idx=683 prob=0.3174
+  cand[2] dataset_idx=423 prob=0.1282
+Test 074 [A2→A1]: target=20, predicted=2, correct=✗
+  cand[0] dataset_idx=20 prob=0.3388 (target)
+  cand[1] dataset_idx=683 prob=0.2749
+  cand[2] dataset_idx=423 prob=0.3862
+Test 075: target=276, predicted=1, correct=✗
+  cand[0] dataset_idx=276 prob=0.3646 (target)
+  cand[1] dataset_idx=76 prob=0.4882
+  cand[2] dataset_idx=555 prob=0.1472
+Test 075 [A2→A1]: target=276, predicted=1, correct=✗
+  cand[0] dataset_idx=276 prob=0.3576 (target)
+  cand[1] dataset_idx=76 prob=0.4738
+  cand[2] dataset_idx=555 prob=0.1685
+Test 076: target=637, predicted=1, correct=✗
+  cand[0] dataset_idx=637 prob=0.2628 (target)
+  cand[1] dataset_idx=708 prob=0.6542
+  cand[2] dataset_idx=96 prob=0.0830
+Test 076 [A2→A1]: target=637, predicted=1, correct=✗
+  cand[0] dataset_idx=637 prob=0.3129 (target)
+  cand[1] dataset_idx=708 prob=0.5141
+  cand[2] dataset_idx=96 prob=0.1730
+Test 077: target=196, predicted=2, correct=✗
+  cand[0] dataset_idx=196 prob=0.2891 (target)
+  cand[1] dataset_idx=310 prob=0.3318
+  cand[2] dataset_idx=55 prob=0.3791
+Test 077 [A2→A1]: target=196, predicted=1, correct=✗
+  cand[0] dataset_idx=196 prob=0.2878 (target)
+  cand[1] dataset_idx=310 prob=0.3657
+  cand[2] dataset_idx=55 prob=0.3465
+Test 078: target=554, predicted=1, correct=✗
+  cand[0] dataset_idx=554 prob=0.3275 (target)
+  cand[1] dataset_idx=551 prob=0.3734
+  cand[2] dataset_idx=427 prob=0.2991
+Test 078 [A2→A1]: target=554, predicted=2, correct=✗
+  cand[0] dataset_idx=554 prob=0.3220 (target)
+  cand[1] dataset_idx=551 prob=0.3175
+  cand[2] dataset_idx=427 prob=0.3604
+Test 079: target=168, predicted=1, correct=✗
+  cand[0] dataset_idx=168 prob=0.3469 (target)
+  cand[1] dataset_idx=662 prob=0.5529
+  cand[2] dataset_idx=480 prob=0.1002
+Test 079 [A2→A1]: target=168, predicted=1, correct=✗
+  cand[0] dataset_idx=168 prob=0.4448 (target)
+  cand[1] dataset_idx=662 prob=0.4496
+  cand[2] dataset_idx=480 prob=0.1056
+Test 080: target=359, predicted=0, correct=✓
+  cand[0] dataset_idx=359 prob=0.5263 (target)
+  cand[1] dataset_idx=220 prob=0.1412
+  cand[2] dataset_idx=345 prob=0.3325
+Test 080 [A2→A1]: target=359, predicted=0, correct=✓
+  cand[0] dataset_idx=359 prob=0.4929 (target)
+  cand[1] dataset_idx=220 prob=0.1592
+  cand[2] dataset_idx=345 prob=0.3479
+Test 081: target=538, predicted=1, correct=✗
+  cand[0] dataset_idx=538 prob=0.2986 (target)
+  cand[1] dataset_idx=388 prob=0.5467
+  cand[2] dataset_idx=702 prob=0.1546
+Test 081 [A2→A1]: target=538, predicted=1, correct=✗
+  cand[0] dataset_idx=538 prob=0.2774 (target)
+  cand[1] dataset_idx=388 prob=0.4450
+  cand[2] dataset_idx=702 prob=0.2776
+Test 082: target=448, predicted=2, correct=✗
+  cand[0] dataset_idx=448 prob=0.2658 (target)
+  cand[1] dataset_idx=61 prob=0.0847
+  cand[2] dataset_idx=495 prob=0.6495
+Test 082 [A2→A1]: target=448, predicted=2, correct=✗
+  cand[0] dataset_idx=448 prob=0.2951 (target)
+  cand[1] dataset_idx=61 prob=0.1447
+  cand[2] dataset_idx=495 prob=0.5602
+Test 083: target=491, predicted=0, correct=✓
+  cand[0] dataset_idx=491 prob=0.6597 (target)
+  cand[1] dataset_idx=219 prob=0.0709
+  cand[2] dataset_idx=553 prob=0.2695
+Test 083 [A2→A1]: target=491, predicted=0, correct=✓
+  cand[0] dataset_idx=491 prob=0.6106 (target)
+  cand[1] dataset_idx=219 prob=0.0985
+  cand[2] dataset_idx=553 prob=0.2908
+Test 084: target=709, predicted=0, correct=✓
+  cand[0] dataset_idx=709 prob=0.4705 (target)
+  cand[1] dataset_idx=37 prob=0.4592
+  cand[2] dataset_idx=470 prob=0.0703
+Test 084 [A2→A1]: target=709, predicted=0, correct=✓
+  cand[0] dataset_idx=709 prob=0.5233 (target)
+  cand[1] dataset_idx=37 prob=0.3668
+  cand[2] dataset_idx=470 prob=0.1100
+Test 085: target=216, predicted=0, correct=✓
+  cand[0] dataset_idx=216 prob=0.4387 (target)
+  cand[1] dataset_idx=18 prob=0.3464
+  cand[2] dataset_idx=433 prob=0.2149
+Test 085 [A2→A1]: target=216, predicted=0, correct=✓
+  cand[0] dataset_idx=216 prob=0.4102 (target)
+  cand[1] dataset_idx=18 prob=0.3169
+  cand[2] dataset_idx=433 prob=0.2729
+Test 086: target=395, predicted=1, correct=✗
+  cand[0] dataset_idx=395 prob=0.2347 (target)
+  cand[1] dataset_idx=260 prob=0.4686
+  cand[2] dataset_idx=41 prob=0.2967
+Test 086 [A2→A1]: target=395, predicted=0, correct=✓
+  cand[0] dataset_idx=395 prob=0.4105 (target)
+  cand[1] dataset_idx=260 prob=0.2672
+  cand[2] dataset_idx=41 prob=0.3223
+Test 087: target=565, predicted=2, correct=✗
+  cand[0] dataset_idx=565 prob=0.2267 (target)
+  cand[1] dataset_idx=47 prob=0.2172
+  cand[2] dataset_idx=716 prob=0.5561
+Test 087 [A2→A1]: target=565, predicted=1, correct=✗
+  cand[0] dataset_idx=565 prob=0.2394 (target)
+  cand[1] dataset_idx=47 prob=0.3939
+  cand[2] dataset_idx=716 prob=0.3667
+Test 088: target=693, predicted=0, correct=✓
+  cand[0] dataset_idx=693 prob=0.5625 (target)
+  cand[1] dataset_idx=197 prob=0.3655
+  cand[2] dataset_idx=656 prob=0.0720
+Test 088 [A2→A1]: target=693, predicted=0, correct=✓
+  cand[0] dataset_idx=693 prob=0.4271 (target)
+  cand[1] dataset_idx=197 prob=0.4164
+  cand[2] dataset_idx=656 prob=0.1565
+Test 089: target=454, predicted=0, correct=✓
+  cand[0] dataset_idx=454 prob=0.5214 (target)
+  cand[1] dataset_idx=416 prob=0.3034
+  cand[2] dataset_idx=477 prob=0.1752
+Test 089 [A2→A1]: target=454, predicted=0, correct=✓
+  cand[0] dataset_idx=454 prob=0.5376 (target)
+  cand[1] dataset_idx=416 prob=0.2782
+  cand[2] dataset_idx=477 prob=0.1842
+Test 090: target=426, predicted=0, correct=✓
+  cand[0] dataset_idx=426 prob=0.4574 (target)
+  cand[1] dataset_idx=511 prob=0.0872
+  cand[2] dataset_idx=503 prob=0.4554
+Test 090 [A2→A1]: target=426, predicted=0, correct=✓
+  cand[0] dataset_idx=426 prob=0.4457 (target)
+  cand[1] dataset_idx=511 prob=0.1102
+  cand[2] dataset_idx=503 prob=0.4441
+Test 091: target=120, predicted=0, correct=✓
+  cand[0] dataset_idx=120 prob=0.7833 (target)
+  cand[1] dataset_idx=357 prob=0.1284
+  cand[2] dataset_idx=530 prob=0.0883
+Test 091 [A2→A1]: target=120, predicted=0, correct=✓
+  cand[0] dataset_idx=120 prob=0.7103 (target)
+  cand[1] dataset_idx=357 prob=0.1670
+  cand[2] dataset_idx=530 prob=0.1227
+Test 092: target=596, predicted=1, correct=✗
+  cand[0] dataset_idx=596 prob=0.2974 (target)
+  cand[1] dataset_idx=336 prob=0.3824
+  cand[2] dataset_idx=101 prob=0.3202
+Test 092 [A2→A1]: target=596, predicted=1, correct=✗
+  cand[0] dataset_idx=596 prob=0.2802 (target)
+  cand[1] dataset_idx=336 prob=0.5106
+  cand[2] dataset_idx=101 prob=0.2092
+Test 093: target=727, predicted=0, correct=✓
+  cand[0] dataset_idx=727 prob=0.5322 (target)
+  cand[1] dataset_idx=597 prob=0.3643
+  cand[2] dataset_idx=717 prob=0.1034
+Test 093 [A2→A1]: target=727, predicted=0, correct=✓
+  cand[0] dataset_idx=727 prob=0.4673 (target)
+  cand[1] dataset_idx=597 prob=0.3715
+  cand[2] dataset_idx=717 prob=0.1611
+Test 094: target=347, predicted=1, correct=✗
+  cand[0] dataset_idx=347 prob=0.3507 (target)
+  cand[1] dataset_idx=273 prob=0.3789
+  cand[2] dataset_idx=707 prob=0.2704
+Test 094 [A2→A1]: target=347, predicted=1, correct=✗
+  cand[0] dataset_idx=347 prob=0.4223 (target)
+  cand[1] dataset_idx=273 prob=0.4325
+  cand[2] dataset_idx=707 prob=0.1453
+Test 095: target=273, predicted=1, correct=✗
+  cand[0] dataset_idx=273 prob=0.3843 (target)
+  cand[1] dataset_idx=256 prob=0.4875
+  cand[2] dataset_idx=118 prob=0.1282
+Test 095 [A2→A1]: target=273, predicted=1, correct=✗
+  cand[0] dataset_idx=273 prob=0.3692 (target)
+  cand[1] dataset_idx=256 prob=0.4651
+  cand[2] dataset_idx=118 prob=0.1657
+Test 096: target=428, predicted=0, correct=✓
+  cand[0] dataset_idx=428 prob=0.6101 (target)
+  cand[1] dataset_idx=8 prob=0.2143
+  cand[2] dataset_idx=332 prob=0.1756
+Test 096 [A2→A1]: target=428, predicted=0, correct=✓
+  cand[0] dataset_idx=428 prob=0.5626 (target)
+  cand[1] dataset_idx=8 prob=0.2366
+  cand[2] dataset_idx=332 prob=0.2008
+Test 097: target=423, predicted=1, correct=✗
+  cand[0] dataset_idx=423 prob=0.3338 (target)
+  cand[1] dataset_idx=476 prob=0.5216
+  cand[2] dataset_idx=24 prob=0.1446
+Test 097 [A2→A1]: target=423, predicted=1, correct=✗
+  cand[0] dataset_idx=423 prob=0.3739 (target)
+  cand[1] dataset_idx=476 prob=0.4655
+  cand[2] dataset_idx=24 prob=0.1606
+Test 098: target=41, predicted=2, correct=✗
+  cand[0] dataset_idx=41 prob=0.2945 (target)
+  cand[1] dataset_idx=14 prob=0.1593
+  cand[2] dataset_idx=432 prob=0.5462
+Test 098 [A2→A1]: target=41, predicted=0, correct=✓
+  cand[0] dataset_idx=41 prob=0.3730 (target)
+  cand[1] dataset_idx=14 prob=0.2560
+  cand[2] dataset_idx=432 prob=0.3710
+Test 099: target=744, predicted=1, correct=✗
+  cand[0] dataset_idx=744 prob=0.3869 (target)
+  cand[1] dataset_idx=12 prob=0.4042
+  cand[2] dataset_idx=609 prob=0.2089
+Test 099 [A2→A1]: target=744, predicted=1, correct=✗
+  cand[0] dataset_idx=744 prob=0.3888 (target)
+  cand[1] dataset_idx=12 prob=0.4545
+  cand[2] dataset_idx=609 prob=0.1567
+Test 100: target=69, predicted=2, correct=✗
+  cand[0] dataset_idx=69 prob=0.3793 (target)
+  cand[1] dataset_idx=157 prob=0.2203
+  cand[2] dataset_idx=22 prob=0.4004
+Test 100 [A2→A1]: target=69, predicted=0, correct=✓
+  cand[0] dataset_idx=69 prob=0.4072 (target)
+  cand[1] dataset_idx=157 prob=0.2897
+  cand[2] dataset_idx=22 prob=0.3031
+Summary (bidirectional):
+  A1→A2: 58/100 correct (acc=0.580)
+  A2→A1: 52/100 correct (acc=0.520)
+  Overall: 110/200 correct (acc=0.550)
+  GES (MA): Agent1=28.78, Agent2=35.78
+
+============================================================
+NOVEL SYMBOL INDUCTION TEST (FROZEN MODELS)
+Num tests: 100 | Distractors per test: 2
+============================================================
+GES (MA) at test time: Agent1=49.00, Agent2=43.00
+Test 001: target=135, predicted=1, correct=✗
+  cand[0] dataset_idx=135 prob=0.3581 (target)
+  cand[1] dataset_idx=553 prob=0.4744
+  cand[2] dataset_idx=695 prob=0.1675
+Test 001 [A2→A1]: target=135, predicted=1, correct=✗
+  cand[0] dataset_idx=135 prob=0.3745 (target)
+  cand[1] dataset_idx=553 prob=0.4571
+  cand[2] dataset_idx=695 prob=0.1684
+Test 002: target=251, predicted=1, correct=✗
+  cand[0] dataset_idx=251 prob=0.4627 (target)
+  cand[1] dataset_idx=510 prob=0.4681
+  cand[2] dataset_idx=112 prob=0.0692
+Test 002 [A2→A1]: target=251, predicted=0, correct=✓
+  cand[0] dataset_idx=251 prob=0.5416 (target)
+  cand[1] dataset_idx=510 prob=0.4104
+  cand[2] dataset_idx=112 prob=0.0480
+Test 003: target=741, predicted=1, correct=✗
+  cand[0] dataset_idx=741 prob=0.3428 (target)
+  cand[1] dataset_idx=375 prob=0.3972
+  cand[2] dataset_idx=191 prob=0.2600
+Test 003 [A2→A1]: target=741, predicted=1, correct=✗
+  cand[0] dataset_idx=741 prob=0.3160 (target)
+  cand[1] dataset_idx=375 prob=0.4982
+  cand[2] dataset_idx=191 prob=0.1858
+Test 004: target=459, predicted=0, correct=✓
+  cand[0] dataset_idx=459 prob=0.6046 (target)
+  cand[1] dataset_idx=194 prob=0.2078
+  cand[2] dataset_idx=374 prob=0.1876
+Test 004 [A2→A1]: target=459, predicted=0, correct=✓
+  cand[0] dataset_idx=459 prob=0.6243 (target)
+  cand[1] dataset_idx=194 prob=0.1988
+  cand[2] dataset_idx=374 prob=0.1769
+Test 005: target=159, predicted=0, correct=✓
+  cand[0] dataset_idx=159 prob=0.4605 (target)
+  cand[1] dataset_idx=511 prob=0.4278
+  cand[2] dataset_idx=156 prob=0.1117
+Test 005 [A2→A1]: target=159, predicted=0, correct=✓
+  cand[0] dataset_idx=159 prob=0.5642 (target)
+  cand[1] dataset_idx=511 prob=0.3886
+  cand[2] dataset_idx=156 prob=0.0472
+Test 006: target=399, predicted=1, correct=✗
+  cand[0] dataset_idx=399 prob=0.3208 (target)
+  cand[1] dataset_idx=167 prob=0.3422
+  cand[2] dataset_idx=746 prob=0.3370
+Test 006 [A2→A1]: target=399, predicted=0, correct=✓
+  cand[0] dataset_idx=399 prob=0.3435 (target)
+  cand[1] dataset_idx=167 prob=0.3415
+  cand[2] dataset_idx=746 prob=0.3150
+Test 007: target=469, predicted=1, correct=✗
+  cand[0] dataset_idx=469 prob=0.3165 (target)
+  cand[1] dataset_idx=362 prob=0.6354
+  cand[2] dataset_idx=205 prob=0.0481
+Test 007 [A2→A1]: target=469, predicted=1, correct=✗
+  cand[0] dataset_idx=469 prob=0.3485 (target)
+  cand[1] dataset_idx=362 prob=0.6228
+  cand[2] dataset_idx=205 prob=0.0287
+Test 008: target=383, predicted=2, correct=✗
+  cand[0] dataset_idx=383 prob=0.3808 (target)
+  cand[1] dataset_idx=80 prob=0.1066
+  cand[2] dataset_idx=729 prob=0.5127
+Test 008 [A2→A1]: target=383, predicted=0, correct=✓
+  cand[0] dataset_idx=383 prob=0.4683 (target)
+  cand[1] dataset_idx=80 prob=0.0948
+  cand[2] dataset_idx=729 prob=0.4369
+Test 009: target=729, predicted=0, correct=✓
+  cand[0] dataset_idx=729 prob=0.4798 (target)
+  cand[1] dataset_idx=206 prob=0.1887
+  cand[2] dataset_idx=194 prob=0.3315
+Test 009 [A2→A1]: target=729, predicted=2, correct=✗
+  cand[0] dataset_idx=729 prob=0.3897 (target)
+  cand[1] dataset_idx=206 prob=0.1554
+  cand[2] dataset_idx=194 prob=0.4549
+Test 010: target=78, predicted=0, correct=✓
+  cand[0] dataset_idx=78 prob=0.7420 (target)
+  cand[1] dataset_idx=334 prob=0.1179
+  cand[2] dataset_idx=181 prob=0.1401
+Test 010 [A2→A1]: target=78, predicted=0, correct=✓
+  cand[0] dataset_idx=78 prob=0.7748 (target)
+  cand[1] dataset_idx=334 prob=0.0956
+  cand[2] dataset_idx=181 prob=0.1297
+Test 011: target=695, predicted=1, correct=✗
+  cand[0] dataset_idx=695 prob=0.3299 (target)
+  cand[1] dataset_idx=627 prob=0.5233
+  cand[2] dataset_idx=432 prob=0.1468
+Test 011 [A2→A1]: target=695, predicted=0, correct=✓
+  cand[0] dataset_idx=695 prob=0.4585 (target)
+  cand[1] dataset_idx=627 prob=0.4216
+  cand[2] dataset_idx=432 prob=0.1200
+Test 012: target=220, predicted=1, correct=✗
+  cand[0] dataset_idx=220 prob=0.4232 (target)
+  cand[1] dataset_idx=648 prob=0.4468
+  cand[2] dataset_idx=651 prob=0.1300
+Test 012 [A2→A1]: target=220, predicted=0, correct=✓
+  cand[0] dataset_idx=220 prob=0.4955 (target)
+  cand[1] dataset_idx=648 prob=0.4270
+  cand[2] dataset_idx=651 prob=0.0775
+Test 013: target=157, predicted=0, correct=✓
+  cand[0] dataset_idx=157 prob=0.3999 (target)
+  cand[1] dataset_idx=242 prob=0.3279
+  cand[2] dataset_idx=586 prob=0.2721
+Test 013 [A2→A1]: target=157, predicted=0, correct=✓
+  cand[0] dataset_idx=157 prob=0.5144 (target)
+  cand[1] dataset_idx=242 prob=0.2920
+  cand[2] dataset_idx=586 prob=0.1935
+Test 014: target=309, predicted=2, correct=✗
+  cand[0] dataset_idx=309 prob=0.3452 (target)
+  cand[1] dataset_idx=383 prob=0.2826
+  cand[2] dataset_idx=455 prob=0.3723
+Test 014 [A2→A1]: target=309, predicted=1, correct=✗
+  cand[0] dataset_idx=309 prob=0.3371 (target)
+  cand[1] dataset_idx=383 prob=0.3674
+  cand[2] dataset_idx=455 prob=0.2955
+Test 015: target=187, predicted=2, correct=✗
+  cand[0] dataset_idx=187 prob=0.2858 (target)
+  cand[1] dataset_idx=64 prob=0.2452
+  cand[2] dataset_idx=404 prob=0.4690
+Test 015 [A2→A1]: target=187, predicted=2, correct=✗
+  cand[0] dataset_idx=187 prob=0.2489 (target)
+  cand[1] dataset_idx=64 prob=0.1622
+  cand[2] dataset_idx=404 prob=0.5888
+Test 016: target=9, predicted=2, correct=✗
+  cand[0] dataset_idx=9 prob=0.3226 (target)
+  cand[1] dataset_idx=402 prob=0.3152
+  cand[2] dataset_idx=294 prob=0.3623
+Test 016 [A2→A1]: target=9, predicted=2, correct=✗
+  cand[0] dataset_idx=9 prob=0.2977 (target)
+  cand[1] dataset_idx=402 prob=0.3272
+  cand[2] dataset_idx=294 prob=0.3751
+Test 017: target=673, predicted=0, correct=✓
+  cand[0] dataset_idx=673 prob=0.4291 (target)
+  cand[1] dataset_idx=49 prob=0.3240
+  cand[2] dataset_idx=168 prob=0.2469
+Test 017 [A2→A1]: target=673, predicted=0, correct=✓
+  cand[0] dataset_idx=673 prob=0.5085 (target)
+  cand[1] dataset_idx=49 prob=0.1252
+  cand[2] dataset_idx=168 prob=0.3663
+Test 018: target=234, predicted=0, correct=✓
+  cand[0] dataset_idx=234 prob=0.4834 (target)
+  cand[1] dataset_idx=330 prob=0.3598
+  cand[2] dataset_idx=651 prob=0.1569
+Test 018 [A2→A1]: target=234, predicted=0, correct=✓
+  cand[0] dataset_idx=234 prob=0.5413 (target)
+  cand[1] dataset_idx=330 prob=0.3627
+  cand[2] dataset_idx=651 prob=0.0960
+Test 019: target=222, predicted=0, correct=✓
+  cand[0] dataset_idx=222 prob=0.3743 (target)
+  cand[1] dataset_idx=599 prob=0.3680
+  cand[2] dataset_idx=421 prob=0.2577
+Test 019 [A2→A1]: target=222, predicted=0, correct=✓
+  cand[0] dataset_idx=222 prob=0.4256 (target)
+  cand[1] dataset_idx=599 prob=0.3687
+  cand[2] dataset_idx=421 prob=0.2057
+Test 020: target=546, predicted=1, correct=✗
+  cand[0] dataset_idx=546 prob=0.3630 (target)
+  cand[1] dataset_idx=480 prob=0.4722
+  cand[2] dataset_idx=310 prob=0.1649
+Test 020 [A2→A1]: target=546, predicted=2, correct=✗
+  cand[0] dataset_idx=546 prob=0.3684 (target)
+  cand[1] dataset_idx=480 prob=0.2158
+  cand[2] dataset_idx=310 prob=0.4159
+Test 021: target=431, predicted=0, correct=✓
+  cand[0] dataset_idx=431 prob=0.6611 (target)
+  cand[1] dataset_idx=562 prob=0.1446
+  cand[2] dataset_idx=566 prob=0.1943
+Test 021 [A2→A1]: target=431, predicted=0, correct=✓
+  cand[0] dataset_idx=431 prob=0.5327 (target)
+  cand[1] dataset_idx=562 prob=0.1905
+  cand[2] dataset_idx=566 prob=0.2768
+Test 022: target=426, predicted=0, correct=✓
+  cand[0] dataset_idx=426 prob=0.5987 (target)
+  cand[1] dataset_idx=561 prob=0.1099
+  cand[2] dataset_idx=694 prob=0.2913
+Test 022 [A2→A1]: target=426, predicted=2, correct=✗
+  cand[0] dataset_idx=426 prob=0.2835 (target)
+  cand[1] dataset_idx=561 prob=0.2180
+  cand[2] dataset_idx=694 prob=0.4986
+Test 023: target=543, predicted=1, correct=✗
+  cand[0] dataset_idx=543 prob=0.3391 (target)
+  cand[1] dataset_idx=668 prob=0.3590
+  cand[2] dataset_idx=167 prob=0.3019
+Test 023 [A2→A1]: target=543, predicted=1, correct=✗
+  cand[0] dataset_idx=543 prob=0.3154 (target)
+  cand[1] dataset_idx=668 prob=0.3945
+  cand[2] dataset_idx=167 prob=0.2901
+Test 024: target=138, predicted=1, correct=✗
+  cand[0] dataset_idx=138 prob=0.3066 (target)
+  cand[1] dataset_idx=27 prob=0.4490
+  cand[2] dataset_idx=270 prob=0.2444
+Test 024 [A2→A1]: target=138, predicted=1, correct=✗
+  cand[0] dataset_idx=138 prob=0.3502 (target)
+  cand[1] dataset_idx=27 prob=0.4038
+  cand[2] dataset_idx=270 prob=0.2460
+Test 025: target=666, predicted=1, correct=✗
+  cand[0] dataset_idx=666 prob=0.3280 (target)
+  cand[1] dataset_idx=548 prob=0.4566
+  cand[2] dataset_idx=25 prob=0.2153
+Test 025 [A2→A1]: target=666, predicted=0, correct=✓
+  cand[0] dataset_idx=666 prob=0.4154 (target)
+  cand[1] dataset_idx=548 prob=0.3554
+  cand[2] dataset_idx=25 prob=0.2292
+Test 026: target=670, predicted=2, correct=✗
+  cand[0] dataset_idx=670 prob=0.3088 (target)
+  cand[1] dataset_idx=67 prob=0.2639
+  cand[2] dataset_idx=553 prob=0.4273
+Test 026 [A2→A1]: target=670, predicted=0, correct=✓
+  cand[0] dataset_idx=670 prob=0.5637 (target)
+  cand[1] dataset_idx=67 prob=0.1512
+  cand[2] dataset_idx=553 prob=0.2850
+Test 027: target=497, predicted=2, correct=✗
+  cand[0] dataset_idx=497 prob=0.2957 (target)
+  cand[1] dataset_idx=183 prob=0.0489
+  cand[2] dataset_idx=749 prob=0.6554
+Test 027 [A2→A1]: target=497, predicted=2, correct=✗
+  cand[0] dataset_idx=497 prob=0.2994 (target)
+  cand[1] dataset_idx=183 prob=0.0319
+  cand[2] dataset_idx=749 prob=0.6687
+Test 028: target=93, predicted=0, correct=✓
+  cand[0] dataset_idx=93 prob=0.5235 (target)
+  cand[1] dataset_idx=408 prob=0.2363
+  cand[2] dataset_idx=71 prob=0.2402
+Test 028 [A2→A1]: target=93, predicted=0, correct=✓
+  cand[0] dataset_idx=93 prob=0.4665 (target)
+  cand[1] dataset_idx=408 prob=0.0781
+  cand[2] dataset_idx=71 prob=0.4554
+Test 029: target=311, predicted=0, correct=✓
+  cand[0] dataset_idx=311 prob=0.5561 (target)
+  cand[1] dataset_idx=604 prob=0.3047
+  cand[2] dataset_idx=144 prob=0.1393
+Test 029 [A2→A1]: target=311, predicted=0, correct=✓
+  cand[0] dataset_idx=311 prob=0.5350 (target)
+  cand[1] dataset_idx=604 prob=0.3330
+  cand[2] dataset_idx=144 prob=0.1320
+Test 030: target=34, predicted=0, correct=✓
+  cand[0] dataset_idx=34 prob=0.4717 (target)
+  cand[1] dataset_idx=586 prob=0.3045
+  cand[2] dataset_idx=560 prob=0.2238
+Test 030 [A2→A1]: target=34, predicted=0, correct=✓
+  cand[0] dataset_idx=34 prob=0.4832 (target)
+  cand[1] dataset_idx=586 prob=0.2037
+  cand[2] dataset_idx=560 prob=0.3131
+Test 031: target=52, predicted=0, correct=✓
+  cand[0] dataset_idx=52 prob=0.3527 (target)
+  cand[1] dataset_idx=294 prob=0.3219
+  cand[2] dataset_idx=264 prob=0.3254
+Test 031 [A2→A1]: target=52, predicted=2, correct=✗
+  cand[0] dataset_idx=52 prob=0.2898 (target)
+  cand[1] dataset_idx=294 prob=0.3196
+  cand[2] dataset_idx=264 prob=0.3906
+Test 032: target=367, predicted=0, correct=✓
+  cand[0] dataset_idx=367 prob=0.3512 (target)
+  cand[1] dataset_idx=750 prob=0.3483
+  cand[2] dataset_idx=283 prob=0.3006
+Test 032 [A2→A1]: target=367, predicted=0, correct=✓
+  cand[0] dataset_idx=367 prob=0.4226 (target)
+  cand[1] dataset_idx=750 prob=0.2492
+  cand[2] dataset_idx=283 prob=0.3282
+Test 033: target=345, predicted=1, correct=✗
+  cand[0] dataset_idx=345 prob=0.2583 (target)
+  cand[1] dataset_idx=174 prob=0.3945
+  cand[2] dataset_idx=46 prob=0.3472
+Test 033 [A2→A1]: target=345, predicted=2, correct=✗
+  cand[0] dataset_idx=345 prob=0.2326 (target)
+  cand[1] dataset_idx=174 prob=0.3192
+  cand[2] dataset_idx=46 prob=0.4482
+Test 034: target=74, predicted=0, correct=✓
+  cand[0] dataset_idx=74 prob=0.5911 (target)
+  cand[1] dataset_idx=698 prob=0.3089
+  cand[2] dataset_idx=440 prob=0.1000
+Test 034 [A2→A1]: target=74, predicted=0, correct=✓
+  cand[0] dataset_idx=74 prob=0.6403 (target)
+  cand[1] dataset_idx=698 prob=0.2749
+  cand[2] dataset_idx=440 prob=0.0848
+Test 035: target=718, predicted=0, correct=✓
+  cand[0] dataset_idx=718 prob=0.5253 (target)
+  cand[1] dataset_idx=658 prob=0.2253
+  cand[2] dataset_idx=580 prob=0.2494
+Test 035 [A2→A1]: target=718, predicted=2, correct=✗
+  cand[0] dataset_idx=718 prob=0.1555 (target)
+  cand[1] dataset_idx=658 prob=0.4148
+  cand[2] dataset_idx=580 prob=0.4297
+Test 036: target=278, predicted=1, correct=✗
+  cand[0] dataset_idx=278 prob=0.2680 (target)
+  cand[1] dataset_idx=100 prob=0.4659
+  cand[2] dataset_idx=418 prob=0.2661
+Test 036 [A2→A1]: target=278, predicted=0, correct=✓
+  cand[0] dataset_idx=278 prob=0.3859 (target)
+  cand[1] dataset_idx=100 prob=0.2829
+  cand[2] dataset_idx=418 prob=0.3312
+Test 037: target=723, predicted=1, correct=✗
+  cand[0] dataset_idx=723 prob=0.2585 (target)
+  cand[1] dataset_idx=478 prob=0.5284
+  cand[2] dataset_idx=111 prob=0.2131
+Test 037 [A2→A1]: target=723, predicted=0, correct=✓
+  cand[0] dataset_idx=723 prob=0.5539 (target)
+  cand[1] dataset_idx=478 prob=0.2603
+  cand[2] dataset_idx=111 prob=0.1858
+Test 038: target=77, predicted=0, correct=✓
+  cand[0] dataset_idx=77 prob=0.6688 (target)
+  cand[1] dataset_idx=711 prob=0.1364
+  cand[2] dataset_idx=624 prob=0.1948
+Test 038 [A2→A1]: target=77, predicted=0, correct=✓
+  cand[0] dataset_idx=77 prob=0.6969 (target)
+  cand[1] dataset_idx=711 prob=0.1135
+  cand[2] dataset_idx=624 prob=0.1896
+Test 039: target=264, predicted=0, correct=✓
+  cand[0] dataset_idx=264 prob=0.4371 (target)
+  cand[1] dataset_idx=624 prob=0.3572
+  cand[2] dataset_idx=424 prob=0.2057
+Test 039 [A2→A1]: target=264, predicted=0, correct=✓
+  cand[0] dataset_idx=264 prob=0.5416 (target)
+  cand[1] dataset_idx=624 prob=0.3478
+  cand[2] dataset_idx=424 prob=0.1106
+Test 040: target=360, predicted=0, correct=✓
+  cand[0] dataset_idx=360 prob=0.4358 (target)
+  cand[1] dataset_idx=573 prob=0.2433
+  cand[2] dataset_idx=623 prob=0.3209
+Test 040 [A2→A1]: target=360, predicted=2, correct=✗
+  cand[0] dataset_idx=360 prob=0.1620 (target)
+  cand[1] dataset_idx=573 prob=0.3915
+  cand[2] dataset_idx=623 prob=0.4465
+Test 041: target=160, predicted=0, correct=✓
+  cand[0] dataset_idx=160 prob=0.6344 (target)
+  cand[1] dataset_idx=50 prob=0.2157
+  cand[2] dataset_idx=61 prob=0.1499
+Test 041 [A2→A1]: target=160, predicted=0, correct=✓
+  cand[0] dataset_idx=160 prob=0.6265 (target)
+  cand[1] dataset_idx=50 prob=0.2246
+  cand[2] dataset_idx=61 prob=0.1489
+Test 042: target=287, predicted=1, correct=✗
+  cand[0] dataset_idx=287 prob=0.3734 (target)
+  cand[1] dataset_idx=267 prob=0.3799
+  cand[2] dataset_idx=417 prob=0.2467
+Test 042 [A2→A1]: target=287, predicted=1, correct=✗
+  cand[0] dataset_idx=287 prob=0.4009 (target)
+  cand[1] dataset_idx=267 prob=0.4547
+  cand[2] dataset_idx=417 prob=0.1444
+Test 043: target=390, predicted=1, correct=✗
+  cand[0] dataset_idx=390 prob=0.2802 (target)
+  cand[1] dataset_idx=665 prob=0.3902
+  cand[2] dataset_idx=732 prob=0.3296
+Test 043 [A2→A1]: target=390, predicted=1, correct=✗
+  cand[0] dataset_idx=390 prob=0.1371 (target)
+  cand[1] dataset_idx=665 prob=0.4993
+  cand[2] dataset_idx=732 prob=0.3636
+Test 044: target=474, predicted=0, correct=✓
+  cand[0] dataset_idx=474 prob=0.4444 (target)
+  cand[1] dataset_idx=213 prob=0.4390
+  cand[2] dataset_idx=642 prob=0.1165
+Test 044 [A2→A1]: target=474, predicted=0, correct=✓
+  cand[0] dataset_idx=474 prob=0.5292 (target)
+  cand[1] dataset_idx=213 prob=0.3846
+  cand[2] dataset_idx=642 prob=0.0863
+Test 045: target=79, predicted=2, correct=✗
+  cand[0] dataset_idx=79 prob=0.1918 (target)
+  cand[1] dataset_idx=333 prob=0.0901
+  cand[2] dataset_idx=515 prob=0.7181
+Test 045 [A2→A1]: target=79, predicted=2, correct=✗
+  cand[0] dataset_idx=79 prob=0.1914 (target)
+  cand[1] dataset_idx=333 prob=0.0801
+  cand[2] dataset_idx=515 prob=0.7286
+Test 046: target=304, predicted=0, correct=✓
+  cand[0] dataset_idx=304 prob=0.4310 (target)
+  cand[1] dataset_idx=686 prob=0.1905
+  cand[2] dataset_idx=399 prob=0.3785
+Test 046 [A2→A1]: target=304, predicted=0, correct=✓
+  cand[0] dataset_idx=304 prob=0.4661 (target)
+  cand[1] dataset_idx=686 prob=0.1963
+  cand[2] dataset_idx=399 prob=0.3376
+Test 047: target=432, predicted=0, correct=✓
+  cand[0] dataset_idx=432 prob=0.4309 (target)
+  cand[1] dataset_idx=720 prob=0.2783
+  cand[2] dataset_idx=737 prob=0.2908
+Test 047 [A2→A1]: target=432, predicted=2, correct=✗
+  cand[0] dataset_idx=432 prob=0.2513 (target)
+  cand[1] dataset_idx=720 prob=0.1021
+  cand[2] dataset_idx=737 prob=0.6467
+Test 048: target=41, predicted=2, correct=✗
+  cand[0] dataset_idx=41 prob=0.3783 (target)
+  cand[1] dataset_idx=163 prob=0.1460
+  cand[2] dataset_idx=520 prob=0.4757
+Test 048 [A2→A1]: target=41, predicted=2, correct=✗
+  cand[0] dataset_idx=41 prob=0.3603 (target)
+  cand[1] dataset_idx=163 prob=0.1269
+  cand[2] dataset_idx=520 prob=0.5128
+Test 049: target=539, predicted=2, correct=✗
+  cand[0] dataset_idx=539 prob=0.2352 (target)
+  cand[1] dataset_idx=327 prob=0.2346
+  cand[2] dataset_idx=478 prob=0.5302
+Test 049 [A2→A1]: target=539, predicted=1, correct=✗
+  cand[0] dataset_idx=539 prob=0.3254 (target)
+  cand[1] dataset_idx=327 prob=0.4619
+  cand[2] dataset_idx=478 prob=0.2127
+Test 050: target=102, predicted=0, correct=✓
+  cand[0] dataset_idx=102 prob=0.5813 (target)
+  cand[1] dataset_idx=217 prob=0.1557
+  cand[2] dataset_idx=225 prob=0.2630
+Test 050 [A2→A1]: target=102, predicted=0, correct=✓
+  cand[0] dataset_idx=102 prob=0.6201 (target)
+  cand[1] dataset_idx=217 prob=0.1308
+  cand[2] dataset_idx=225 prob=0.2491
+Test 051: target=145, predicted=0, correct=✓
+  cand[0] dataset_idx=145 prob=0.4055 (target)
+  cand[1] dataset_idx=663 prob=0.2978
+  cand[2] dataset_idx=574 prob=0.2967
+Test 051 [A2→A1]: target=145, predicted=0, correct=✓
+  cand[0] dataset_idx=145 prob=0.4935 (target)
+  cand[1] dataset_idx=663 prob=0.2983
+  cand[2] dataset_idx=574 prob=0.2082
+Test 052: target=132, predicted=0, correct=✓
+  cand[0] dataset_idx=132 prob=0.4748 (target)
+  cand[1] dataset_idx=472 prob=0.1882
+  cand[2] dataset_idx=569 prob=0.3370
+Test 052 [A2→A1]: target=132, predicted=0, correct=✓
+  cand[0] dataset_idx=132 prob=0.7163 (target)
+  cand[1] dataset_idx=472 prob=0.0999
+  cand[2] dataset_idx=569 prob=0.1838
+Test 053: target=654, predicted=0, correct=✓
+  cand[0] dataset_idx=654 prob=0.8206 (target)
+  cand[1] dataset_idx=138 prob=0.0869
+  cand[2] dataset_idx=504 prob=0.0925
+Test 053 [A2→A1]: target=654, predicted=0, correct=✓
+  cand[0] dataset_idx=654 prob=0.8032 (target)
+  cand[1] dataset_idx=138 prob=0.0651
+  cand[2] dataset_idx=504 prob=0.1317
+Test 054: target=440, predicted=0, correct=✓
+  cand[0] dataset_idx=440 prob=0.4008 (target)
+  cand[1] dataset_idx=273 prob=0.3200
+  cand[2] dataset_idx=225 prob=0.2792
+Test 054 [A2→A1]: target=440, predicted=0, correct=✓
+  cand[0] dataset_idx=440 prob=0.4988 (target)
+  cand[1] dataset_idx=273 prob=0.2752
+  cand[2] dataset_idx=225 prob=0.2260
+Test 055: target=266, predicted=0, correct=✓
+  cand[0] dataset_idx=266 prob=0.3668 (target)
+  cand[1] dataset_idx=440 prob=0.3559
+  cand[2] dataset_idx=89 prob=0.2773
+Test 055 [A2→A1]: target=266, predicted=1, correct=✗
+  cand[0] dataset_idx=266 prob=0.4035 (target)
+  cand[1] dataset_idx=440 prob=0.4228
+  cand[2] dataset_idx=89 prob=0.1737
+Test 056: target=501, predicted=0, correct=✓
+  cand[0] dataset_idx=501 prob=0.6492 (target)
+  cand[1] dataset_idx=646 prob=0.1043
+  cand[2] dataset_idx=435 prob=0.2465
+Test 056 [A2→A1]: target=501, predicted=0, correct=✓
+  cand[0] dataset_idx=501 prob=0.7087 (target)
+  cand[1] dataset_idx=646 prob=0.0792
+  cand[2] dataset_idx=435 prob=0.2121
+Test 057: target=152, predicted=0, correct=✓
+  cand[0] dataset_idx=152 prob=0.4830 (target)
+  cand[1] dataset_idx=456 prob=0.3145
+  cand[2] dataset_idx=190 prob=0.2025
+Test 057 [A2→A1]: target=152, predicted=1, correct=✗
+  cand[0] dataset_idx=152 prob=0.3491 (target)
+  cand[1] dataset_idx=456 prob=0.3871
+  cand[2] dataset_idx=190 prob=0.2638
+Test 058: target=111, predicted=1, correct=✗
+  cand[0] dataset_idx=111 prob=0.3231 (target)
+  cand[1] dataset_idx=163 prob=0.4673
+  cand[2] dataset_idx=344 prob=0.2095
+Test 058 [A2→A1]: target=111, predicted=1, correct=✗
+  cand[0] dataset_idx=111 prob=0.1690 (target)
+  cand[1] dataset_idx=163 prob=0.6766
+  cand[2] dataset_idx=344 prob=0.1543
+Test 059: target=249, predicted=0, correct=✓
+  cand[0] dataset_idx=249 prob=0.3722 (target)
+  cand[1] dataset_idx=340 prob=0.3716
+  cand[2] dataset_idx=683 prob=0.2562
+Test 059 [A2→A1]: target=249, predicted=1, correct=✗
+  cand[0] dataset_idx=249 prob=0.3812 (target)
+  cand[1] dataset_idx=340 prob=0.4770
+  cand[2] dataset_idx=683 prob=0.1418
+Test 060: target=437, predicted=2, correct=✗
+  cand[0] dataset_idx=437 prob=0.2299 (target)
+  cand[1] dataset_idx=167 prob=0.3494
+  cand[2] dataset_idx=324 prob=0.4207
+Test 060 [A2→A1]: target=437, predicted=2, correct=✗
+  cand[0] dataset_idx=437 prob=0.1769 (target)
+  cand[1] dataset_idx=167 prob=0.3507
+  cand[2] dataset_idx=324 prob=0.4724
+Test 061: target=531, predicted=1, correct=✗
+  cand[0] dataset_idx=531 prob=0.3600 (target)
+  cand[1] dataset_idx=226 prob=0.3882
+  cand[2] dataset_idx=191 prob=0.2518
+Test 061 [A2→A1]: target=531, predicted=1, correct=✗
+  cand[0] dataset_idx=531 prob=0.3820 (target)
+  cand[1] dataset_idx=226 prob=0.4360
+  cand[2] dataset_idx=191 prob=0.1820
+Test 062: target=732, predicted=2, correct=✗
+  cand[0] dataset_idx=732 prob=0.2833 (target)
+  cand[1] dataset_idx=58 prob=0.3400
+  cand[2] dataset_idx=368 prob=0.3767
+Test 062 [A2→A1]: target=732, predicted=2, correct=✗
+  cand[0] dataset_idx=732 prob=0.2414 (target)
+  cand[1] dataset_idx=58 prob=0.3460
+  cand[2] dataset_idx=368 prob=0.4126
+Test 063: target=290, predicted=0, correct=✓
+  cand[0] dataset_idx=290 prob=0.3487 (target)
+  cand[1] dataset_idx=481 prob=0.3092
+  cand[2] dataset_idx=93 prob=0.3422
+Test 063 [A2→A1]: target=290, predicted=0, correct=✓
+  cand[0] dataset_idx=290 prob=0.3897 (target)
+  cand[1] dataset_idx=481 prob=0.3864
+  cand[2] dataset_idx=93 prob=0.2238
+Test 064: target=728, predicted=1, correct=✗
+  cand[0] dataset_idx=728 prob=0.2521 (target)
+  cand[1] dataset_idx=185 prob=0.5262
+  cand[2] dataset_idx=647 prob=0.2217
+Test 064 [A2→A1]: target=728, predicted=1, correct=✗
+  cand[0] dataset_idx=728 prob=0.2322 (target)
+  cand[1] dataset_idx=185 prob=0.5544
+  cand[2] dataset_idx=647 prob=0.2134
+Test 065: target=690, predicted=0, correct=✓
+  cand[0] dataset_idx=690 prob=0.5970 (target)
+  cand[1] dataset_idx=575 prob=0.2394
+  cand[2] dataset_idx=381 prob=0.1637
+Test 065 [A2→A1]: target=690, predicted=0, correct=✓
+  cand[0] dataset_idx=690 prob=0.6006 (target)
+  cand[1] dataset_idx=575 prob=0.2393
+  cand[2] dataset_idx=381 prob=0.1601
+Test 066: target=746, predicted=1, correct=✗
+  cand[0] dataset_idx=746 prob=0.3672 (target)
+  cand[1] dataset_idx=320 prob=0.4333
+  cand[2] dataset_idx=420 prob=0.1995
+Test 066 [A2→A1]: target=746, predicted=1, correct=✗
+  cand[0] dataset_idx=746 prob=0.3602 (target)
+  cand[1] dataset_idx=320 prob=0.5268
+  cand[2] dataset_idx=420 prob=0.1130
+Test 067: target=180, predicted=2, correct=✗
+  cand[0] dataset_idx=180 prob=0.3125 (target)
+  cand[1] dataset_idx=128 prob=0.3387
+  cand[2] dataset_idx=48 prob=0.3488
+Test 067 [A2→A1]: target=180, predicted=2, correct=✗
+  cand[0] dataset_idx=180 prob=0.2867 (target)
+  cand[1] dataset_idx=128 prob=0.3322
+  cand[2] dataset_idx=48 prob=0.3811
+Test 068: target=356, predicted=0, correct=✓
+  cand[0] dataset_idx=356 prob=0.4972 (target)
+  cand[1] dataset_idx=205 prob=0.2409
+  cand[2] dataset_idx=531 prob=0.2619
+Test 068 [A2→A1]: target=356, predicted=1, correct=✗
+  cand[0] dataset_idx=356 prob=0.1613 (target)
+  cand[1] dataset_idx=205 prob=0.4539
+  cand[2] dataset_idx=531 prob=0.3848
+Test 069: target=275, predicted=2, correct=✗
+  cand[0] dataset_idx=275 prob=0.3553 (target)
+  cand[1] dataset_idx=360 prob=0.2188
+  cand[2] dataset_idx=525 prob=0.4259
+Test 069 [A2→A1]: target=275, predicted=2, correct=✗
+  cand[0] dataset_idx=275 prob=0.3481 (target)
+  cand[1] dataset_idx=360 prob=0.1253
+  cand[2] dataset_idx=525 prob=0.5266
+Test 070: target=637, predicted=0, correct=✓
+  cand[0] dataset_idx=637 prob=0.4726 (target)
+  cand[1] dataset_idx=299 prob=0.1363
+  cand[2] dataset_idx=679 prob=0.3910
+Test 070 [A2→A1]: target=637, predicted=0, correct=✓
+  cand[0] dataset_idx=637 prob=0.5033 (target)
+  cand[1] dataset_idx=299 prob=0.0979
+  cand[2] dataset_idx=679 prob=0.3987
+Test 071: target=703, predicted=2, correct=✗
+  cand[0] dataset_idx=703 prob=0.2830 (target)
+  cand[1] dataset_idx=265 prob=0.1925
+  cand[2] dataset_idx=279 prob=0.5245
+Test 071 [A2→A1]: target=703, predicted=2, correct=✗
+  cand[0] dataset_idx=703 prob=0.2576 (target)
+  cand[1] dataset_idx=265 prob=0.1723
+  cand[2] dataset_idx=279 prob=0.5701
+Test 072: target=337, predicted=0, correct=✓
+  cand[0] dataset_idx=337 prob=0.5887 (target)
+  cand[1] dataset_idx=395 prob=0.2750
+  cand[2] dataset_idx=633 prob=0.1363
+Test 072 [A2→A1]: target=337, predicted=0, correct=✓
+  cand[0] dataset_idx=337 prob=0.4589 (target)
+  cand[1] dataset_idx=395 prob=0.4065
+  cand[2] dataset_idx=633 prob=0.1346
+Test 073: target=382, predicted=2, correct=✗
+  cand[0] dataset_idx=382 prob=0.2636 (target)
+  cand[1] dataset_idx=617 prob=0.2395
+  cand[2] dataset_idx=552 prob=0.4969
+Test 073 [A2→A1]: target=382, predicted=0, correct=✓
+  cand[0] dataset_idx=382 prob=0.3781 (target)
+  cand[1] dataset_idx=617 prob=0.3415
+  cand[2] dataset_idx=552 prob=0.2804
+Test 074: target=63, predicted=2, correct=✗
+  cand[0] dataset_idx=63 prob=0.2880 (target)
+  cand[1] dataset_idx=558 prob=0.3266
+  cand[2] dataset_idx=244 prob=0.3855
+Test 074 [A2→A1]: target=63, predicted=2, correct=✗
+  cand[0] dataset_idx=63 prob=0.1305 (target)
+  cand[1] dataset_idx=558 prob=0.4277
+  cand[2] dataset_idx=244 prob=0.4418
+Test 075: target=419, predicted=0, correct=✓
+  cand[0] dataset_idx=419 prob=0.7091 (target)
+  cand[1] dataset_idx=107 prob=0.1310
+  cand[2] dataset_idx=326 prob=0.1600
+Test 075 [A2→A1]: target=419, predicted=0, correct=✓
+  cand[0] dataset_idx=419 prob=0.6631 (target)
+  cand[1] dataset_idx=107 prob=0.1478
+  cand[2] dataset_idx=326 prob=0.1891
+Test 076: target=336, predicted=0, correct=✓
+  cand[0] dataset_idx=336 prob=0.4532 (target)
+  cand[1] dataset_idx=391 prob=0.1584
+  cand[2] dataset_idx=321 prob=0.3884
+Test 076 [A2→A1]: target=336, predicted=0, correct=✓
+  cand[0] dataset_idx=336 prob=0.4865 (target)
+  cand[1] dataset_idx=391 prob=0.2010
+  cand[2] dataset_idx=321 prob=0.3125
+Test 077: target=429, predicted=2, correct=✗
+  cand[0] dataset_idx=429 prob=0.3994 (target)
+  cand[1] dataset_idx=211 prob=0.1964
+  cand[2] dataset_idx=213 prob=0.4043
+Test 077 [A2→A1]: target=429, predicted=0, correct=✓
+  cand[0] dataset_idx=429 prob=0.3933 (target)
+  cand[1] dataset_idx=211 prob=0.2142
+  cand[2] dataset_idx=213 prob=0.3924
+Test 078: target=662, predicted=0, correct=✓
+  cand[0] dataset_idx=662 prob=0.4763 (target)
+  cand[1] dataset_idx=351 prob=0.3352
+  cand[2] dataset_idx=559 prob=0.1885
+Test 078 [A2→A1]: target=662, predicted=0, correct=✓
+  cand[0] dataset_idx=662 prob=0.5119 (target)
+  cand[1] dataset_idx=351 prob=0.2473
+  cand[2] dataset_idx=559 prob=0.2408
+Test 079: target=262, predicted=0, correct=✓
+  cand[0] dataset_idx=262 prob=0.7240 (target)
+  cand[1] dataset_idx=110 prob=0.1310
+  cand[2] dataset_idx=613 prob=0.1450
+Test 079 [A2→A1]: target=262, predicted=0, correct=✓
+  cand[0] dataset_idx=262 prob=0.7775 (target)
+  cand[1] dataset_idx=110 prob=0.1051
+  cand[2] dataset_idx=613 prob=0.1174
+Test 080: target=305, predicted=1, correct=✗
+  cand[0] dataset_idx=305 prob=0.3290 (target)
+  cand[1] dataset_idx=179 prob=0.3671
+  cand[2] dataset_idx=740 prob=0.3039
+Test 080 [A2→A1]: target=305, predicted=0, correct=✓
+  cand[0] dataset_idx=305 prob=0.4143 (target)
+  cand[1] dataset_idx=179 prob=0.3514
+  cand[2] dataset_idx=740 prob=0.2343
+Test 081: target=526, predicted=0, correct=✓
+  cand[0] dataset_idx=526 prob=0.4541 (target)
+  cand[1] dataset_idx=501 prob=0.1682
+  cand[2] dataset_idx=9 prob=0.3777
+Test 081 [A2→A1]: target=526, predicted=0, correct=✓
+  cand[0] dataset_idx=526 prob=0.5427 (target)
+  cand[1] dataset_idx=501 prob=0.0931
+  cand[2] dataset_idx=9 prob=0.3642
+Test 082: target=128, predicted=1, correct=✗
+  cand[0] dataset_idx=128 prob=0.3502 (target)
+  cand[1] dataset_idx=630 prob=0.3503
+  cand[2] dataset_idx=241 prob=0.2995
+Test 082 [A2→A1]: target=128, predicted=1, correct=✗
+  cand[0] dataset_idx=128 prob=0.3823 (target)
+  cand[1] dataset_idx=630 prob=0.3921
+  cand[2] dataset_idx=241 prob=0.2256
+Test 083: target=322, predicted=2, correct=✗
+  cand[0] dataset_idx=322 prob=0.3093 (target)
+  cand[1] dataset_idx=131 prob=0.3192
+  cand[2] dataset_idx=11 prob=0.3715
+Test 083 [A2→A1]: target=322, predicted=2, correct=✗
+  cand[0] dataset_idx=322 prob=0.3311 (target)
+  cand[1] dataset_idx=131 prob=0.3131
+  cand[2] dataset_idx=11 prob=0.3557
+Test 084: target=595, predicted=1, correct=✗
+  cand[0] dataset_idx=595 prob=0.2881 (target)
+  cand[1] dataset_idx=666 prob=0.3835
+  cand[2] dataset_idx=475 prob=0.3284
+Test 084 [A2→A1]: target=595, predicted=2, correct=✗
+  cand[0] dataset_idx=595 prob=0.2577 (target)
+  cand[1] dataset_idx=666 prob=0.3609
+  cand[2] dataset_idx=475 prob=0.3814
+Test 085: target=260, predicted=0, correct=✓
+  cand[0] dataset_idx=260 prob=0.6440 (target)
+  cand[1] dataset_idx=560 prob=0.1699
+  cand[2] dataset_idx=279 prob=0.1861
+Test 085 [A2→A1]: target=260, predicted=0, correct=✓
+  cand[0] dataset_idx=260 prob=0.4111 (target)
+  cand[1] dataset_idx=560 prob=0.3660
+  cand[2] dataset_idx=279 prob=0.2229
+Test 086: target=136, predicted=0, correct=✓
+  cand[0] dataset_idx=136 prob=0.3742 (target)
+  cand[1] dataset_idx=65 prob=0.2687
+  cand[2] dataset_idx=733 prob=0.3571
+Test 086 [A2→A1]: target=136, predicted=0, correct=✓
+  cand[0] dataset_idx=136 prob=0.4888 (target)
+  cand[1] dataset_idx=65 prob=0.1226
+  cand[2] dataset_idx=733 prob=0.3886
+Test 087: target=711, predicted=2, correct=✗
+  cand[0] dataset_idx=711 prob=0.3759 (target)
+  cand[1] dataset_idx=164 prob=0.2165
+  cand[2] dataset_idx=264 prob=0.4076
+Test 087 [A2→A1]: target=711, predicted=0, correct=✓
+  cand[0] dataset_idx=711 prob=0.3866 (target)
+  cand[1] dataset_idx=164 prob=0.2286
+  cand[2] dataset_idx=264 prob=0.3848
+Test 088: target=705, predicted=0, correct=✓
+  cand[0] dataset_idx=705 prob=0.6806 (target)
+  cand[1] dataset_idx=233 prob=0.1871
+  cand[2] dataset_idx=203 prob=0.1323
+Test 088 [A2→A1]: target=705, predicted=0, correct=✓
+  cand[0] dataset_idx=705 prob=0.6394 (target)
+  cand[1] dataset_idx=233 prob=0.2065
+  cand[2] dataset_idx=203 prob=0.1541
+Test 089: target=443, predicted=2, correct=✗
+  cand[0] dataset_idx=443 prob=0.3175 (target)
+  cand[1] dataset_idx=499 prob=0.1581
+  cand[2] dataset_idx=150 prob=0.5243
+Test 089 [A2→A1]: target=443, predicted=0, correct=✓
+  cand[0] dataset_idx=443 prob=0.7366 (target)
+  cand[1] dataset_idx=499 prob=0.0774
+  cand[2] dataset_idx=150 prob=0.1860
+Test 090: target=540, predicted=0, correct=✓
+  cand[0] dataset_idx=540 prob=0.3482 (target)
+  cand[1] dataset_idx=672 prob=0.3481
+  cand[2] dataset_idx=197 prob=0.3037
+Test 090 [A2→A1]: target=540, predicted=1, correct=✗
+  cand[0] dataset_idx=540 prob=0.3350 (target)
+  cand[1] dataset_idx=672 prob=0.3791
+  cand[2] dataset_idx=197 prob=0.2859
+Test 091: target=507, predicted=1, correct=✗
+  cand[0] dataset_idx=507 prob=0.3392 (target)
+  cand[1] dataset_idx=241 prob=0.3481
+  cand[2] dataset_idx=359 prob=0.3127
+Test 091 [A2→A1]: target=507, predicted=1, correct=✗
+  cand[0] dataset_idx=507 prob=0.3673 (target)
+  cand[1] dataset_idx=241 prob=0.3883
+  cand[2] dataset_idx=359 prob=0.2444
+Test 092: target=42, predicted=0, correct=✓
+  cand[0] dataset_idx=42 prob=0.3355 (target)
+  cand[1] dataset_idx=634 prob=0.3345
+  cand[2] dataset_idx=254 prob=0.3300
+Test 092 [A2→A1]: target=42, predicted=0, correct=✓
+  cand[0] dataset_idx=42 prob=0.3799 (target)
+  cand[1] dataset_idx=634 prob=0.3339
+  cand[2] dataset_idx=254 prob=0.2862
+Test 093: target=518, predicted=2, correct=✗
+  cand[0] dataset_idx=518 prob=0.2033 (target)
+  cand[1] dataset_idx=293 prob=0.2622
+  cand[2] dataset_idx=552 prob=0.5345
+Test 093 [A2→A1]: target=518, predicted=1, correct=✗
+  cand[0] dataset_idx=518 prob=0.1613 (target)
+  cand[1] dataset_idx=293 prob=0.5053
+  cand[2] dataset_idx=552 prob=0.3334
+Test 094: target=196, predicted=1, correct=✗
+  cand[0] dataset_idx=196 prob=0.3945 (target)
+  cand[1] dataset_idx=541 prob=0.4400
+  cand[2] dataset_idx=471 prob=0.1655
+Test 094 [A2→A1]: target=196, predicted=1, correct=✗
+  cand[0] dataset_idx=196 prob=0.4462 (target)
+  cand[1] dataset_idx=541 prob=0.4895
+  cand[2] dataset_idx=471 prob=0.0644
+Test 095: target=463, predicted=2, correct=✗
+  cand[0] dataset_idx=463 prob=0.3431 (target)
+  cand[1] dataset_idx=539 prob=0.2725
+  cand[2] dataset_idx=692 prob=0.3844
+Test 095 [A2→A1]: target=463, predicted=0, correct=✓
+  cand[0] dataset_idx=463 prob=0.4446 (target)
+  cand[1] dataset_idx=539 prob=0.1919
+  cand[2] dataset_idx=692 prob=0.3636
+Test 096: target=236, predicted=0, correct=✓
+  cand[0] dataset_idx=236 prob=0.4009 (target)
+  cand[1] dataset_idx=691 prob=0.3509
+  cand[2] dataset_idx=276 prob=0.2482
+Test 096 [A2→A1]: target=236, predicted=1, correct=✗
+  cand[0] dataset_idx=236 prob=0.3753 (target)
+  cand[1] dataset_idx=691 prob=0.4410
+  cand[2] dataset_idx=276 prob=0.1836
+Test 097: target=203, predicted=0, correct=✓
+  cand[0] dataset_idx=203 prob=0.3694 (target)
+  cand[1] dataset_idx=619 prob=0.2961
+  cand[2] dataset_idx=188 prob=0.3344
+Test 097 [A2→A1]: target=203, predicted=0, correct=✓
+  cand[0] dataset_idx=203 prob=0.3947 (target)
+  cand[1] dataset_idx=619 prob=0.2419
+  cand[2] dataset_idx=188 prob=0.3635
+Test 098: target=317, predicted=0, correct=✓
+  cand[0] dataset_idx=317 prob=0.5224 (target)
+  cand[1] dataset_idx=520 prob=0.3152
+  cand[2] dataset_idx=533 prob=0.1624
+Test 098 [A2→A1]: target=317, predicted=0, correct=✓
+  cand[0] dataset_idx=317 prob=0.4554 (target)
+  cand[1] dataset_idx=520 prob=0.3696
+  cand[2] dataset_idx=533 prob=0.1749
+Test 099: target=414, predicted=2, correct=✗
+  cand[0] dataset_idx=414 prob=0.3109 (target)
+  cand[1] dataset_idx=182 prob=0.3381
+  cand[2] dataset_idx=368 prob=0.3510
+Test 099 [A2→A1]: target=414, predicted=2, correct=✗
+  cand[0] dataset_idx=414 prob=0.2538 (target)
+  cand[1] dataset_idx=182 prob=0.3377
+  cand[2] dataset_idx=368 prob=0.4085
+Test 100: target=105, predicted=2, correct=✗
+  cand[0] dataset_idx=105 prob=0.3590 (target)
+  cand[1] dataset_idx=425 prob=0.2492
+  cand[2] dataset_idx=323 prob=0.3918
+Test 100 [A2→A1]: target=105, predicted=2, correct=✗
+  cand[0] dataset_idx=105 prob=0.3858 (target)
+  cand[1] dataset_idx=425 prob=0.1968
+  cand[2] dataset_idx=323 prob=0.4174
+Summary (bidirectional):
+  A1→A2: 51/100 correct (acc=0.510)
+  A2→A1: 54/100 correct (acc=0.540)
+  Overall: 105/200 correct (acc=0.525)
+  GES (MA): Agent1=49.00, Agent2=43.00

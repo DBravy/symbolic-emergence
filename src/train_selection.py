@@ -1116,6 +1116,11 @@ def run_training_phase(trainer, cycles=200):
                 # Allow a quick-test override (still respects second-half gating)
                 if trainer.early_stop_force:
                     print("\nEarly-stop force enabled (second half). Running novel symbol induction test, then stopping current training phase and proceeding to consolidation and addition...")
+                    # Treat as if GES threshold was hit to trigger downstream behaviors (e.g., background decoder)
+                    try:
+                        trainer._mark_ges_threshold_hit()
+                    except Exception:
+                        pass
                     early_stop_triggered = True
                     early_stop_reason = 'ges'
                     break

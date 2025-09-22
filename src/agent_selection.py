@@ -8,6 +8,9 @@ from embeddings import PuzzleEmbedding
 from decoder import build_decoder
 from encoder import build_encoder
 
+import threading
+import queue
+
 class GradientScaleHook:
     def __init__(self, scale, power=1.00):
         self.scale = scale
@@ -83,7 +86,7 @@ class ProgressiveSelectionAgent(nn.Module):
             max_seq_length=max_seq_length  # Max sequence length
         )
         
-        # Keep decoder for backward compatibility (might be useful for analysis)
+        # Keep decoder for backward compatibility (now used for background reconstruction)
         self.decoder = decoder if decoder is not None else build_decoder(
             embedding_dim=embedding_dim,
             hidden_dim=hidden_dim,
@@ -120,6 +123,119 @@ class ProgressiveSelectionAgent(nn.Module):
         self.fixed_size = fixed_size
 
         self._apply_sender_scaling()
+        
+        # === NEW: Background decoder training infrastructure ===
+        self._decoder_train_enabled = False
+        self._decoder_queue: "queue.Queue" = queue.Queue(maxsize=1000)
+        self._decoder_thread: Optional[threading.Thread] = None
+        self._decoder_stop_event = threading.Event()
+        # Decoder optimizer trains decoder parameters only
+        self.decoder_optimizer = torch.optim.Adam(self.decoder.parameters(), lr=1e-4)
+        # Loss for reconstruction (cross-entropy over puzzle symbols)
+        self.reconstruction_criterion = nn.CrossEntropyLoss()
+        # Logging cadence for background worker
+        self._decoder_log_every = 50
+    
+    def _start_decoder_background_worker(self):
+        if self._decoder_train_enabled and self._decoder_thread is not None:
+            return
+        self._decoder_train_enabled = True
+        self._decoder_stop_event.clear()
+        def _worker():
+            # Put decoder in train mode; we only train decoder here
+            self.decoder.train()
+            step = 0
+            while not self._decoder_stop_event.is_set():
+                try:
+                    batch = self._decoder_queue.get(timeout=0.5)
+                except queue.Empty:
+                    continue
+                if batch is None:
+                    continue
+                # batch is a list of tuples: (message, target_grid)
+                messages, targets = zip(*batch)
+                message_tensor = torch.stack(messages, dim=0)  # [B, seq, num_comm]
+                target_tensor = torch.stack(targets, dim=0)    # [B, H, W]
+                device = next(self.parameters()).device
+                message_tensor = message_tensor.to(device)
+                target_tensor = target_tensor.to(device)
+                # Convert message to embeddings using current vocabulary
+                num_comm = message_tensor.shape[-1]
+                current_comm_embeddings = self.communication_embedding.weight[
+                    self.puzzle_symbols:self.puzzle_symbols + num_comm
+                ]
+                embedded_message = torch.matmul(message_tensor, current_comm_embeddings)  # [B, seq, D]
+                # Predict without forcing size; decoder must learn size from the message
+                logits, _, _, (height_logits, width_logits) = self.decoder(embedded_message, temperature=1.0)
+                # Compute reconstruction loss on the overlapping region if sizes differ
+                B, Hp, Wp, C = logits.shape
+                Ht, Wt = int(target_tensor.shape[1]), int(target_tensor.shape[2])
+                Hc, Wc = min(Hp, Ht), min(Wp, Wt)
+                logits_c = logits[:, :Hc, :Wc, :]
+                targets_c = target_tensor[:, :Hc, :Wc]
+                recon_loss = self.reconstruction_criterion(
+                    logits_c.reshape(B * Hc * Wc, C),
+                    targets_c.reshape(B * Hc * Wc)
+                )
+                # Auxiliary size prediction losses
+                height_target_idx = torch.tensor([max(1, min(Ht, self.decoder.max_height)) - 1], device=device)
+                width_target_idx = torch.tensor([max(1, min(Wt, self.decoder.max_width)) - 1], device=device)
+                height_loss = F.cross_entropy(height_logits, height_target_idx)
+                width_loss = F.cross_entropy(width_logits, width_target_idx)
+                loss = recon_loss + 0.1 * (height_loss + width_loss)
+                self.decoder_optimizer.zero_grad()
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.decoder.parameters(), 1.0)
+                self.decoder_optimizer.step()
+                step += 1
+                # Periodic console logging
+                if step % max(1, self._decoder_log_every) == 0:
+                    try:
+                        print(
+                            f"[DecoderBG {self.agent_id}] step={step} "
+                            f"recon_loss={recon_loss.item():.4f} "
+                            f"size_loss={(height_loss.item()+width_loss.item()):.4f} "
+                            f"pred_size={Hp}x{Wp} target={Ht}x{Wt} "
+                            f"queue={self._decoder_queue.qsize()}"
+                        )
+                    except Exception:
+                        pass
+        # Use daemon thread so it doesn't block process exit
+        self._decoder_thread = threading.Thread(target=_worker, daemon=True)
+        self._decoder_thread.start()
+    
+    def enable_background_decoder_training(self):
+        """
+        Public API to enable background decoder training.
+        Safe to call multiple times.
+        """
+        print(f"[DecoderBG {self.agent_id}] Enabling background decoder training")
+        self._start_decoder_background_worker()
+    
+    def stop_background_decoder_training(self):
+        self._decoder_train_enabled = False
+        self._decoder_stop_event.set()
+        if self._decoder_thread is not None:
+            self._decoder_thread.join(timeout=2.0)
+            self._decoder_thread = None
+    
+    def enqueue_successful_reconstruction(self, message: torch.Tensor, target_grid: torch.Tensor):
+        """
+        Enqueue a successful communication sample for background decoder training.
+        Args:
+            message: [1, seq_len, num_comm] symbol probabilities (sender→receiver message actually used)
+            target_grid: [1, H, W] target puzzle grid
+        """
+        if not self._decoder_train_enabled:
+            return
+        try:
+            # Standardize shapes and move to CPU for queueing
+            msg = message.detach().cpu().squeeze(0)
+            tgt = target_grid.detach().cpu().squeeze(0).long()
+            # Small batches for better GPU utilization in worker
+            self._decoder_queue.put_nowait([(msg, tgt)])
+        except queue.Full:
+            pass
     
     def set_initial_comm_symbols(self, initial_comm_symbols: int):
         """

@@ -150,7 +150,7 @@ class ProgressiveDecoder(nn.Module):
         # Output projection
         self.output = nn.Linear(hidden_dim, puzzle_symbols)
 
-    def forward(self, message: torch.Tensor, temperature: float = 1.0) -> Tuple[torch.Tensor, List[torch.Tensor], List[torch.Tensor]]:
+    def forward(self, message: torch.Tensor, temperature: float = 1.0, force_target_size: Optional[Tuple[int, int]] = None) -> Tuple[torch.Tensor, List[torch.Tensor], List[torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]:
         batch_size = message.size(0)
         
         # Project message tokens
@@ -165,11 +165,15 @@ class ProgressiveDecoder(nn.Module):
         height_logits = size_logits[:, :self.max_height]  # [batch_size, max_height]
         width_logits = size_logits[:, self.max_height:]   # [batch_size, max_width]
         
-        # Get predicted dimensions using argmax
-        height = height_logits.argmax(dim=-1) + 1  # Add 1 since sizes are 1-based
-        width = width_logits.argmax(dim=-1) + 1
+        # Get predicted dimensions using argmax, unless a target size is provided
+        if force_target_size is not None:
+            height = torch.tensor([force_target_size[0]], device=message.device)
+            width = torch.tensor([force_target_size[1]], device=message.device)
+        else:
+            height = height_logits.argmax(dim=-1) + 1  # Add 1 since sizes are 1-based
+            width = width_logits.argmax(dim=-1) + 1
         
-        # Initialize grid with predicted size
+        # Initialize grid with chosen size (supports batch_size==1)
         grid = self.grid_embedding.expand(batch_size, height.item(), width.item(), self.hidden_dim)
         grid = self.pos_encoder(grid)  # Position encoding will adapt to predicted size
         
@@ -188,6 +192,7 @@ class ProgressiveDecoder(nn.Module):
         final_logits = self.output(grid) / temperature
         
         return final_logits, intermediate_outputs, confidence_scores, (height_logits, width_logits)
+
 
 def build_decoder(embedding_dim: int, hidden_dim: int, puzzle_symbols: int, 
                  grid_size: Optional[Tuple[int, int]] = None) -> nn.Module:
