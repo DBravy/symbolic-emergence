@@ -13,6 +13,11 @@
 
 # Text files (be selective - you might want to keep README.txt, requirements.txt)
 # *.txt
+consolidation_analysis.txt
+novel_symbol_unseen_testing_log.txt
+phase_training_log.txt
+screen.txt
+unseen_testing_log.txt
 
 # OS/IDE files
 .DS_Store

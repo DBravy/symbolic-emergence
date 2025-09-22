@@ -48,7 +48,7 @@ async function saveConfig() {
     const config = {};
     const formElements = [
         'max_global_phases', 'initial_puzzle_count', 'training_cycles', 
-        'puzzles_per_addition', 'learning_rate', 'num_distractors',
+        'first_training_cycles', 'puzzles_per_addition', 'learning_rate', 'num_distractors',
         'distractor_strategy', 'phase_change_indicator', 'embedding_dim',
         'hidden_dim', 'num_symbols', 'puzzle_symbols'
     ];
@@ -93,6 +93,7 @@ function resetConfig() {
             max_global_phases: 100,
             initial_puzzle_count: 4,
             training_cycles: 25,
+            first_training_cycles: 50,
             puzzles_per_addition: 3,
             learning_rate: 0.0000007,
             num_distractors: 3,
