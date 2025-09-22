@@ -85,7 +85,6 @@ The progressive removal of "recessive" symbols forces agents to develop more rob
 
 - **Selection Accuracy**: Success rate in sender→receiver communication tasks
 - **Generalization Efficiency Score (GES)**: Normalized metric accounting for vocabulary size and task complexity
-- **Symbol Utilization**: Analysis of which symbols become dominant vs. recessive
 - **Novel Induction Success**: Performance on completely unseen puzzle types
 
 ## Outputs and Visualization
@@ -111,27 +110,6 @@ This framework provides insights into:
 - CUDA support recommended for training
 - 8GB+ RAM for default configurations
 - ARC dataset (arc-agi_test_challenges.json)
-
-## Citation
-
-If you use this code in your research, please cite:
-
-```bibtex
-@misc{emergent-communication-2025,
-  title={Emergent Communication and Symbol Grounding in Visual Reasoning},
-  author={[Your Name]},
-  year={2024},
-  url={https://github.com/DBravy/symbolic-emergence}
-}
-```
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Contributing
-
-Contributions welcome! Please read the contributing guidelines and submit pull requests for improvements or extensions to the research framework.
 
 ## Contact
 
