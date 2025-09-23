@@ -104,6 +104,11 @@
                             <option value="novel_test">Novel Test</option>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label for="early_stop_min_cycles">Min Cycles Before GES Triggers:</label>
+                        <input type="number" id="early_stop_min_cycles" min="0" max="1000" value="5">
+                        <span class="help-text">Minimum cycles in a training phase before GES-triggered changes are allowed</span>
+                    </div>
                 </div>
 
                 <!-- Architecture Config -->

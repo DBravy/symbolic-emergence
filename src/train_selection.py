@@ -1904,7 +1904,9 @@ def load_config(config_file=None):
         'output_dir': './outputs',
         # New: live plot cadence (cycles) and toggle
         'plot_update_interval_cycles': 1,
-        'live_plot_enabled': True
+        'live_plot_enabled': True,
+        # New: min cycles before allowing GES-triggered changes
+        'early_stop_min_cycles': 5
     }
     
     if config_file and os.path.exists(config_file):
@@ -2001,6 +2003,8 @@ def main():
     )
     # QUICK TEST: force early-stop to run novel symbol induction immediately. Toggle False to restore normal behavior.
     trainer.early_stop_force = False
+    # Set min cycles before GES triggers from config
+    trainer.early_stop_min_cycles = config.get('early_stop_min_cycles', trainer.early_stop_min_cycles)
     max_global_phases = config['max_global_phases']
     first_pretrain_epochs = config['first_pretrain_epochs']
     pretrain_epochs = config['pretrain_epochs']

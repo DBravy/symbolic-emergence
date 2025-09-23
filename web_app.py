@@ -44,6 +44,7 @@ DEFAULT_CONFIG = {
     'initial_comm_symbols': 4,
     'first_training_cycles': 50,
     'training_cycles': 25,
+    'early_stop_min_cycles': 5,
     'consolidation_tests': 5,
     'puzzles_per_addition': 3,
     'repetitions_per_puzzle': 1,
