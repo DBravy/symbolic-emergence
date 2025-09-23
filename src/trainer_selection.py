@@ -1211,7 +1211,7 @@ class ProgressiveSelectionTrainer:
             unseen_indices = list(all_indices)
         
         # Use fixed distractor count for unseen test
-        fixed_distractors = getattr(self, 'initial_num_distractors', self.num_distractors)
+        fixed_distractors = 3
         training_phase_distractors = getattr(self, 'last_training_phase_distractors', self.num_distractors)
         
         # Helper: choose targets (with replacement if needed)
@@ -1467,7 +1467,7 @@ class ProgressiveSelectionTrainer:
             unseen_indices = list(all_indices)
         
         # Use fixed distractor count for this test
-        fixed_distractors = getattr(self, 'initial_num_distractors', self.num_distractors)
+        fixed_distractors = 3
         training_phase_distractors = getattr(self, 'last_training_phase_distractors', self.num_distractors)
         
         # Choose targets
