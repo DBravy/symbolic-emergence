@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Keep manual refresh around but start live updates automatically
     startLivePlotUpdates();
     startScoresUpdates();
+    initTrainingModeControls();
+    startReconSampleUpdates();
 });
 
 // Configuration Management
@@ -49,8 +51,8 @@ async function saveConfig() {
     const formElements = [
         'max_global_phases', 'initial_puzzle_count', 'training_cycles', 
         'first_training_cycles', 'puzzles_per_addition', 'learning_rate', 'num_distractors',
-        'distractor_strategy', 'phase_change_indicator', 'early_stop_min_cycles', 'embedding_dim',
-        'hidden_dim', 'num_symbols', 'puzzle_symbols'
+        'distractor_strategy', 'phase_change_indicator', 'early_stop_min_cycles', 
+        'consolidation_threshold', 'embedding_dim', 'hidden_dim', 'num_symbols', 'puzzle_symbols'
     ];
     
     formElements.forEach(id => {
@@ -100,6 +102,7 @@ function resetConfig() {
             distractor_strategy: 'random',
             phase_change_indicator: 'ges',
             early_stop_min_cycles: 5,
+            consolidation_threshold: 0.3,
             embedding_dim: 512,
             hidden_dim: 1024,
             num_symbols: 100,
@@ -235,10 +238,62 @@ async function updateStatus() {
         }
         
         document.getElementById('process-pid').textContent = status.pid || 'None';
+        // Update training mode display
+        refreshTrainingModeUI();
         
     } catch (error) {
         console.error('Error updating status:', error);
         document.getElementById('connection-status').textContent = 'Connection Error';
+    }
+}
+
+// --- Runtime Training Mode Toggle ---
+async function initTrainingModeControls() {
+    try {
+        await refreshTrainingModeUI();
+        const btn = document.getElementById('toggle-mode-btn');
+        if (btn) {
+            btn.addEventListener('click', toggleTrainingMode);
+        }
+    } catch (e) {
+        console.error('initTrainingModeControls error', e);
+    }
+}
+
+async function refreshTrainingModeUI() {
+    try {
+        const resp = await fetch('/api/training-mode');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const mode = (data.mode || 'selection');
+        const modeLabel = document.getElementById('training-mode-label');
+        const btn = document.getElementById('toggle-mode-btn');
+        if (modeLabel) modeLabel.textContent = mode === 'reconstruction' ? 'Reconstruction' : 'Selection';
+        if (btn) btn.textContent = mode === 'reconstruction' ? 'Switch to Selection' : 'Switch to Reconstruction';
+    } catch (e) {
+        // silent
+    }
+}
+
+async function toggleTrainingMode() {
+    try {
+        const current = await (await fetch('/api/training-mode')).json();
+        const mode = current.mode === 'reconstruction' ? 'selection' : 'reconstruction';
+        const resp = await fetch('/api/training-mode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode })
+        });
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            showNotification(err.error || 'Failed to change mode', 'error');
+            return;
+        }
+        await refreshTrainingModeUI();
+        showNotification(`Training mode set to ${mode}`, 'success');
+    } catch (e) {
+        console.error('toggleTrainingMode error', e);
+        showNotification('Error toggling mode', 'error');
     }
 }
 
@@ -589,4 +644,83 @@ window.addEventListener('beforeunload', function() {
     if (logsInterval) clearInterval(logsInterval);
     if (livePlotInterval) clearInterval(livePlotInterval);
     if (scoresInterval) clearInterval(scoresInterval);
+    if (reconInterval) clearInterval(reconInterval);
 });
+
+// --- Reconstruction Sample Viewer ---
+let reconInterval;
+function startReconSampleUpdates() {
+    if (reconInterval) clearInterval(reconInterval);
+    updateReconSample();
+    reconInterval = setInterval(updateReconSample, 6000);
+}
+
+async function updateReconSample() {
+    try {
+        const modeResp = await fetch('/api/training-mode');
+        const modeData = await modeResp.json();
+        const isRecon = (modeData.mode === 'reconstruction');
+        const container = document.getElementById('recon-sample-container');
+        if (!container) return;
+        container.style.display = isRecon ? 'block' : 'none';
+        if (!isRecon) return;
+        const resp = await fetch('/api/recon-sample');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        renderReconSample(container, data.sample);
+    } catch (e) {
+        // silent
+    }
+}
+
+function renderReconSample(container, sample) {
+    if (!sample) {
+        container.innerHTML = '<div class="recon-empty">No reconstruction sample yet</div>';
+        return;
+    }
+    const target = sample.target || [];
+    const recon = sample.reconstruction || [];
+    const dir = sample.direction || '';
+    const symLocal = (sample.message_symbol_local != null) ? sample.message_symbol_local : '-';
+    const symAbs = (sample.message_symbol_abs != null) ? sample.message_symbol_abs : '-';
+    const targetGrid = gridToHtml(target);
+    const reconGrid = gridToHtml(recon);
+    container.innerHTML = `
+        <div class="recon-header">
+            <span><strong>Direction</strong>: ${dir}</span>
+            <span><strong>Symbol</strong>: local=${symLocal}, abs=${symAbs}</span>
+        </div>
+        <div class="recon-grids">
+            <div class="recon-grid-block">
+                <div class="recon-title">Target</div>
+                ${targetGrid}
+            </div>
+            <div class="recon-grid-block">
+                <div class="recon-title">Reconstruction</div>
+                ${reconGrid}
+            </div>
+        </div>
+    `;
+}
+
+function gridToHtml(grid) {
+    if (!grid || !grid.length) return '<div class="grid grid-empty">No grid</div>';
+    const h = grid.length;
+    const w = grid[0].length || 0;
+    const palette = [
+        '#000000','#0074D9','#2ECC40','#FF4136','#FF851B',
+        '#B10DC9','#7FDBFF','#01FF70','#AAAAAA','#FFDC00',
+        '#001f3f','#39CCCC','#01FF70','#85144b','#F012BE',
+        '#3D9970','#111111','#AAAAAA','#FF851B','#DDDDDD'
+    ];
+    let html = '<div class="grid" style="display:inline-grid; grid-template-columns: '+('1.2em '.repeat(w)).trim()+'; gap: 2px;">';
+    for (let y=0; y<h; y++) {
+        for (let x=0; x<w; x++) {
+            const v = grid[y][x] || 0;
+            const color = palette[v % palette.length];
+            html += '<div class="cell" style="width:1.2em;height:1.2em;background:'+color+'"></div>';
+        }
+    }
+    html += '</div>';
+    return html;
+}

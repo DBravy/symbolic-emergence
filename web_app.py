@@ -46,6 +46,7 @@ DEFAULT_CONFIG = {
     'training_cycles': 25,
     'early_stop_min_cycles': 5,
     'consolidation_tests': 5,
+    'consolidation_threshold': 0.3,
     'puzzles_per_addition': 3,
     'repetitions_per_puzzle': 1,
     'num_distractors': 3,
@@ -59,6 +60,9 @@ DEFAULT_CONFIG = {
     'max_seq_length': 1,
     'output_dir': './outputs'
 }
+
+# Runtime training mode control file
+CONTROL_FILE = 'training_control.json'
 
 def log_debug(message):
     """Add debug message with timestamp"""
@@ -324,7 +328,8 @@ def start_training():
             sys.executable, training_script,
             '--config', 'training_config.json',
             '--status-file', 'training_status.json',
-            '--web-mode'
+            '--web-mode',
+            '--control-file', CONTROL_FILE
         ]
         
         log_debug(f"Command: {' '.join(cmd)}")
@@ -399,6 +404,34 @@ def start_training():
             'message': error_msg
         })
         return jsonify({'status': 'error', 'message': error_msg})
+
+@app.route('/api/training-mode', methods=['GET', 'POST'])
+def training_mode():
+    """Get or set runtime training mode (selection | reconstruction)."""
+    try:
+        if request.method == 'POST':
+            data = request.get_json(force=True) or {}
+            mode = data.get('mode', '').strip().lower()
+            if mode not in ('selection', 'reconstruction'):
+                return jsonify({'error': 'mode must be selection or reconstruction'}), 400
+            # Write control file atomically
+            tmp = CONTROL_FILE + '.tmp'
+            with open(tmp, 'w') as f:
+                json.dump({'mode': mode}, f)
+            os.replace(tmp, CONTROL_FILE)
+            log_debug(f"Training mode set to: {mode}")
+            return jsonify({'mode': mode, 'status': 'ok'})
+        # GET: read current mode
+        if os.path.exists(CONTROL_FILE):
+            with open(CONTROL_FILE, 'r') as f:
+                data = json.load(f)
+            mode = data.get('mode', 'selection')
+        else:
+            mode = 'selection'
+        return jsonify({'mode': mode})
+    except Exception as e:
+        log_debug(f"Error handling training mode: {e}")
+        return jsonify({'error': str(e)}), 500
 
 def enhanced_monitor_logs():
     """Enhanced log monitoring with better error handling and debugging"""
@@ -626,6 +659,35 @@ def get_logs():
     """Get recent training logs"""
     global training_log
     return jsonify({'logs': training_log[-200:]})  # Last 200 lines
+
+@app.route('/api/recon-sample', methods=['GET'])
+def get_recon_sample():
+    """Return the most recent reconstruction sample recorded in the status/log stream if available."""
+    try:
+        # Try to read from training_status.json first for structured data (future-proof)
+        sample = None
+        if os.path.exists('training_status.json'):
+            try:
+                with open('training_status.json', 'r') as f:
+                    st = json.load(f)
+                sample = st.get('last_recon_sample')
+            except Exception:
+                sample = None
+        # Fallback: scan recent logs for an embedded recon sample entry
+        if sample is None:
+            for entry in reversed(training_log[-300:]):
+                msg = entry.get('message', '') if isinstance(entry, dict) else ''
+                if 'RECON_SAMPLE_JSON:' in msg:
+                    try:
+                        payload = msg.split('RECON_SAMPLE_JSON:', 1)[1].strip()
+                        sample = json.loads(payload)
+                        break
+                    except Exception:
+                        continue
+        return jsonify({'sample': sample})
+    except Exception as e:
+        log_debug(f"Error retrieving recon sample: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/debug-logs', methods=['GET'])
 def get_debug_logs():

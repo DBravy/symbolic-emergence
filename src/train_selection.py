@@ -39,6 +39,7 @@ class LiveGrapher:
             'loss': [],
             'acc1_selection': [],
             'acc2_selection': [],
+            'recon_acc': [],
             'ges1': [],
             'ges2': [],
             'active_symbols': [],
@@ -51,6 +52,7 @@ class LiveGrapher:
         self.moving_averages = {
             'acc1_selection': MovingAverage(ma_window),
             'acc2_selection': MovingAverage(ma_window),
+            'recon_acc': MovingAverage(ma_window),
             'ges1': MovingAverage(ma_window),
             'ges2': MovingAverage(ma_window),
             'loss': MovingAverage(ma_window)
@@ -61,6 +63,7 @@ class LiveGrapher:
             'loss': [],
             'acc1_selection': [],
             'acc2_selection': [],
+            'recon_acc': [],
             'ges1': [],
             'ges2': []
         }
@@ -123,13 +126,14 @@ class LiveGrapher:
         plt.tight_layout()
         
     def add_data_point(self, step, loss=None, acc1=None, acc2=None, 
-                     ges1=None, ges2=None, phase=None, total_puzzles=None, distractors=None):
+                     ges1=None, ges2=None, phase=None, total_puzzles=None, distractors=None, recon_acc=None):
         """Add a new data point and update the graph"""
         with self.lock:
             self.data['steps'].append(step)
             self.data['loss'].append(loss if loss is not None else np.nan)
             self.data['acc1_selection'].append(acc1 if acc1 is not None else np.nan)
             self.data['acc2_selection'].append(acc2 if acc2 is not None else np.nan)
+            self.data['recon_acc'].append(recon_acc if recon_acc is not None else np.nan)
             self.data['ges1'].append(ges1 if ges1 is not None else np.nan)
             self.data['ges2'].append(ges2 if ges2 is not None else np.nan)
             self.data['active_symbols'].append(self.active_symbols_count)
@@ -166,6 +170,12 @@ class LiveGrapher:
                 self.ma_data['ges2'].append(self.moving_averages['ges2'].get_average())
             else:
                 self.ma_data['ges2'].append(np.nan)
+            # Recon accuracy MA
+            if recon_acc is not None and not np.isnan(recon_acc):
+                self.moving_averages['recon_acc'].update(recon_acc)
+                self.ma_data['recon_acc'].append(self.moving_averages['recon_acc'].get_average())
+            else:
+                self.ma_data['recon_acc'].append(np.nan)
             
             # Track phase changes
             if phase:
@@ -235,6 +245,7 @@ class LiveGrapher:
             has_acc_labels = False
             acc1_series = self.ma_data['acc1_selection']
             acc2_series = self.ma_data['acc2_selection']
+            recon_series = self.ma_data['recon_acc']
             if steps and acc1_series:
                 if self.phase_markers:
                     first_label_acc1 = False
@@ -288,6 +299,15 @@ class LiveGrapher:
                         y_all = [acc2_series[i] for i in valid_idx]
                         self.axes[0, 1].plot(x_all, y_all, 'r-', label=f'Agent2 (MA-{self.ma_window})', alpha=0.8, linewidth=2)
                         has_acc_labels = True
+
+            # Add reconstruction accuracy line (blue) when available
+            if steps and recon_series:
+                valid_idx = [i for i, y in enumerate(recon_series) if not np.isnan(y)]
+                if valid_idx:
+                    x_all = [steps[i] for i in valid_idx]
+                    y_all = [recon_series[i] for i in valid_idx]
+                    self.axes[0, 1].plot(x_all, y_all, 'b-', label=f'Reconstruction (MA-{self.ma_window})', alpha=0.8, linewidth=2)
+                    has_acc_labels = True
  
             # Plot raw accuracy data as faint background
             valid_acc1_raw = [(s, a) for s, a in zip(steps, self.data['acc1_selection']) if not np.isnan(a)]
@@ -300,6 +320,11 @@ class LiveGrapher:
             if valid_acc2_raw:
                 acc2_steps_raw, acc2_vals_raw = zip(*valid_acc2_raw)
                 self.axes[0, 1].plot(acc2_steps_raw, acc2_vals_raw, 'r-', alpha=0.2, linewidth=1)
+            # Raw reconstruction accuracy overlay
+            valid_recon_raw = [(s, l) for s, l in zip(steps, self.data['recon_acc']) if not np.isnan(l)]
+            if valid_recon_raw:
+                recon_steps_raw, recon_vals_raw = zip(*valid_recon_raw)
+                self.axes[0, 1].plot(recon_steps_raw, recon_vals_raw, 'b-', alpha=0.2, linewidth=1)
  
             # Only add legend if there are labeled plots    
             if has_acc_labels:
@@ -940,6 +965,15 @@ def run_training_phase(trainer, cycles=200):
     
     for cycle in range(cycles):
         print(f"\nTraining Cycle {cycle + 1}/{cycles}")
+        # Check runtime training mode from control file and set on trainer
+        try:
+            control_path = globals().get('global_control_file_path', 'training_control.json')
+            with open(control_path, 'r') as cf:
+                mode = (json.load(cf) or {}).get('mode', 'selection')
+            trainer.set_reconstruction_mode(mode == 'reconstruction')
+        except Exception:
+            # On any error, keep current mode
+            pass
         
         # MODIFIED: Train on each active puzzle multiple times before moving to next
         cycle_metrics = []
@@ -967,18 +1001,26 @@ def run_training_phase(trainer, cycles=200):
                 # Update metrics for each step within the repetition
                 # Update metrics for each step within the repetition
                 for metrics in step_metrics:
-                    # Update accuracy moving averages
-                    acc1_selection_ma.update(metrics['agent1_selection_accuracy'])
-                    acc2_selection_ma.update(metrics['agent2_selection_accuracy'])
+                    # Update accuracy moving averages only when selection metrics exist
+                    if 'agent1_selection_accuracy' in metrics and 'agent2_selection_accuracy' in metrics:
+                        acc1_selection_ma.update(metrics['agent1_selection_accuracy'])
+                        acc2_selection_ma.update(metrics['agent2_selection_accuracy'])
+                    else:
+                        # In reconstruction mode, append NaN placeholders
+                        acc1_selection_ma.update(np.nan)
+                        acc2_selection_ma.update(np.nan)
 
                     # Compute GES for both agents
                     try:
-                        chance = 1.0 / max(1, metrics.get('num_candidates', trainer.num_distractors + 1))
-                        active_puzzles = max(1, metrics.get('active_puzzles', len(trainer.active_puzzles)))
-                        symbols = metrics.get('mapped_puzzles', len(trainer.puzzle_symbol_mapping))
-                        ratio = (active_puzzles / symbols) if symbols and symbols > 0 else np.nan
-                        ges1_val = ((metrics['agent1_selection_accuracy'] - chance) * ratio * 100.0) if not np.isnan(ratio) else np.nan
-                        ges2_val = ((metrics['agent2_selection_accuracy'] - chance) * ratio * 100.0) if not np.isnan(ratio) else np.nan
+                        if 'agent1_selection_accuracy' in metrics and 'agent2_selection_accuracy' in metrics:
+                            chance = 1.0 / max(1, metrics.get('num_candidates', trainer.num_distractors + 1))
+                            active_puzzles = max(1, metrics.get('active_puzzles', len(trainer.active_puzzles)))
+                            symbols = metrics.get('mapped_puzzles', len(trainer.puzzle_symbol_mapping))
+                            ratio = (active_puzzles / symbols) if symbols and symbols > 0 else np.nan
+                            ges1_val = ((metrics['agent1_selection_accuracy'] - chance) * ratio * 100.0) if not np.isnan(ratio) else np.nan
+                            ges2_val = ((metrics['agent2_selection_accuracy'] - chance) * ratio * 100.0) if not np.isnan(ratio) else np.nan
+                        else:
+                            ges1_val, ges2_val = np.nan, np.nan
                     except Exception:
                         ges1_val, ges2_val = np.nan, np.nan
                     
@@ -994,7 +1036,8 @@ def run_training_phase(trainer, cycles=200):
                     ges2_history.append(ges2_ma.get_average())
                     
                     # UPDATE TRAINER-INTERNAL GES TRACKER FOR GLOBAL EARLY-STOP CHECK
-                    trainer._update_ges_moving_averages(metrics)
+                    if 'agent1_selection_accuracy' in metrics and 'agent2_selection_accuracy' in metrics:
+                        trainer._update_ges_moving_averages(metrics)
                     
                     # ADD THIS NEW CODE BLOCK HERE:
                     # ============================================================
@@ -1023,16 +1066,41 @@ def run_training_phase(trainer, cycles=200):
                             live_grapher.add_data_point(
                                 step=global_step_counter,
                                 loss=metrics['total_loss'],
-                                acc1=metrics['agent1_selection_accuracy'],
-                                acc2=metrics['agent2_selection_accuracy'],
+                                acc1=metrics.get('agent1_selection_accuracy', np.nan),
+                                acc2=metrics.get('agent2_selection_accuracy', np.nan),
                                 ges1=ges1_val,
                                 ges2=ges2_val,
                                 total_puzzles=metrics.get('active_puzzles', len(trainer.active_puzzles)),
-                                distractors=trainer.num_distractors
+                                distractors=trainer.num_distractors,
+                                recon_acc=metrics.get('reconstruction_accuracy', np.nan)
                             )
                             global_step_counter += 1
                         except Exception as e:
                             print(f"Warning: Live grapher update failed: {e}")
+
+                    # Emit recon sample to web monitor via logs or status file
+                    if metrics.get('recon_sample') is not None and globals().get('global_output_dir') is not None:
+                        try:
+                            # Lightweight status file augmentation
+                            status_path = globals().get('global_status_file_path', 'training_status.json')
+                            # Remember the path early in main
+                            try:
+                                globals()['global_status_file_path']
+                            except Exception:
+                                globals()['global_status_file_path'] = 'training_status.json'
+                            try:
+                                cur = {}
+                                if os.path.exists(status_path):
+                                    with open(status_path, 'r') as f:
+                                        cur = json.load(f)
+                                cur['last_recon_sample'] = metrics['recon_sample']
+                                with open(status_path, 'w') as f:
+                                    json.dump(cur, f)
+                            except Exception:
+                                # Fallback: inject into logs via stdout prefix
+                                print(f"RECON_SAMPLE_JSON: {json.dumps(metrics['recon_sample'])}")
+                        except Exception as e:
+                            print(f"Warning: failed to write recon sample: {e}")
             
             # End repetition loop
         
@@ -1386,6 +1454,7 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
     phases_list = [m.get('phase', None) for m in metrics_history]
     acc1_raw = [m.get('agent1_selection_accuracy', np.nan) for m in metrics_history]
     acc2_raw = [m.get('agent2_selection_accuracy', np.nan) for m in metrics_history]
+    recon_raw = [m.get('reconstruction_accuracy', np.nan) for m in metrics_history]
     active_symbols = [m.get('active_symbols', np.nan) for m in metrics_history]
     distractors_series = [m.get('num_distractors', np.nan) for m in metrics_history]
     
@@ -1394,6 +1463,7 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
     # Compute accuracy moving averages from raw series with phase resets to match LiveGrapher
     acc1_ma = moving_average_with_reset(acc1_raw, ma_window, phases_list)
     acc2_ma = moving_average_with_reset(acc2_raw, ma_window, phases_list)
+    recon_ma = moving_average_with_reset(recon_raw, ma_window, phases_list)
     # Keep GES moving averages as provided (training-only)
     ges1_ma = accuracies_history.get('ges1', [])
     ges2_ma = accuracies_history.get('ges2', [])
@@ -1514,6 +1584,27 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
     if valid_acc2:
         xs, ys = zip(*valid_acc2)
         axes[0, 1].plot(xs, ys, 'r-', alpha=0.2, linewidth=1)
+    valid_recon = [(s, v) for s, v in zip(steps, recon_raw) if not (isinstance(v, float) and np.isnan(v))]
+    if valid_recon:
+        xs, ys = zip(*valid_recon)
+        axes[0, 1].plot(xs, ys, 'b-', alpha=0.2, linewidth=1)
+    # Add reconstruction MA segmented by phase
+    if steps and recon_ma:
+        first_label_r = False
+        start_idx = 0
+        cur_phase = phases_list[0] if phases_list else None
+        for i in range(1, len(steps) + 1):
+            changed = (i == len(steps)) or (phases_list[i] != cur_phase if phases_list else False)
+            if changed:
+                seg = [(j, recon_ma[j]) for j in range(start_idx, i) if not (isinstance(recon_ma[j], float) and np.isnan(recon_ma[j]))]
+                if seg:
+                    xs = [steps[j] for j, _ in seg]
+                    ys = [y for _, y in seg]
+                    axes[0, 1].plot(xs, ys, 'b-', label=(f'Reconstruction (MA-{ma_window})' if not first_label_r else None), alpha=0.8, linewidth=2)
+                    first_label_r = True
+                if i < len(steps):
+                    start_idx = i
+                    cur_phase = phases_list[i] if phases_list else None
     axes[0, 1].legend()
     
     # GES (axes[0, 2])
@@ -1890,6 +1981,7 @@ def load_config(config_file=None):
         'first_training_cycles': 50,
         'training_cycles': 25,
         'consolidation_tests': 5,
+        'consolidation_threshold': 0.3,
         'puzzles_per_addition': 3,
         'repetitions_per_puzzle': 1,
         'num_distractors': 3,
@@ -1923,6 +2015,8 @@ def parse_args():
                        help='File to write training status updates')
     parser.add_argument('--web-mode', action='store_true', 
                        help='Disable live plotting for web interface')
+    parser.add_argument('--control-file', type=str, default='training_control.json',
+                       help='Path to control file for runtime mode toggles')
     return parser.parse_args()
 
 def main():
@@ -1946,6 +2040,16 @@ def main():
     with open(args.status_file, 'w') as f:
         json.dump(status, f)
     
+    # Initialize global control path for runtime toggles
+    globals()['global_control_file_path'] = args.control_file
+    # Ensure control file exists with default mode
+    try:
+        if not os.path.exists(args.control_file):
+            with open(args.control_file, 'w') as cf:
+                json.dump({'mode': 'selection'}, cf)
+    except Exception:
+        pass
+
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -1994,6 +2098,7 @@ def main():
         first_training_cycles=config['first_training_cycles'],
         training_cycles=config['training_cycles'],
         consolidation_tests=config['consolidation_tests'],
+        consolidation_threshold=config['consolidation_threshold'],
         puzzles_per_addition=config['puzzles_per_addition'],
         repetitions_per_puzzle=config['repetitions_per_puzzle'],
         initial_puzzle_count=config['initial_puzzle_count'],

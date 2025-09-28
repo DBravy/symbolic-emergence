@@ -22,6 +22,7 @@ class ProgressiveSelectionTrainer:
         first_training_cycles: int = 100,     # Cycles for FIRST training phase
         training_cycles: int = 200,           # Cycles for subsequent training phases
         consolidation_tests: int = 10,         # Number of test cycles in consolidation
+        consolidation_threshold: float = 0.3,  # Threshold for identifying recessive symbols (30% by default)
         puzzles_per_addition: int = 5,        # Puzzles to add each addition phase
         repetitions_per_puzzle: int = 5,      # How many times to repeat each puzzle
         initial_puzzle_count: int = 5,        # NEW: Initial number of puzzles to start with
@@ -46,11 +47,13 @@ class ProgressiveSelectionTrainer:
         self.agent1 = agent1.to(device)
         self.agent2 = agent2.to(device)
         self.device = device
+        self.learning_rate = learning_rate
         
         # Phase-based training parameters
         self.first_training_cycles = first_training_cycles
         self.training_cycles = training_cycles
         self.consolidation_tests = consolidation_tests
+        self.consolidation_threshold = consolidation_threshold
         self.puzzles_per_addition = puzzles_per_addition
         self.repetitions_per_puzzle = repetitions_per_puzzle
         self.cycle_count = 0
@@ -108,6 +111,9 @@ class ProgressiveSelectionTrainer:
         
         # Training mode tracking
         self.training_mode = "joint"
+        # Runtime reconstruction mode (switchable via control API)
+        self.reconstruction_mode = False
+        self._opt_decoders = None  # lazily initialized when reconstruction mode is enabled
         
         # Puzzle and symbol management
         self.active_puzzles = []
@@ -154,6 +160,9 @@ class ProgressiveSelectionTrainer:
 
         # === NEW: Background decoder training state ===
         self.decoder_background_enabled = False
+        # Reconstruction sample logging cadence
+        self._recon_step_counter = 0
+        self.recon_sample_interval = 10
 
     def set_puzzle_dataset(self, puzzles: List[Puzzle]):
         """Set the full ARC puzzle dataset"""
@@ -504,20 +513,21 @@ class ProgressiveSelectionTrainer:
     def identify_recessive_symbols(self, confusion_data: Dict[int, List[int]]) -> Set[int]:
         """
         Identify symbols that are consistently misinterpreted.
-        Modified to remove symbols with ≤30% accuracy (instead of just 0% accuracy).
+        Modified to remove symbols with accuracy ≤ consolidation_threshold (configurable, default 30%).
         Shows visual debugging for poor performers, with robust fallbacks.
         Also writes all output to consolidation_analysis.txt.
         """
         recessive_symbols: Set[int] = set()
-        poor_performers: List[int] = []  # Symbols with ≤30% accuracy (but >0%)
+        poor_performers: List[int] = []  # Symbols with ≤ threshold accuracy (but >0%)
 
         consolidation_filename = 'consolidation_analysis.txt'
+        threshold_percent = self.consolidation_threshold * 100
 
         if not self.web_mode:
-            header = f"{'='*50}\nANALYZING SYMBOL PERFORMANCE (10 tests per symbol)\n{'='*50}"
+            header = f"{'='*50}\nANALYZING SYMBOL PERFORMANCE (10 tests per symbol)\nThreshold: {threshold_percent:.0f}%\n{'='*50}"
             print(header)
         else:
-            header = f"Analyzing symbol performance..."
+            header = f"Analyzing symbol performance (threshold: {threshold_percent:.0f}%)..."
             print(header)
         
         with open(consolidation_filename, 'a') as log_file:
@@ -535,13 +545,13 @@ class ProgressiveSelectionTrainer:
             with open(consolidation_filename, 'a') as log_file:
                 log_file.write(f"{symbol_line}\n")
 
-            # CHANGED: Now include all symbols with ≤30% accuracy for removal
-            if accuracy <= 0.30:
+            # CHANGED: Now include all symbols with ≤ threshold accuracy for removal
+            if accuracy <= self.consolidation_threshold:
                 recessive_symbols.add(symbol)
                 if accuracy == 0.0:
                     status_line = f"  → RECESSIVE: Symbol {symbol} never selected correctly in any test"
                 else:
-                    status_line = f"  → RECESSIVE: Symbol {symbol} selected correctly ≤30% of the time"
+                    status_line = f"  → RECESSIVE: Symbol {symbol} selected correctly ≤{threshold_percent:.0f}% of the time"
             elif accuracy < 0.50:
                 status_line = f"  → LOW PERFORMANCE: Symbol {symbol} selected correctly <50% of the time"
             else:
@@ -1033,7 +1043,6 @@ class ProgressiveSelectionTrainer:
         temperature: float = 1.0,
         initial_phase: bool = False
     ) -> List[Dict[str, float]]:
-        
         # Check if this puzzle has a symbol mapping
         has_symbol_mapping = puzzle_idx in self.puzzle_symbol_mapping
         
@@ -1045,6 +1054,10 @@ class ProgressiveSelectionTrainer:
         self.cycle_count += 1
         self.phase_cycle += 1
         
+        # If reconstruction mode is active, run reconstruction training instead of selection
+        if getattr(self, 'reconstruction_mode', False):
+            return [self._train_reconstruction_step(puzzle, puzzle_idx, temperature=temperature)]
+
         metrics_history = []
         
         # Set training mode based on phase
@@ -1181,6 +1194,153 @@ class ProgressiveSelectionTrainer:
                         pass
             
         return metrics_history
+
+    def set_reconstruction_mode(self, enabled: bool):
+        """Enable or disable reconstruction-mode training at runtime."""
+        enabled = bool(enabled)
+        if enabled and not self.reconstruction_mode:
+            print("[Trainer] Switching to RECONSTRUCTION mode")
+            # Lazy-create decoder optimizer covering both agents' decoders
+            if self._opt_decoders is None:
+                self._opt_decoders = optim.Adam(
+                    list(self.agent1.decoder.parameters()) + list(self.agent2.decoder.parameters()),
+                    lr=self.learning_rate
+                )
+            self.reconstruction_mode = True
+        elif (not enabled) and self.reconstruction_mode:
+            print("[Trainer] Switching to SELECTION mode")
+            self.reconstruction_mode = False
+
+        # Reflect mode into training_mode string for metrics visibility
+        if self.reconstruction_mode:
+            self.training_mode = "reconstruction"
+        else:
+            # keep existing logic based on phase
+            self.training_mode = self.training_mode if self.training_mode else "joint"
+
+    def _train_reconstruction_step(self, puzzle: torch.Tensor, puzzle_idx: int, temperature: float = 1.0) -> Dict[str, float]:
+        """
+        Train both directions on reconstruction objective:
+        Agent1 encodes → Agent2 decodes to reconstruct target.
+        Agent2 encodes → Agent1 decodes to reconstruct target.
+        Optimizes encoders, communication embeddings, message pooling, and both decoders.
+        """
+        # Ensure decoders optimizer exists
+        if self._opt_decoders is None:
+            self._opt_decoders = optim.Adam(
+                list(self.agent1.decoder.parameters()) + list(self.agent2.decoder.parameters()),
+                lr=self.learning_rate
+            )
+
+        # Ensure all necessary components have gradients enabled
+        self.set_training_mode("joint")
+
+        self.opt1.zero_grad()
+        self.opt2.zero_grad()
+        self._opt_decoders.zero_grad()
+
+        # Common target tensor
+        target_tensor = puzzle  # [1, H, W]
+
+        # Direction A1 -> A2
+        symbols1, _, _ = self.agent1.encode_puzzle_to_message(
+            target_tensor, temperature=temperature, initial_phase=False
+        )
+        # Message top-1 symbol (local and absolute indices)
+        with torch.no_grad():
+            local_sym1 = int(symbols1[0, 0].argmax().item()) if symbols1.dim() == 3 else 0
+            abs_sym1 = int(self.agent1.puzzle_symbols + local_sym1)
+        # Embed message with receiver's comm embeddings
+        comm_emb_a2 = self.agent2.communication_embedding.weight[
+            self.agent2.puzzle_symbols:self.agent2.current_total_symbols
+        ]
+        embedded_msg1 = torch.matmul(symbols1, comm_emb_a2)
+        logits1, _, _, (hlog1, wlog1) = self.agent2.decoder(embedded_msg1, temperature=1.0)
+        B1, Hp1, Wp1, C1 = logits1.shape
+        Ht, Wt = int(target_tensor.shape[1]), int(target_tensor.shape[2])
+        Hc1, Wc1 = min(Hp1, Ht), min(Wp1, Wt)
+        recon_loss1 = F.cross_entropy(
+            logits1[:, :Hc1, :Wc1, :].reshape(B1 * Hc1 * Wc1, C1),
+            target_tensor[:, :Hc1, :Wc1].reshape(B1 * Hc1 * Wc1)
+        )
+        # Reconstruction accuracy A1->A2
+        with torch.no_grad():
+            pred_grid1 = logits1[:, :Hc1, :Wc1, :].argmax(dim=-1)
+            recon_acc1 = (pred_grid1 == target_tensor[:, :Hc1, :Wc1]).float().mean().item()
+        h_tgt_idx1 = torch.tensor([max(1, min(Ht, getattr(self.agent2.decoder, 'max_height', Ht))) - 1], device=self.device)
+        w_tgt_idx1 = torch.tensor([max(1, min(Wt, getattr(self.agent2.decoder, 'max_width', Wt))) - 1], device=self.device)
+        size_loss1 = F.cross_entropy(hlog1, h_tgt_idx1) + F.cross_entropy(wlog1, w_tgt_idx1)
+
+        # Direction A2 -> A1
+        symbols2, _, _ = self.agent2.encode_puzzle_to_message(
+            target_tensor, temperature=temperature, initial_phase=False
+        )
+        with torch.no_grad():
+            local_sym2 = int(symbols2[0, 0].argmax().item()) if symbols2.dim() == 3 else 0
+            abs_sym2 = int(self.agent2.puzzle_symbols + local_sym2)
+        comm_emb_a1 = self.agent1.communication_embedding.weight[
+            self.agent1.puzzle_symbols:self.agent1.current_total_symbols
+        ]
+        embedded_msg2 = torch.matmul(symbols2, comm_emb_a1)
+        logits2, _, _, (hlog2, wlog2) = self.agent1.decoder(embedded_msg2, temperature=1.0)
+        B2, Hp2, Wp2, C2 = logits2.shape
+        Hc2, Wc2 = min(Hp2, Ht), min(Wp2, Wt)
+        recon_loss2 = F.cross_entropy(
+            logits2[:, :Hc2, :Wc2, :].reshape(B2 * Hc2 * Wc2, C2),
+            target_tensor[:, :Hc2, :Wc2].reshape(B2 * Hc2 * Wc2)
+        )
+        # Reconstruction accuracy A2->A1
+        with torch.no_grad():
+            pred_grid2 = logits2[:, :Hc2, :Wc2, :].argmax(dim=-1)
+            recon_acc2 = (pred_grid2 == target_tensor[:, :Hc2, :Wc2]).float().mean().item()
+        h_tgt_idx2 = torch.tensor([max(1, min(Ht, getattr(self.agent1.decoder, 'max_height', Ht))) - 1], device=self.device)
+        w_tgt_idx2 = torch.tensor([max(1, min(Wt, getattr(self.agent1.decoder, 'max_width', Wt))) - 1], device=self.device)
+        size_loss2 = F.cross_entropy(hlog2, h_tgt_idx2) + F.cross_entropy(wlog2, w_tgt_idx2)
+
+        total_loss = recon_loss1 + recon_loss2 + 0.1 * (size_loss1 + size_loss2)
+        total_loss.backward()
+
+        # Step optimizers
+        self.opt1.step()
+        self.opt2.step()
+        self._opt_decoders.step()
+
+        # Optional: include a lightweight reconstruction sample intermittently
+        self._recon_step_counter += 1
+        recon_sample = None
+        try:
+            if self._recon_step_counter % max(1, int(self.recon_sample_interval)) == 0:
+                # Prefer logging A1->A2 sample
+                tgt_np = target_tensor[0].detach().cpu().long().numpy().tolist()
+                pred_np = logits1[0, :Hc1, :Wc1, :].argmax(dim=-1).detach().cpu().long().numpy().tolist()
+                recon_sample = {
+                    'direction': 'A1_to_A2',
+                    'message_symbol_local': local_sym1,
+                    'message_symbol_abs': abs_sym1,
+                    'target': tgt_np,
+                    'reconstruction': pred_np
+                }
+        except Exception:
+            recon_sample = None
+
+        metrics = {
+            'cycle': self.cycle_count,
+            'phase': self.current_phase,
+            'phase_cycle': self.phase_cycle,
+            'global_phase_count': self.global_phase_count,
+            'total_loss': float(total_loss.item()),
+            'recon_loss_a1_to_a2': float(recon_loss1.item()),
+            'recon_loss_a2_to_a1': float(recon_loss2.item()),
+            'reconstruction_acc_a1_to_a2': float(recon_acc1),
+            'reconstruction_acc_a2_to_a1': float(recon_acc2),
+            'reconstruction_accuracy': float((recon_acc1 + recon_acc2) / 2.0),
+            'training_mode': 'reconstruction',
+            'active_puzzles': len(self.active_puzzles),
+            'mapped_puzzles': len(self.puzzle_symbol_mapping),
+        }
+        if recon_sample is not None:
+            metrics['recon_sample'] = recon_sample
+        return metrics
     
     def _calculate_symbol_entropy(self, symbol_probs):
         """Calculate the entropy of symbol probability distributions."""
