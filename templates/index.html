@@ -10,6 +10,10 @@
     <div class="container">
         <header>
             <h1>Progressive Selection Training Interface</h1>
+            <nav class="top-nav">
+                <a href="/">Communication Protocol</a>
+                <a href="/arc">ARC Solving</a>
+            </nav>
             <div class="status-bar">
                 <span id="connection-status">Connected</span>
                 <span id="training-status">Idle</span>
@@ -25,6 +29,7 @@
                     <button id="stop-btn" onclick="stopTraining()" disabled>Stop Training</button>
                     <button onclick="loadConfig()">Reload Config</button>
                     <button id="save-report-btn" onclick="saveReport()">Save Run as PDF</button>
+                    <button id="save-snapshot-btn" onclick="saveSnapshot()">Save Snapshot</button>
                     <span class="mode-indicator">Mode: <strong id="training-mode-label">Selection</strong></span>
                     <button id="toggle-mode-btn">Switch to Reconstruction</button>
                 </div>

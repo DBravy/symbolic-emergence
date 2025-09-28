@@ -2,7 +2,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from typing import List, Tuple, Dict, Set
+from typing import List, Tuple, Dict, Set, Optional
+import os
+import json
+from datetime import datetime
 from agent_selection import ProgressiveSelectionAgent
 from puzzle import Puzzle
 import numpy as np
@@ -1870,6 +1873,69 @@ class ProgressiveSelectionTrainer:
             }
         }
         return base_status
+
+    def save_snapshot(self, name: Optional[str] = None, directory: Optional[str] = None) -> str:
+        """Save a full snapshot of both agents and relevant trainer state.
+        Returns the saved filepath.
+        """
+        # Determine directory
+        out_dir = directory or './outputs'
+        snap_dir = os.path.join(out_dir, 'snapshots')
+        os.makedirs(snap_dir, exist_ok=True)
+
+        # Build filename
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        base = name.strip().replace(' ', '_') if name else f'comm_snapshot'
+        filename = f"{base}_{timestamp}.pt"
+        path = os.path.join(snap_dir, filename)
+
+        # Collect states
+        state = {
+            'agent1_state_dict': self.agent1.state_dict(),
+            'agent2_state_dict': self.agent2.state_dict(),
+            'trainer_state': {
+                'current_phase': self.current_phase,
+                'phase_cycle': self.phase_cycle,
+                'global_phase_count': self.global_phase_count,
+                'cycle_count': self.cycle_count,
+                'num_distractors': self.num_distractors,
+                'distractor_strategy': self.distractor_strategy,
+                'puzzle_symbol_mapping': self.puzzle_symbol_mapping,
+                'symbol_puzzle_mapping': self.symbol_puzzle_mapping,
+                'used_puzzle_indices': list(self.used_puzzle_indices),
+                'current_comm_symbols_a1': getattr(self.agent1, 'current_comm_symbols', None),
+                'current_comm_symbols_a2': getattr(self.agent2, 'current_comm_symbols', None),
+                'current_total_symbols_a1': getattr(self.agent1, 'current_total_symbols', None),
+                'current_total_symbols_a2': getattr(self.agent2, 'current_total_symbols', None),
+                'initial_puzzle_count': self.initial_puzzle_count,
+                'initial_comm_symbols': self.initial_comm_symbols,
+                'repetition_per_puzzle': self.repetitions_per_puzzle,
+                'learning_rate': self.learning_rate,
+                'web_mode': self.web_mode,
+            },
+            'meta': {
+                'created_at': timestamp,
+                'name': name or '',
+                'format_version': 1,
+                'kind': 'communication_system_snapshot'
+            }
+        }
+
+        torch.save(state, path)
+        # Retention: keep only the most recent N snapshots
+        try:
+            max_keep = int(getattr(self, 'max_snapshots', 50) or 50)
+            files = [f for f in os.listdir(snap_dir) if f.endswith('.pt')]
+            files_full = [os.path.join(snap_dir, f) for f in files]
+            files_full.sort(key=os.path.getmtime, reverse=True)
+            for old in files_full[max_keep:]:
+                try:
+                    os.remove(old)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        return path
 
     # NEW: mark and update helpers for distractor scheduling
     def _mark_ges_threshold_hit(self):

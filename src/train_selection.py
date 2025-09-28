@@ -965,14 +965,36 @@ def run_training_phase(trainer, cycles=200):
     
     for cycle in range(cycles):
         print(f"\nTraining Cycle {cycle + 1}/{cycles}")
-        # Check runtime training mode from control file and set on trainer
+        # Check runtime training mode and snapshot requests from control file
         try:
             control_path = globals().get('global_control_file_path', 'training_control.json')
             with open(control_path, 'r') as cf:
-                mode = (json.load(cf) or {}).get('mode', 'selection')
+                ctrl = (json.load(cf) or {})
+            mode = ctrl.get('mode', 'selection')
             trainer.set_reconstruction_mode(mode == 'reconstruction')
+
+            # Snapshot request support
+            snap_req = ctrl.get('snapshot_request')
+            if snap_req is not None:
+                try:
+                    snap_name = ''
+                    if isinstance(snap_req, dict):
+                        snap_name = snap_req.get('name', '')
+                    out_dir = globals().get('global_output_dir', './outputs')
+                    path = trainer.save_snapshot(name=snap_name, directory=out_dir)
+                    print(f"[SNAPSHOT] Saved snapshot to {path}")
+                except Exception as e:
+                    print(f"[SNAPSHOT] Error saving snapshot: {e}")
+                # Clear the one-shot request
+                try:
+                    if isinstance(ctrl, dict):
+                        ctrl.pop('snapshot_request', None)
+                        with open(control_path, 'w') as cf:
+                            json.dump(ctrl, cf)
+                except Exception:
+                    pass
         except Exception:
-            # On any error, keep current mode
+            # On any error, keep current mode and continue
             pass
         
         # MODIFIED: Train on each active puzzle multiple times before moving to next
@@ -1163,6 +1185,15 @@ def run_training_phase(trainer, cycles=200):
                     disable_file_logging=False
                 )
                 print(f"  Novel test overall: {summary['correct']}/{summary['num_tests']} (acc={summary['accuracy']:.3f})")
+                # Auto-snapshot if >= 80% overall (e.g., 160/200 when bidirectional)
+                try:
+                    if summary.get('accuracy', 0.0) >= 0.80 or summary.get('correct', 0) >= 160:
+                        out_dir = globals().get('global_output_dir', './outputs')
+                        snap_name = f"novel80_phase{trainer.global_phase_count}_cycle{cycles_completed}"
+                        path = trainer.save_snapshot(name=snap_name, directory=out_dir)
+                        print(f"[SNAPSHOT] Auto-saved snapshot at >=80% novel accuracy: {path}")
+                except Exception as e:
+                    print(f"[SNAPSHOT] Auto-save error: {e}")
                 # Ignore triggers in the very first training phase
                 if trainer.global_phase_count > 0:
                     if summary.get('correct', 0) >= trainer.novel_test_threshold_correct:
@@ -1238,6 +1269,15 @@ def run_training_phase(trainer, cycles=200):
                 log_summary_only=trainer.novel_test_log_summary_only,
                 disable_file_logging=False
             )
+            # Auto-snapshot if >= 80% overall
+            try:
+                if summary.get('accuracy', 0.0) >= 0.80 or summary.get('correct', 0) >= 160:
+                    out_dir = globals().get('global_output_dir', './outputs')
+                    snap_name = f"novel80_phase{trainer.global_phase_count}_postGES"
+                    path = trainer.save_snapshot(name=snap_name, directory=out_dir)
+                    print(f"[SNAPSHOT] Auto-saved snapshot at >=80% novel accuracy: {path}")
+            except Exception as e:
+                print(f"[SNAPSHOT] Auto-save error: {e}")
             print(f"Novel symbol induction test accuracy: {summary['accuracy']:.3f} ({summary['correct']}/{summary['num_tests']})")
         # Signal controller to skip next pretraining
         trainer.skip_next_pretraining = True
@@ -1857,14 +1897,25 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
                 plt.savefig(pdf_stamped, format='pdf', bbox_inches='tight')
             except Exception:
                 pass
-            # Retention: keep only the 5 most recent timestamped images for this base
+            # Retention: keep only the most recent N timestamped images for this base
             try:
                 directory = output_dir
                 prefix = f"{base_name}_"
-                stamped = [f for f in _os.listdir(directory) if f.startswith(prefix) and f.endswith('.png')]
-                stamped_full = [_os.path.join(directory, f) for f in stamped]
-                stamped_full.sort(key=_os.path.getmtime, reverse=True)
-                for old_path in stamped_full[5:]:
+                max_keep = int(globals().get('global_max_plot_history', 20) or 20)
+                # PNG cleanup
+                stamped_png = [f for f in _os.listdir(directory) if f.startswith(prefix) and f.endswith('.png')]
+                stamped_png_full = [_os.path.join(directory, f) for f in stamped_png]
+                stamped_png_full.sort(key=_os.path.getmtime, reverse=True)
+                for old_path in stamped_png_full[max_keep:]:
+                    try:
+                        _os.remove(old_path)
+                    except Exception:
+                        pass
+                # PDF cleanup
+                stamped_pdf = [f for f in _os.listdir(directory) if f.startswith(prefix) and f.endswith('.pdf')]
+                stamped_pdf_full = [_os.path.join(directory, f) for f in stamped_pdf]
+                stamped_pdf_full.sort(key=_os.path.getmtime, reverse=True)
+                for old_path in stamped_pdf_full[max_keep:]:
                     try:
                         _os.remove(old_path)
                     except Exception:
@@ -1882,10 +1933,19 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
             try:
                 directory = '.'
                 prefix = f"{base_name}_"
-                stamped = [f for f in _os.listdir(directory) if f.startswith(prefix) and f.endswith('.png')]
-                stamped_full = [_os.path.join(directory, f) for f in stamped]
-                stamped_full.sort(key=_os.path.getmtime, reverse=True)
-                for old_path in stamped_full[5:]:
+                max_keep = int(globals().get('global_max_plot_history', 20) or 20)
+                stamped_png = [f for f in _os.listdir(directory) if f.startswith(prefix) and f.endswith('.png')]
+                stamped_png_full = [_os.path.join(directory, f) for f in stamped_png]
+                stamped_png_full.sort(key=_os.path.getmtime, reverse=True)
+                for old_path in stamped_png_full[max_keep:]:
+                    try:
+                        _os.remove(old_path)
+                    except Exception:
+                        pass
+                stamped_pdf = [f for f in _os.listdir(directory) if f.startswith(prefix) and f.endswith('.pdf')]
+                stamped_pdf_full = [_os.path.join(directory, f) for f in stamped_pdf]
+                stamped_pdf_full.sort(key=_os.path.getmtime, reverse=True)
+                for old_path in stamped_pdf_full[max_keep:]:
                     try:
                         _os.remove(old_path)
                     except Exception:
@@ -1998,7 +2058,10 @@ def load_config(config_file=None):
         'plot_update_interval_cycles': 1,
         'live_plot_enabled': True,
         # New: min cycles before allowing GES-triggered changes
-        'early_stop_min_cycles': 5
+        'early_stop_min_cycles': 5,
+        # Retention limits
+        'max_plot_history': 20,
+        'max_snapshots': 50
     }
     
     if config_file and os.path.exists(config_file):
@@ -2029,6 +2092,14 @@ def main():
     # Expose output_dir globally for live plotting
     global global_output_dir
     global_output_dir = config['output_dir']
+    # Propagate retention config
+    try:
+        # Snapshot retention: attach to trainer after creation below
+        globals()['global_max_plot_history'] = int(config.get('max_plot_history', 20) or 20)
+        globals()['global_max_snapshots'] = int(config.get('max_snapshots', 50) or 50)
+    except Exception:
+        globals()['global_max_plot_history'] = 20
+        globals()['global_max_snapshots'] = 50
     
     # Write initial status
     status = {
@@ -2106,6 +2177,11 @@ def main():
         phase_change_indicator=config['phase_change_indicator'],
         web_mode=args.web_mode
     )
+    # Apply snapshot retention limit to trainer so save_snapshot enforces it
+    try:
+        trainer.max_snapshots = int(config.get('max_snapshots', globals().get('global_max_snapshots', 50)) or 50)
+    except Exception:
+        trainer.max_snapshots = 50
     # QUICK TEST: force early-stop to run novel symbol induction immediately. Toggle False to restore normal behavior.
     trainer.early_stop_force = False
     # Set min cycles before GES triggers from config
@@ -2351,6 +2427,15 @@ def main():
                 log_file.write(f"  Overall: {novel_summary['correct']}/{novel_summary['num_tests']} correct (acc={novel_summary['accuracy']:.3f})\n")
                 log_file.write(f"  GES (MA): Agent1={novel_summary['ges1_ma']:.2f}, Agent2={novel_summary['ges2_ma']:.2f}\n")
                 log_file.flush()
+                # Auto-snapshot if >= 80% overall
+                try:
+                    if novel_summary.get('accuracy', 0.0) >= 0.80 or novel_summary.get('correct', 0) >= 160:
+                        out_dir = config.get('output_dir', globals().get('global_output_dir', './outputs'))
+                        snap_name = f"novel80_phase{trainer.global_phase_count}_endOfTraining"
+                        path = trainer.save_snapshot(name=snap_name, directory=out_dir)
+                        print(f"[SNAPSHOT] Auto-saved snapshot at >=80% novel accuracy: {path}")
+                except Exception as e:
+                    print(f"[SNAPSHOT] Auto-save error: {e}")
                 
                 # Check if this is the final global phase
                 if trainer.global_phase_count == max_global_phases - 1:

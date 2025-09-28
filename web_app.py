@@ -63,6 +63,7 @@ DEFAULT_CONFIG = {
 
 # Runtime training mode control file
 CONTROL_FILE = 'training_control.json'
+SNAPSHOT_DIR = os.path.join(DEFAULT_CONFIG.get('output_dir', './outputs'), 'snapshots')
 
 def log_debug(message):
     """Add debug message with timestamp"""
@@ -81,6 +82,10 @@ def log_debug(message):
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/arc')
+def arc_page():
+    return render_template('arc.html')
 
 @app.route('/api/config', methods=['GET'])
 def get_config():
@@ -988,6 +993,72 @@ def generate_report():
     except Exception as e:
         log_debug(f"Error generating report: {e}")
         return jsonify({'error': f'Failed to generate report: {str(e)}'}), 500
+
+# --- NEW: Snapshot APIs ---
+@app.route('/api/snapshot/save', methods=['POST'])
+def request_snapshot_save():
+    """Request the training process to save a snapshot via control file.
+    Accepts optional JSON: { "name": "my_label" }
+    """
+    try:
+        data = request.get_json(force=True) or {}
+        name = str(data.get('name', '')).strip()
+        # Write control file atomically with snapshot_request
+        ctrl = {}
+        try:
+            if os.path.exists(CONTROL_FILE):
+                with open(CONTROL_FILE, 'r') as f:
+                    ctrl = json.load(f) or {}
+        except Exception:
+            ctrl = {}
+        ctrl['snapshot_request'] = {'name': name} if name else True
+        tmp = CONTROL_FILE + '.tmp'
+        with open(tmp, 'w') as f:
+            json.dump(ctrl, f)
+        os.replace(tmp, CONTROL_FILE)
+        log_debug(f"Snapshot save requested (name='{name}')")
+        return jsonify({'status': 'ok'})
+    except Exception as e:
+        log_debug(f"Error requesting snapshot: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/snapshot/list', methods=['GET'])
+def list_snapshots():
+    try:
+        # Determine snapshot directory from current config
+        out_dir = current_config.get('output_dir', DEFAULT_CONFIG.get('output_dir', './outputs')) if current_config else DEFAULT_CONFIG.get('output_dir', './outputs')
+        snap_dir = os.path.join(out_dir, 'snapshots')
+        if not os.path.isdir(snap_dir):
+            return jsonify({'snapshots': []})
+        files = [f for f in os.listdir(snap_dir) if f.endswith('.pt')]
+        files.sort(reverse=True)
+        return jsonify({'snapshots': files})
+    except Exception as e:
+        log_debug(f"Error listing snapshots: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/snapshot/select', methods=['POST'])
+def select_snapshot():
+    """Select a snapshot filename to be used on the ARC page (store in a small state file)."""
+    try:
+        data = request.get_json(force=True) or {}
+        filename = data.get('filename', '')
+        if not filename or not isinstance(filename, str):
+            return jsonify({'error': 'filename is required'}), 400
+        out_dir = current_config.get('output_dir', DEFAULT_CONFIG.get('output_dir', './outputs')) if current_config else DEFAULT_CONFIG.get('output_dir', './outputs')
+        snap_dir = os.path.join(out_dir, 'snapshots')
+        full_path = os.path.join(snap_dir, os.path.basename(filename))
+        if not (os.path.isdir(snap_dir) and os.path.exists(full_path)):
+            return jsonify({'error': 'snapshot not found'}), 404
+        # Persist selection in a small JSON file for future use
+        selection_path = os.path.join(snap_dir, 'selected_snapshot.json')
+        with open(selection_path, 'w') as f:
+            json.dump({'filename': os.path.basename(filename), 'selected_at': datetime.now().isoformat()}, f)
+        log_debug(f"Selected snapshot: {filename}")
+        return jsonify({'status': 'ok'})
+    except Exception as e:
+        log_debug(f"Error selecting snapshot: {e}")
+        return jsonify({'error': str(e)}), 500
 
 # --- NEW: Scores API ---
 

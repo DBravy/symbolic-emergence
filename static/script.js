@@ -338,6 +338,28 @@ function clearLogs() {
     showNotification('Logs cleared', 'info');
 }
 
+// --- Snapshot save ---
+async function saveSnapshot() {
+    try {
+        const defaultName = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+        const name = prompt('Optional label for snapshot (leave blank for timestamp):', defaultName) || '';
+        const resp = await fetch('/api/snapshot/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            showNotification(err.error || 'Failed to request snapshot', 'error');
+            return;
+        }
+        showNotification('Snapshot requested. It will be saved shortly.', 'success');
+    } catch (e) {
+        console.error('saveSnapshot error', e);
+        showNotification('Error requesting snapshot', 'error');
+    }
+}
+
 function toggleAutoScroll() {
     autoScroll = !autoScroll;
     document.getElementById('autoscroll-status').textContent = autoScroll ? 'ON' : 'OFF';

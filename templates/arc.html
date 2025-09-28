@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARC Solving</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .placeholder {
+            margin: 40px 0;
+            padding: 24px;
+            border: 2px dashed #bbb;
+            border-radius: 8px;
+            text-align: center;
+            color: #666;
+        }
+    </style>
+    </head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ARC Solving</h1>
+            <nav class="top-nav">
+                <a href="/">Communication Protocol</a>
+                <a href="/arc">ARC Solving</a>
+            </nav>
+        </header>
+
+        <div class="main-content">
+            <section>
+                <h2>Model Snapshot</h2>
+                <div class="button-group">
+                    <button onclick="refreshSnapshots()">Refresh Snapshots</button>
+                </div>
+                <div>
+                    <select id="snapshot-selector" style="min-width: 300px">
+                        <option value="">Select a snapshot...</option>
+                    </select>
+                    <button onclick="selectSnapshot()">Use Snapshot</button>
+                </div>
+                <div id="snapshot-status" style="margin-top:10px;color:#666"></div>
+            </section>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        refreshSnapshots();
+    });
+    async function refreshSnapshots() {
+        try {
+            const resp = await fetch('/api/snapshot/list');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const sel = document.getElementById('snapshot-selector');
+            sel.innerHTML = '<option value="">Select a snapshot...</option>';
+            (data.snapshots || []).forEach(f => {
+                const opt = document.createElement('option');
+                opt.value = f;
+                opt.textContent = f;
+                sel.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('refreshSnapshots error', e);
+        }
+    }
+    async function selectSnapshot() {
+        const sel = document.getElementById('snapshot-selector');
+        const file = sel.value;
+        if (!file) {
+            document.getElementById('snapshot-status').textContent = 'Please select a snapshot.';
+            return;
+        }
+        try {
+            const resp = await fetch('/api/snapshot/select', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename: file })
+            });
+            const statusEl = document.getElementById('snapshot-status');
+            if (resp.ok) {
+                statusEl.textContent = 'Snapshot selected.';
+            } else {
+                const err = await resp.json().catch(() => ({}));
+                statusEl.textContent = err.error || 'Failed to select snapshot';
+            }
+        } catch (e) {
+            console.error('selectSnapshot error', e);
+        }
+    }
+    </script>
+</body>
+</html>
+
