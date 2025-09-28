@@ -694,6 +694,36 @@ def get_recon_sample():
         log_debug(f"Error retrieving recon sample: {e}")
         return jsonify({'error': str(e)}), 500
 
+
+# --- NEW: Latest reconstruction per symbol ---
+@app.route('/api/recon-symbols', methods=['GET'])
+def get_recon_symbols():
+    """Return the latest reconstruction sample per symbol as recorded in the status file."""
+    try:
+        symbols = []
+        # Prefer structured status file
+        if os.path.exists('training_status.json'):
+            try:
+                with open('training_status.json', 'r') as f:
+                    st = json.load(f) or {}
+                mapping = st.get('symbol_recon_samples') or {}
+                # Normalize into array of {symbol_id, sample}
+                for k, v in mapping.items():
+                    try:
+                        sid = int(k)
+                    except Exception:
+                        # ignore non-integer keys
+                        continue
+                    symbols.append({'symbol_id': sid, 'sample': v})
+                # Sort by symbol id
+                symbols.sort(key=lambda x: x['symbol_id'])
+            except Exception as e:
+                log_debug(f"Error reading recon symbols from status file: {e}")
+        return jsonify({'symbols': symbols})
+    except Exception as e:
+        log_debug(f"Error retrieving recon symbols: {e}")
+        return jsonify({'symbols': []})
+
 @app.route('/api/debug-logs', methods=['GET'])
 def get_debug_logs():
     """Get debug messages"""

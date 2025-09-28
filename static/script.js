@@ -20,6 +20,8 @@ document.addEventListener('DOMContentLoaded', function() {
     startScoresUpdates();
     initTrainingModeControls();
     startReconSampleUpdates();
+    initSymbolControls();
+    startReconSymbolsUpdates();
 });
 
 // Configuration Management
@@ -667,6 +669,7 @@ window.addEventListener('beforeunload', function() {
     if (livePlotInterval) clearInterval(livePlotInterval);
     if (scoresInterval) clearInterval(scoresInterval);
     if (reconInterval) clearInterval(reconInterval);
+    if (reconSymbolsInterval) clearInterval(reconSymbolsInterval);
 });
 
 // --- Reconstruction Sample Viewer ---
@@ -693,6 +696,133 @@ async function updateReconSample() {
     } catch (e) {
         // silent
     }
+}
+
+// --- Per-Symbol Latest Reconstruction ---
+let reconSymbolsInterval;
+let symbolList = [];
+let currentSymbolIndex = -1;
+
+function initSymbolControls() {
+    const prevBtn = document.getElementById('symbol-prev-btn');
+    const nextBtn = document.getElementById('symbol-next-btn');
+    const selector = document.getElementById('symbol-selector');
+    if (prevBtn) prevBtn.addEventListener('click', () => selectPrevSymbol());
+    if (nextBtn) nextBtn.addEventListener('click', () => selectNextSymbol());
+    if (selector) selector.addEventListener('change', () => {
+        const val = selector.value;
+        if (!val) return;
+        const idx = symbolList.findIndex(e => String(e.symbol_id) === String(val));
+        if (idx >= 0) {
+            currentSymbolIndex = idx;
+            renderSelectedSymbol();
+        }
+    });
+}
+
+function startReconSymbolsUpdates() {
+    if (reconSymbolsInterval) clearInterval(reconSymbolsInterval);
+    updateReconSymbols();
+    reconSymbolsInterval = setInterval(updateReconSymbols, 8000);
+}
+
+async function updateReconSymbols() {
+    try {
+        const selector = document.getElementById('symbol-selector');
+        const countEl = document.getElementById('symbol-count');
+        const selectedId = selector && selector.value ? selector.value : null;
+        const resp = await fetch('/api/recon-symbols');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const items = (data.symbols || []);
+        symbolList = items;
+
+        // Update selector options
+        if (selector) {
+            const prev = selectedId;
+            selector.innerHTML = '';
+            if (!items.length) {
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = 'No symbols yet';
+                selector.appendChild(opt);
+                currentSymbolIndex = -1;
+            } else {
+                items.forEach((e, i) => {
+                    const opt = document.createElement('option');
+                    opt.value = String(e.symbol_id);
+                    opt.textContent = `Symbol ${e.symbol_id}`;
+                    selector.appendChild(opt);
+                });
+                // Restore previous selection if still present, otherwise select first
+                let idx = 0;
+                if (prev) {
+                    const found = items.findIndex(e => String(e.symbol_id) === String(prev));
+                    if (found >= 0) idx = found;
+                }
+                currentSymbolIndex = idx;
+                selector.value = String(items[idx].symbol_id);
+            }
+        }
+
+        if (countEl) {
+            countEl.textContent = items.length ? `${items.length} symbols` : '';
+        }
+
+        renderSelectedSymbol();
+    } catch (e) {
+        // silent
+    }
+}
+
+function renderSelectedSymbol() {
+    const container = document.getElementById('recon-symbol-selected-container');
+    const selector = document.getElementById('symbol-selector');
+    if (!container) return;
+    if (!symbolList.length || currentSymbolIndex < 0 || currentSymbolIndex >= symbolList.length) {
+        container.innerHTML = '<div class="recon-empty">No symbol reconstructions yet</div>';
+        return;
+    }
+    const entry = symbolList[currentSymbolIndex];
+    const sid = entry.symbol_id;
+    const sample = entry.sample || {};
+    const recon = sample.reconstruction || [];
+    const target = sample.target || [];
+    const dir = sample.direction || '';
+    const symLocal = (sample.message_symbol_local != null) ? sample.message_symbol_local : '-';
+    const symAbs = (sample.message_symbol_abs != null) ? sample.message_symbol_abs : '-';
+    const targetGrid = gridToHtml(target);
+    const reconGrid = gridToHtml(recon);
+    if (selector) selector.value = String(sid);
+    container.innerHTML = `
+        <div class="recon-header">
+            <span><strong>Symbol</strong>: ${sid}</span>
+            <span style="margin-left:8px"><strong>Dir</strong>: ${dir}</span>
+            <span style="margin-left:8px;color:#666"><strong>Local/Abs</strong>: ${symLocal}/${symAbs}</span>
+        </div>
+        <div class="recon-grids">
+            <div class="recon-grid-block">
+                <div class="recon-title">Target</div>
+                ${targetGrid}
+            </div>
+            <div class="recon-grid-block">
+                <div class="recon-title">Reconstruction</div>
+                ${reconGrid}
+            </div>
+        </div>
+    `;
+}
+
+function selectPrevSymbol() {
+    if (!symbolList.length) return;
+    currentSymbolIndex = (currentSymbolIndex - 1 + symbolList.length) % symbolList.length;
+    renderSelectedSymbol();
+}
+
+function selectNextSymbol() {
+    if (!symbolList.length) return;
+    currentSymbolIndex = (currentSymbolIndex + 1) % symbolList.length;
+    renderSelectedSymbol();
 }
 
 function renderReconSample(container, sample) {

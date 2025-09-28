@@ -197,6 +197,20 @@
                 <div id="recon-sample-container" class="recon-container" style="display:none"></div>
             </section>
 
+            <!-- NEW: Latest Reconstruction per Symbol (selector with navigation) -->
+            <section class="recon-section">
+                <h3>Latest Reconstruction per Symbol</h3>
+                <div class="recon-symbols-controls" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+                    <button id="symbol-prev-btn" title="Previous symbol">◀</button>
+                    <select id="symbol-selector" style="min-width:200px">
+                        <option value="">No symbols yet</option>
+                    </select>
+                    <button id="symbol-next-btn" title="Next symbol">▶</button>
+                    <span id="symbol-count" style="color:#666;margin-left:8px"></span>
+                </div>
+                <div id="recon-symbol-selected-container" class="recon-container"></div>
+            </section>
+
             <!-- NEW: Test Scores Section -->
             <section class="scores-section">
                 <h3>Test Scores</h3>

@@ -1116,6 +1116,24 @@ def run_training_phase(trainer, cycles=200):
                                     with open(status_path, 'r') as f:
                                         cur = json.load(f)
                                 cur['last_recon_sample'] = metrics['recon_sample']
+
+                                # Maintain a mapping of the latest reconstruction per symbol
+                                try:
+                                    sample = metrics['recon_sample']
+                                    # Determine symbol identifier preference: absolute, then local
+                                    symbol_id = sample.get('message_symbol_abs')
+                                    if symbol_id is None:
+                                        symbol_id = sample.get('message_symbol_local')
+                                    if symbol_id is not None:
+                                        sym_map = cur.get('symbol_recon_samples')
+                                        if not isinstance(sym_map, dict):
+                                            sym_map = {}
+                                        # Use string keys for consistency in JSON
+                                        sym_map[str(int(symbol_id))] = sample
+                                        cur['symbol_recon_samples'] = sym_map
+                                except Exception:
+                                    # Non-fatal; continue writing status file
+                                    pass
                                 with open(status_path, 'w') as f:
                                     json.dump(cur, f)
                             except Exception:
