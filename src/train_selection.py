@@ -980,6 +980,13 @@ def run_training_phase(trainer, cycles=200):
                     snap_name = ''
                     if isinstance(snap_req, dict):
                         snap_name = snap_req.get('name', '')
+                    # Prefix snapshot name with run title if provided (from global)
+                    try:
+                        rt = (globals().get('global_run_title') or '').strip().replace(' ', '_')
+                        if rt:
+                            snap_name = f"{rt}_{snap_name}" if snap_name else rt
+                    except Exception:
+                        pass
                     out_dir = globals().get('global_output_dir', './outputs')
                     path = trainer.save_snapshot(name=snap_name, directory=out_dir)
                     print(f"[SNAPSHOT] Saved snapshot to {path}")
@@ -1207,7 +1214,9 @@ def run_training_phase(trainer, cycles=200):
                 try:
                     if summary.get('accuracy', 0.0) >= 0.80 or summary.get('correct', 0) >= 160:
                         out_dir = globals().get('global_output_dir', './outputs')
-                        snap_name = f"novel80_phase{trainer.global_phase_count}_cycle{cycles_completed}"
+                        rt = (globals().get('global_run_title') or '').strip().replace(' ', '_')
+                        prefix = f"{rt}_" if rt else ''
+                        snap_name = f"{prefix}novel80_phase{trainer.global_phase_count}_cycle{cycles_completed}"
                         path = trainer.save_snapshot(name=snap_name, directory=out_dir)
                         print(f"[SNAPSHOT] Auto-saved snapshot at >=80% novel accuracy: {path}")
                 except Exception as e:
@@ -1291,7 +1300,9 @@ def run_training_phase(trainer, cycles=200):
             try:
                 if summary.get('accuracy', 0.0) >= 0.80 or summary.get('correct', 0) >= 160:
                     out_dir = globals().get('global_output_dir', './outputs')
-                    snap_name = f"novel80_phase{trainer.global_phase_count}_postGES"
+                    rt = (globals().get('global_run_title') or '').strip().replace(' ', '_')
+                    prefix = f"{rt}_" if rt else ''
+                    snap_name = f"{prefix}novel80_phase{trainer.global_phase_count}_postGES"
                     path = trainer.save_snapshot(name=snap_name, directory=out_dir)
                     print(f"[SNAPSHOT] Auto-saved snapshot at >=80% novel accuracy: {path}")
             except Exception as e:
@@ -2107,9 +2118,13 @@ def main():
     # Create output directory
     os.makedirs(config['output_dir'], exist_ok=True)
     
-    # Expose output_dir globally for live plotting
+    # Expose output_dir and run_title globally for live plotting and snapshots
     global global_output_dir
     global_output_dir = config['output_dir']
+    try:
+        globals()['global_run_title'] = str(config.get('run_title', '') or '')
+    except Exception:
+        globals()['global_run_title'] = ''
     # Propagate retention config
     try:
         # Snapshot retention: attach to trainer after creation below
@@ -2124,7 +2139,9 @@ def main():
         'status': 'starting',
         'progress': 0,
         'current_phase': 'initialization',
-        'message': 'Initializing training...'
+        'message': 'Initializing training...',
+        # NEW: include run title in status for UI display
+        'run_title': config.get('run_title', '')
     }
     with open(args.status_file, 'w') as f:
         json.dump(status, f)

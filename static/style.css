@@ -48,6 +48,17 @@ header h1 {
     backdrop-filter: blur(10px);
 }
 
+/* Run Title display */
+.run-title {
+    margin-left: auto;
+    font-weight: 600;
+    color: #fff;
+    max-width: 40vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* Main Content */
 .main-content {
     display: grid;

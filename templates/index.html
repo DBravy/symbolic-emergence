@@ -17,6 +17,7 @@
             <div class="status-bar">
                 <span id="connection-status">Connected</span>
                 <span id="training-status">Idle</span>
+                <span id="run-title-display" class="run-title"></span>
             </div>
         </header>
 
@@ -52,6 +53,11 @@
 
                 <!-- Basic Config -->
                 <div id="basic-tab" class="tab-content active">
+                    <div class="form-group">
+                        <label for="run_title">Run Title:</label>
+                        <input type="text" id="run_title" placeholder="e.g., Ablation: temp=0.1, seq=1">
+                        <span class="help-text">Optional. Appears in UI, snapshots, and PDF.</span>
+                    </div>
                     <div class="form-group">
                         <label for="max_global_phases">Max Global Phases:</label>
                         <input type="number" id="max_global_phases" min="1" max="1000" value="100">

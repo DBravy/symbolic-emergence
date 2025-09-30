@@ -58,7 +58,9 @@ DEFAULT_CONFIG = {
     'num_symbols': 100,
     'puzzle_symbols': 10,
     'max_seq_length': 1,
-    'output_dir': './outputs'
+    'output_dir': './outputs',
+    # NEW: Optional human-readable title for this training run
+    'run_title': ''
 }
 
 # Runtime training mode control file
@@ -839,7 +841,9 @@ def generate_report():
         return jsonify({'error': 'Matplotlib is not available on the server to generate PDF reports.'}), 500
 
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    report_filename = f'run_report_{timestamp}.pdf'
+    title = (cfg.get('run_title') or '').strip()
+    safe_title = re.sub(r'[^A-Za-z0-9._-]+', '_', title) if title else ''
+    report_filename = f'{safe_title + "_" if safe_title else ""}run_report_{timestamp}.pdf'
 
     # Gather data
     cfg = current_config.copy() if current_config else DEFAULT_CONFIG.copy()
@@ -884,11 +888,13 @@ def generate_report():
         with PdfPages(tmp_path) as pdf:
             # Page 1: Title and configuration summary
             fig = plt.figure(figsize=(8.27, 11.69))  # A4 portrait in inches
-            fig.suptitle('Run Report', fontsize=18, y=0.98)
+            fig.suptitle(title if title else 'Run Report', fontsize=18, y=0.98)
             ax = fig.add_axes([0.08, 0.08, 0.84, 0.84])
             ax.axis('off')
 
             lines = []
+            if title:
+                lines.append(f'Title: {title}')
             lines.append(f'Date: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
             lines.append('')
             lines.append('Configuration:')

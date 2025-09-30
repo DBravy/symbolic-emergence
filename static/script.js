@@ -45,6 +45,11 @@ function populateConfigForm() {
             element.value = value;
         }
     }
+    // Also update run title display if present
+    const display = document.getElementById('run-title-display');
+    if (display && currentConfig.run_title) {
+        display.textContent = currentConfig.run_title;
+    }
 }
 
 async function saveConfig() {
@@ -54,7 +59,9 @@ async function saveConfig() {
         'max_global_phases', 'initial_puzzle_count', 'training_cycles', 
         'first_training_cycles', 'puzzles_per_addition', 'learning_rate', 'num_distractors',
         'distractor_strategy', 'phase_change_indicator', 'early_stop_min_cycles', 
-        'consolidation_threshold', 'embedding_dim', 'hidden_dim', 'num_symbols', 'puzzle_symbols'
+        'consolidation_threshold', 'embedding_dim', 'hidden_dim', 'num_symbols', 'puzzle_symbols',
+        // NEW: run title
+        'run_title'
     ];
     
     formElements.forEach(id => {
@@ -145,6 +152,11 @@ async function startTraining() {
             // Update UI to show running state
             document.getElementById('training-status').textContent = 'Running';
             document.getElementById('training-status').classList.add('running');
+            const display = document.getElementById('run-title-display');
+            if (display) {
+                const titleInput = document.getElementById('run_title');
+                display.textContent = titleInput && titleInput.value ? titleInput.value : (currentConfig.run_title || '');
+            }
             
             // Clear score UI for new run
             clearScoreUI();
@@ -229,6 +241,10 @@ async function updateStatus() {
             document.getElementById('current-phase').textContent = info.current_phase || 'Unknown';
             document.getElementById('progress-detail').textContent = `${info.progress || 0}%`;
             document.getElementById('status-message').textContent = info.message || 'No message';
+            const titleDisplay = document.getElementById('run-title-display');
+            if (titleDisplay) {
+                titleDisplay.textContent = (info.run_title || currentConfig.run_title || '').trim();
+            }
             
             // Update progress bar
             const progressFill = document.getElementById('progress-fill');
