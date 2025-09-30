@@ -163,8 +163,8 @@ class ProgressiveDecoder(nn.Module):
         
         self.input_projection = nn.Linear(embedding_dim, hidden_dim) if embedding_dim != hidden_dim else nn.Identity()
         
-        # SIZE REFINEMENT: Each token refines size estimate
-        self.size_state_init = nn.Parameter(torch.randn(1, hidden_dim) * 0.02)
+        # SIZE REFINEMENT: First token defines base, rest refine
+        # NO size_state_init parameter - removed!
         self.size_refinement_layers = nn.ModuleList([
             SizeRefinementLayer(hidden_dim) for _ in range(num_refinements)
         ])
@@ -182,18 +182,25 @@ class ProgressiveDecoder(nn.Module):
 
     def forward(self, message, temperature=1.0, force_target_size=None):
         batch_size = message.size(0)
-        message = self.input_projection(message)
+        message = self.input_projection(message)  # [B, seq_len, hidden_dim]
         
         # PHASE 1: Iteratively refine size with each token
-        size_state = self.size_state_init.expand(batch_size, -1)
+        # First token defines the initial size estimate
+        size_state = message[:, 0, :]  # [B, hidden_dim]
         size_history = []
         
-        for i in range(message.size(1)):
+        # First token's size prediction
+        h_logits = self.height_head(size_state)
+        w_logits = self.width_head(size_state)
+        size_history.append((h_logits, w_logits))
+        
+        # Subsequent tokens refine the size estimate
+        for i in range(1, message.size(1)):
             token = message[:, i:i+1]  # [B, 1, D]
-            size_state = self.size_refinement_layers[i % len(self.size_refinement_layers)](
+            size_state = self.size_refinement_layers[(i-1) % len(self.size_refinement_layers)](
                 size_state, token
             )
-            # Track intermediate size predictions
+            # Track refined size predictions
             h_logits = self.height_head(size_state)
             w_logits = self.width_head(size_state)
             size_history.append((h_logits, w_logits))
@@ -208,7 +215,7 @@ class ProgressiveDecoder(nn.Module):
             height = height_logits.argmax(dim=-1) + 1
             width = width_logits.argmax(dim=-1) + 1
         
-        # PHASE 2: Iteratively refine content with each token
+        # PHASE 2: Iteratively refine content with ALL tokens
         grid = self.grid_embedding.expand(batch_size, height.item(), width.item(), self.hidden_dim)
         grid = self.pos_encoder(grid)
         
