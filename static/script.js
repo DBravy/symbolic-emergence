@@ -682,13 +682,10 @@ function startReconSampleUpdates() {
 
 async function updateReconSample() {
     try {
-        const modeResp = await fetch('/api/training-mode');
-        const modeData = await modeResp.json();
-        const isRecon = (modeData.mode === 'reconstruction');
         const container = document.getElementById('recon-sample-container');
         if (!container) return;
-        container.style.display = isRecon ? 'block' : 'none';
-        if (!isRecon) return;
+        // Always show the container regardless of mode; samples are produced periodically in all modes
+        container.style.display = 'block';
         const resp = await fetch('/api/recon-sample');
         if (!resp.ok) return;
         const data = await resp.json();

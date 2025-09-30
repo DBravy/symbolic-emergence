@@ -30,6 +30,44 @@ class GradientAttenuationHook:
     def __call__(self, grad):
         return grad * self.scale if grad is not None else None
 
+class QueryRefinementLayer(nn.Module):
+    """Refines query representation using current message token"""
+    def __init__(self, embedding_dim):
+        super().__init__()
+        self.embedding_dim = embedding_dim
+        
+        self.token_projection = nn.Sequential(
+            nn.Linear(embedding_dim, embedding_dim),
+            nn.LayerNorm(embedding_dim),
+            nn.ReLU()
+        )
+        
+        self.update_network = nn.Sequential(
+            nn.Linear(embedding_dim * 2, embedding_dim * 2),
+            nn.LayerNorm(embedding_dim * 2),
+            nn.ReLU(),
+            nn.Linear(embedding_dim * 2, embedding_dim)
+        )
+        
+        self.norm = nn.LayerNorm(embedding_dim)
+    
+    def forward(self, query_state, token):
+        # query_state: [B, D] - current query representation
+        # token: [B, D] - new token embedding
+        
+        token = self.token_projection(token)
+        
+        # Concatenate current state with new token
+        combined = torch.cat([query_state, token], dim=-1)
+        
+        # Compute update
+        update = self.update_network(combined)
+        
+        # Residual update
+        new_state = self.norm(query_state + update)
+        
+        return new_state
+
 class ProgressiveSelectionAgent(nn.Module):
     def __init__(
         self, 
@@ -67,7 +105,10 @@ class ProgressiveSelectionAgent(nn.Module):
         self.communication_vocabulary = set(range(self.current_total_symbols))
         self.puzzle_vocabulary = set(range(puzzle_symbols))
         
-        # ... rest of the __init__ method remains the same until the end ...
+        self.query_state_init = nn.Parameter(torch.randn(1, embedding_dim) * 0.02)
+        self.query_refinement_layers = nn.ModuleList([
+            QueryRefinementLayer(embedding_dim) for _ in range(3)  # Match decoder refinements
+        ])
         
         # Puzzle embedding (for converting grids to continuous representations)
         self.embedding_system = PuzzleEmbedding(
@@ -496,32 +537,37 @@ class ProgressiveSelectionAgent(nn.Module):
 
     def encode_message_to_embedding(self, message: torch.Tensor) -> torch.Tensor:
         """
-        NEW: Convert a message (symbol probabilities) to a single embedding vector.
-        This is used by the receiver to create a message representation for comparison.
+        Iteratively refine query representation with each message token.
         
         Args:
             message: [batch_size, seq_len, num_comm_symbols] - symbol probabilities
             
         Returns:
-            message_embedding: [batch_size, embedding_dim] - single message representation
+            query_embedding: [batch_size, embedding_dim] - refined query
         """
-        # Get communication embeddings for current vocabulary
+        batch_size = message.size(0)
+        
+        # Get communication embeddings
         current_comm_embeddings = self.communication_embedding.weight[
             self.puzzle_symbols:self.current_total_symbols
         ]
         
-        # Convert message to embeddings: [batch, seq, num_comm] @ [num_comm, embed_dim] 
-        # = [batch, seq, embed_dim]
+        # Convert message to embeddings
         message_embeddings = torch.matmul(message, current_comm_embeddings)
+        # [batch, seq_len, embedding_dim]
         
-        # Pool sequence dimension to get single message embedding
-        # Options: mean, max, attention-based, learned pooling
-        pooled_message = message_embeddings.mean(dim=1)  # Simple mean pooling
+        # Initialize query state
+        query_state = self.query_state_init.expand(batch_size, -1)  # [B, D]
         
-        # Apply learned transformation
-        message_embedding = self.message_pooling(pooled_message)
+        # Iteratively refine with each token (NO POOLING)
+        for i in range(message_embeddings.size(1)):
+            token = message_embeddings[:, i, :]  # [B, D]
+            query_state = self.query_refinement_layers[i % len(self.query_refinement_layers)](
+                query_state, token
+            )
         
-        return message_embedding
+        # Final query representation (from last token's refinement)
+        return query_state
 
     def encode_puzzle_to_embedding(self, puzzle_grid: torch.Tensor) -> torch.Tensor:
         """

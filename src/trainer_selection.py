@@ -1179,6 +1179,37 @@ class ProgressiveSelectionTrainer:
                 'target_has_mapping': has_symbol_mapping
             }
             
+            # Emit a lightweight reconstruction sample intermittently even in selection mode
+            # This allows the UI to always display latest reconstructions while background decoding trains
+            self._recon_step_counter += 1
+            try:
+                if self._recon_step_counter % max(1, int(self.recon_sample_interval)) == 0:
+                    with torch.no_grad():
+                        target_tensor = puzzle
+                        # Top-1 symbol from Agent1's message
+                        local_sym1 = int(symbols1[0, 0].argmax().item()) if symbols1.dim() == 3 else 0
+                        abs_sym1 = int(self.agent1.puzzle_symbols + local_sym1)
+                        # Decode using Agent2's decoder
+                        comm_emb_a2 = self.agent2.communication_embedding.weight[
+                            self.agent2.puzzle_symbols:self.agent2.current_total_symbols
+                        ]
+                        embedded_msg1 = torch.matmul(symbols1, comm_emb_a2)
+                        logits_sel, _, _, _ = self.agent2.decoder(embedded_msg1, temperature=1.0)
+                        Bp, Hp, Wp, Cp = logits_sel.shape
+                        Ht, Wt = int(target_tensor.shape[1]), int(target_tensor.shape[2])
+                        Hc, Wc = min(Hp, Ht), min(Wp, Wt)
+                        tgt_np = target_tensor[0, :Hc, :Wc].detach().cpu().long().numpy().tolist()
+                        pred_np = logits_sel[0, :Hc, :Wc, :].argmax(dim=-1).detach().cpu().long().numpy().tolist()
+                        metrics['recon_sample'] = {
+                            'direction': 'A1_to_A2',
+                            'message_symbol_local': local_sym1,
+                            'message_symbol_abs': abs_sym1,
+                            'target': tgt_np,
+                            'reconstruction': pred_np
+                        }
+            except Exception:
+                pass
+            
             metrics_history.append(metrics)
             
             # === NEW: If background decoder training is enabled, enqueue successful communications ===

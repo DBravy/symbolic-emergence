@@ -113,74 +113,108 @@ class RefinementLayer(nn.Module):
         
         return updated_grid, confidence
 
+class SizeRefinementLayer(nn.Module):
+    """Refines size estimate using current token"""
+    def __init__(self, hidden_dim):
+        super().__init__()
+        self.hidden_dim = hidden_dim
+        
+        self.token_projection = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.ReLU()
+        )
+        
+        self.update_network = nn.Sequential(
+            nn.Linear(hidden_dim * 2, hidden_dim * 2),  # Concat state + token
+            nn.LayerNorm(hidden_dim * 2),
+            nn.ReLU(),
+            nn.Linear(hidden_dim * 2, hidden_dim)
+        )
+        
+        self.norm = nn.LayerNorm(hidden_dim)
+    
+    def forward(self, size_state, token):
+        # size_state: [B, D] - current size estimate
+        # token: [B, 1, D] - new information
+        
+        token = token.squeeze(1)  # [B, D]
+        token = self.token_projection(token)
+        
+        # Concatenate current state with new token
+        combined = torch.cat([size_state, token], dim=-1)  # [B, 2D]
+        
+        # Compute update
+        update = self.update_network(combined)  # [B, D]
+        
+        # Residual update
+        new_state = self.norm(size_state + update)
+        
+        return new_state
+
 class ProgressiveDecoder(nn.Module):
-    def __init__(self, embedding_dim: int, hidden_dim: int, puzzle_symbols: int,
-                 max_height: int = 30, max_width: int = 30, num_refinements: int = 3):
+    def __init__(self, embedding_dim, hidden_dim, puzzle_symbols,
+                 max_height=30, max_width=30, num_refinements=3):
         super().__init__()
         self.hidden_dim = hidden_dim
         self.puzzle_symbols = puzzle_symbols
         self.max_height = max_height
         self.max_width = max_width
         
-        # Project message tokens to hidden dimension
         self.input_projection = nn.Linear(embedding_dim, hidden_dim) if embedding_dim != hidden_dim else nn.Identity()
         
-        # Grid positional encoding
-        self.pos_encoder = GridPositionalEncoding(hidden_dim, max_height, max_width)
+        # SIZE REFINEMENT: Each token refines size estimate
+        self.size_state_init = nn.Parameter(torch.randn(1, hidden_dim) * 0.02)
+        self.size_refinement_layers = nn.ModuleList([
+            SizeRefinementLayer(hidden_dim) for _ in range(num_refinements)
+        ])
+        self.height_head = nn.Linear(hidden_dim, max_height)
+        self.width_head = nn.Linear(hidden_dim, max_width)
         
-        # Add size prediction network
-        self.size_predictor = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.LayerNorm(hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, 2 * hidden_dim),
-            nn.LayerNorm(2 * hidden_dim),
-            nn.ReLU(),
-            nn.Linear(2 * hidden_dim, max_height + max_width)  # Outputs logits for height and width
-        )
-        
-        # Learnable initial grid embedding
+        # CONTENT REFINEMENT: After size is determined
         self.grid_embedding = nn.Parameter(torch.randn(1, 1, 1, hidden_dim) * 0.02)
-        
-        # Refinement layers
+        self.pos_encoder = GridPositionalEncoding(hidden_dim, max_height, max_width)
         self.refinement_layers = nn.ModuleList([
             RefinementLayer(hidden_dim) for _ in range(num_refinements)
         ])
         
-        # Output projection
         self.output = nn.Linear(hidden_dim, puzzle_symbols)
 
-    def forward(self, message: torch.Tensor, temperature: float = 1.0, force_target_size: Optional[Tuple[int, int]] = None) -> Tuple[torch.Tensor, List[torch.Tensor], List[torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]:
+    def forward(self, message, temperature=1.0, force_target_size=None):
         batch_size = message.size(0)
-        
-        # Project message tokens
         message = self.input_projection(message)
         
-        # Predict grid size from message
-        # Pool message sequence to single vector using mean
-        message_pooled = message.mean(dim=1)  # [batch_size, hidden_dim]
-        size_logits = self.size_predictor(message_pooled)  # [batch_size, max_height + max_width]
+        # PHASE 1: Iteratively refine size with each token
+        size_state = self.size_state_init.expand(batch_size, -1)
+        size_history = []
         
-        # Split logits into height and width
-        height_logits = size_logits[:, :self.max_height]  # [batch_size, max_height]
-        width_logits = size_logits[:, self.max_height:]   # [batch_size, max_width]
+        for i in range(message.size(1)):
+            token = message[:, i:i+1]  # [B, 1, D]
+            size_state = self.size_refinement_layers[i % len(self.size_refinement_layers)](
+                size_state, token
+            )
+            # Track intermediate size predictions
+            h_logits = self.height_head(size_state)
+            w_logits = self.width_head(size_state)
+            size_history.append((h_logits, w_logits))
         
-        # Get predicted dimensions using argmax, unless a target size is provided
+        # Final size prediction (from last token's refinement)
+        height_logits, width_logits = size_history[-1]
+        
         if force_target_size is not None:
             height = torch.tensor([force_target_size[0]], device=message.device)
             width = torch.tensor([force_target_size[1]], device=message.device)
         else:
-            height = height_logits.argmax(dim=-1) + 1  # Add 1 since sizes are 1-based
+            height = height_logits.argmax(dim=-1) + 1
             width = width_logits.argmax(dim=-1) + 1
         
-        # Initialize grid with chosen size (supports batch_size==1)
+        # PHASE 2: Iteratively refine content with each token
         grid = self.grid_embedding.expand(batch_size, height.item(), width.item(), self.hidden_dim)
-        grid = self.pos_encoder(grid)  # Position encoding will adapt to predicted size
+        grid = self.pos_encoder(grid)
         
         intermediate_outputs = []
         confidence_scores = []
         
-        # Process each message token sequentially
         for i in range(message.size(1)):
             token = message[:, i:i+1]
             grid, confidence = self.refinement_layers[i % len(self.refinement_layers)](grid, token)
@@ -188,7 +222,6 @@ class ProgressiveDecoder(nn.Module):
             intermediate_outputs.append(intermediate_logits)
             confidence_scores.append(confidence)
         
-        # Final output logits
         final_logits = self.output(grid) / temperature
         
         return final_logits, intermediate_outputs, confidence_scores, (height_logits, width_logits)
