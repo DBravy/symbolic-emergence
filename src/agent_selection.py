@@ -567,7 +567,8 @@ class ProgressiveSelectionAgent(nn.Module):
                 query_state, token
             )
         
-        return query_state
+        return self.message_pooling(query_state)
+
 
     def encode_puzzle_to_embedding(self, puzzle_grid: torch.Tensor) -> torch.Tensor:
         """
