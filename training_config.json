@@ -13,7 +13,7 @@
   "distractor_strategy": "random",
   "phase_change_indicator": "ges",
   "learning_rate": 7e-07,
-  "embedding_dim": 2048,
+  "embedding_dim": 512,
   "hidden_dim": 1024,
   "num_symbols": 100,
   "puzzle_symbols": 10,
@@ -21,6 +21,6 @@
   "output_dir": "./outputs",
   "early_stop_min_cycles": 5,
   "consolidation_threshold": 0.3,
-  "current_seq_length": 1,
+  "current_seq_length": 2,
   "run_title": ""
 }
