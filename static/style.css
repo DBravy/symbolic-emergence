@@ -56,6 +56,68 @@ header h1 {
     margin-bottom: 30px;
 }
 
+.recon-display {
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.recon-display.size-match {
+    background: #f0f9ff;
+    border: 2px solid #4CAF50;
+}
+
+.recon-display.size-mismatch {
+    background: #fff4e6;
+    border: 2px solid #ff9800;
+}
+
+.recon-header {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.recon-grids {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.recon-grid-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+}
+
+.recon-title {
+    font-weight: bold;
+    font-size: 14px;
+    color: #333;
+}
+
+.size-warning {
+    color: #ff9800;
+    font-weight: bold;
+    padding: 4px 8px;
+    background: rgba(255, 152, 0, 0.1);
+    border-radius: 4px;
+}
+
+.grid {
+    border: 2px solid #333;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.cell {
+    border: 1px solid rgba(0,0,0,0.1);
+}
+
 /* Sections */
 section {
     background: white;

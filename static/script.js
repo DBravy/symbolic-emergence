@@ -788,23 +788,36 @@ function renderSelectedSymbol() {
     const dir = sample.direction || '';
     const symLocal = (sample.message_symbol_local != null) ? sample.message_symbol_local : '-';
     const symAbs = (sample.message_symbol_abs != null) ? sample.message_symbol_abs : '-';
+    
+    // Get sizes - use actual grid dimensions as fallback
+    const targetSize = sample.target_size || [target.length, target[0]?.length || 0];
+    const predSize = sample.predicted_size || [recon.length, recon[0]?.length || 0];
+    const sizeMatch = targetSize[0] === predSize[0] && targetSize[1] === predSize[1];
+    
     const targetGrid = gridToHtml(target);
     const reconGrid = gridToHtml(recon);
+    
+    const sizeClass = sizeMatch ? 'size-match' : 'size-mismatch';
+    const sizeWarning = !sizeMatch ? '<div class="size-warning">⚠ Size Mismatch!</div>' : '';
+    
     if (selector) selector.value = String(sid);
     container.innerHTML = `
-        <div class="recon-header">
-            <span><strong>Symbol</strong>: ${sid}</span>
-            <span style="margin-left:8px"><strong>Dir</strong>: ${dir}</span>
-            <span style="margin-left:8px;color:#666"><strong>Local/Abs</strong>: ${symLocal}/${symAbs}</span>
-        </div>
-        <div class="recon-grids">
-            <div class="recon-grid-block">
-                <div class="recon-title">Target</div>
-                ${targetGrid}
+        <div class="recon-display ${sizeClass}">
+            <div class="recon-header">
+                <span><strong>Symbol</strong>: ${sid}</span>
+                <span style="margin-left:8px"><strong>Dir</strong>: ${dir}</span>
+                <span style="margin-left:8px;color:#666"><strong>Local/Abs</strong>: ${symLocal}/${symAbs}</span>
+                ${sizeWarning}
             </div>
-            <div class="recon-grid-block">
-                <div class="recon-title">Reconstruction</div>
-                ${reconGrid}
+            <div class="recon-grids">
+                <div class="recon-grid-block">
+                    <div class="recon-title">Target (${targetSize[0]}×${targetSize[1]})</div>
+                    ${targetGrid}
+                </div>
+                <div class="recon-grid-block">
+                    <div class="recon-title">Reconstruction (${predSize[0]}×${predSize[1]})</div>
+                    ${reconGrid}
+                </div>
             </div>
         </div>
     `;
@@ -832,21 +845,34 @@ function renderReconSample(container, sample) {
     const dir = sample.direction || '';
     const symLocal = (sample.message_symbol_local != null) ? sample.message_symbol_local : '-';
     const symAbs = (sample.message_symbol_abs != null) ? sample.message_symbol_abs : '-';
+    
+    // Get sizes - use actual grid dimensions as fallback
+    const targetSize = sample.target_size || [target.length, target[0]?.length || 0];
+    const predSize = sample.predicted_size || [recon.length, recon[0]?.length || 0];
+    const sizeMatch = targetSize[0] === predSize[0] && targetSize[1] === predSize[1];
+    
     const targetGrid = gridToHtml(target);
     const reconGrid = gridToHtml(recon);
+    
+    const sizeClass = sizeMatch ? 'size-match' : 'size-mismatch';
+    const sizeWarning = !sizeMatch ? '<div class="size-warning">⚠ Size Mismatch!</div>' : '';
+    
     container.innerHTML = `
-        <div class="recon-header">
-            <span><strong>Direction</strong>: ${dir}</span>
-            <span><strong>Symbol</strong>: local=${symLocal}, abs=${symAbs}</span>
-        </div>
-        <div class="recon-grids">
-            <div class="recon-grid-block">
-                <div class="recon-title">Target</div>
-                ${targetGrid}
+        <div class="recon-display ${sizeClass}">
+            <div class="recon-header">
+                <span><strong>Direction</strong>: ${dir}</span>
+                <span><strong>Symbol</strong>: local=${symLocal}, abs=${symAbs}</span>
+                ${sizeWarning}
             </div>
-            <div class="recon-grid-block">
-                <div class="recon-title">Reconstruction</div>
-                ${reconGrid}
+            <div class="recon-grids">
+                <div class="recon-grid-block">
+                    <div class="recon-title">Target (${targetSize[0]}×${targetSize[1]})</div>
+                    ${targetGrid}
+                </div>
+                <div class="recon-grid-block">
+                    <div class="recon-title">Reconstruction (${predSize[0]}×${predSize[1]})</div>
+                    ${reconGrid}
+                </div>
             </div>
         </div>
     `;

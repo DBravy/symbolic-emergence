@@ -1197,15 +1197,17 @@ class ProgressiveSelectionTrainer:
                         logits_sel, _, _, _ = self.agent2.decoder(embedded_msg1, temperature=1.0)
                         Bp, Hp, Wp, Cp = logits_sel.shape
                         Ht, Wt = int(target_tensor.shape[1]), int(target_tensor.shape[2])
-                        Hc, Wc = min(Hp, Ht), min(Wp, Wt)
-                        tgt_np = target_tensor[0, :Hc, :Wc].detach().cpu().long().numpy().tolist()
-                        pred_np = logits_sel[0, :Hc, :Wc, :].argmax(dim=-1).detach().cpu().long().numpy().tolist()
+                        # Don't crop - show full grids at their actual sizes
+                        tgt_np = target_tensor[0].detach().cpu().long().numpy().tolist()
+                        pred_np = logits_sel[0].argmax(dim=-1).detach().cpu().long().numpy().tolist()
                         metrics['recon_sample'] = {
                             'direction': 'A1_to_A2',
                             'message_symbol_local': local_sym1,
                             'message_symbol_abs': abs_sym1,
                             'target': tgt_np,
-                            'reconstruction': pred_np
+                            'reconstruction': pred_np,
+                            'target_size': [Ht, Wt],
+                            'predicted_size': [Hp, Wp]
                         }
             except Exception:
                 pass
@@ -1344,15 +1346,17 @@ class ProgressiveSelectionTrainer:
         recon_sample = None
         try:
             if self._recon_step_counter % max(1, int(self.recon_sample_interval)) == 0:
-                # Prefer logging A1->A2 sample
+                # FIXED: Show full grids at their actual sizes, not cropped
                 tgt_np = target_tensor[0].detach().cpu().long().numpy().tolist()
-                pred_np = logits1[0, :Hc1, :Wc1, :].argmax(dim=-1).detach().cpu().long().numpy().tolist()
+                pred_np = logits1[0].argmax(dim=-1).detach().cpu().long().numpy().tolist()
                 recon_sample = {
                     'direction': 'A1_to_A2',
                     'message_symbol_local': local_sym1,
                     'message_symbol_abs': abs_sym1,
                     'target': tgt_np,
-                    'reconstruction': pred_np
+                    'reconstruction': pred_np,
+                    'target_size': [Ht, Wt],
+                    'predicted_size': [Hp1, Wp1]
                 }
         except Exception:
             recon_sample = None
