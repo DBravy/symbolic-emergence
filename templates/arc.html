@@ -20,9 +20,8 @@
     <div class="container">
         <header>
             <h1>ARC Solving</h1>
-            <nav class="top-nav">
-                <a href="/">Communication Protocol</a>
-                <a href="/arc">ARC Solving</a>
+            <nav class="top-nav" id="phase-nav">
+                <!-- Navigation will be populated by JavaScript -->
             </nav>
         </header>
 
@@ -44,6 +43,23 @@
     </div>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
     <script>
+    // Populate navigation
+    const phases = {{ phases | tojson }};
+    const nav = document.getElementById('phase-nav');
+    phases.forEach((p, idx) => {
+        const a = document.createElement('a');
+        if (p.id === 0) {
+            a.href = '/';
+        } else if (p.type === 'final') {
+            a.href = '/arc';
+            a.className = 'active';  // Mark ARC as active on this page
+        } else {
+            a.href = `/phase/${p.id}`;
+        }
+        a.textContent = p.name;
+        nav.appendChild(a);
+    });
+    
     document.addEventListener('DOMContentLoaded', function() {
         refreshSnapshots();
     });

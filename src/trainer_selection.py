@@ -138,6 +138,8 @@ class ProgressiveSelectionTrainer:
         self.early_stop_enabled = True
         self.early_stop_min_cycles = 5
         self.early_stop_ges_threshold = 100
+        # Track which positions are frozen (progressive training)
+        self.frozen_positions = []
         self.early_stop_force = False
         self.early_stop_triggered_once = False
         
@@ -1928,6 +1930,14 @@ class ProgressiveSelectionTrainer:
         state = {
             'agent1_state_dict': self.agent1.state_dict(),
             'agent2_state_dict': self.agent2.state_dict(),
+            'architecture': {
+                'embedding_dim': getattr(self.agent1, 'embedding_dim', getattr(self.agent1, 'encoder', None) and getattr(self.agent1.encoder, 'embedding_dim', None)),
+                'hidden_dim': getattr(self.agent1, 'hidden_dim', None),
+                'num_symbols': getattr(self.agent1, 'max_num_symbols', None),
+                'puzzle_symbols': getattr(self.agent1, 'puzzle_symbols', None),
+                'max_seq_length': getattr(self.agent1, 'max_seq_length', None),
+                'similarity_metric': getattr(self.agent1, 'similarity_metric', None),
+            },
             'trainer_state': {
                 'current_phase': self.current_phase,
                 'phase_cycle': self.phase_cycle,
@@ -1942,6 +1952,8 @@ class ProgressiveSelectionTrainer:
                 'current_comm_symbols_a2': getattr(self.agent2, 'current_comm_symbols', None),
                 'current_total_symbols_a1': getattr(self.agent1, 'current_total_symbols', None),
                 'current_total_symbols_a2': getattr(self.agent2, 'current_total_symbols', None),
+                'current_seq_length': getattr(self.agent1, 'current_seq_length', None),
+                'frozen_positions': getattr(self, 'frozen_positions', []),
                 'initial_puzzle_count': self.initial_puzzle_count,
                 'initial_comm_symbols': self.initial_comm_symbols,
                 'repetition_per_puzzle': self.repetitions_per_puzzle,

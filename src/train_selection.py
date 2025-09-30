@@ -2109,6 +2109,10 @@ def parse_args():
                        help='Disable live plotting for web interface')
     parser.add_argument('--control-file', type=str, default='training_control.json',
                        help='Path to control file for runtime mode toggles')
+    parser.add_argument('--resume-from', type=str, default='',
+                       help='Path to snapshot file to resume from')
+    parser.add_argument('--freeze-positions', type=str, default='',
+                       help='Comma-separated list of positions to freeze at start (e.g., 0 or 0,1)')
     return parser.parse_args()
 
 def main():
@@ -2221,6 +2225,18 @@ def main():
     trainer.early_stop_force = False
     # Set min cycles before GES triggers from config
     trainer.early_stop_min_cycles = config.get('early_stop_min_cycles', trainer.early_stop_min_cycles)
+
+    # === Apply progressive sequence configuration ===
+    try:
+        # Set architecture capacity is already passed via Agent(max_seq_length)
+        # Apply active current sequence length for this phase
+        sender.current_seq_length = int(config.get('current_seq_length', getattr(sender, 'current_seq_length', 1)) or 1)
+        receiver.current_seq_length = int(config.get('current_seq_length', getattr(receiver, 'current_seq_length', 1)) or 1)
+        # Sanity bound
+        sender.current_seq_length = max(1, min(sender.current_seq_length, sender.max_seq_length))
+        receiver.current_seq_length = max(1, min(receiver.current_seq_length, receiver.max_seq_length))
+    except Exception:
+        pass
     max_global_phases = config['max_global_phases']
     first_pretrain_epochs = config['first_pretrain_epochs']
     pretrain_epochs = config['pretrain_epochs']
@@ -2239,6 +2255,36 @@ def main():
     # Set puzzle dataset and initialize first puzzles
     trainer.set_puzzle_dataset(all_puzzles)
     trainer.initialize_first_puzzles()  # NEW: No parameter needed, uses trainer's configuration
+
+    # === Resume from snapshot if provided ===
+    if args.resume_from:
+        try:
+            snapshot = torch.load(args.resume_from, map_location=device)
+            trainer.agent1.load_state_dict(snapshot['agent1_state_dict'])
+            trainer.agent2.load_state_dict(snapshot['agent2_state_dict'])
+            frozen = (snapshot.get('trainer_state', {}) or {}).get('frozen_positions', [])
+            if frozen:
+                trainer.agent1.freeze_positions(frozen)
+                trainer.agent2.freeze_positions(frozen)
+                trainer.frozen_positions = list(frozen)
+                print(f"Loaded snapshot with frozen positions: {frozen}")
+        except Exception as e:
+            print(f"Warning: failed to resume from snapshot: {e}")
+
+    # === Apply explicit freezing if requested ===
+    if getattr(args, 'freeze_positions', ''):
+        try:
+            parts = [p.strip() for p in str(args.freeze_positions).split(',') if p.strip() != '']
+            positions = sorted({int(p) for p in parts})
+            if positions:
+                trainer.agent1.freeze_positions(positions)
+                trainer.agent2.freeze_positions(positions)
+                # Merge with any existing frozen positions
+                merged = sorted(set(getattr(trainer, 'frozen_positions', []) + positions))
+                trainer.frozen_positions = merged
+                print(f"Explicitly froze positions at start: {positions}")
+        except Exception as e:
+            print(f"Warning: failed to apply explicit freeze positions: {e}")
     
     # Update live grapher with correct initial symbol count
     if live_grapher:

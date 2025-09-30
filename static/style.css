@@ -26,8 +26,8 @@ header {
     border-radius: 10px;
     margin-bottom: 30px;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 15px;
 }
 
 header h1 {
@@ -39,6 +39,8 @@ header h1 {
     display: flex;
     gap: 20px;
     font-size: 1.1em;
+    flex-wrap: wrap;
+    align-items: center;
 }
 
 .status-bar span {
@@ -562,4 +564,146 @@ button:disabled {
 
 .text-warning {
     color: #ff9800;
+}
+
+/* Phase Management */
+.phase-management-section {
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    grid-column: 1 / -1;
+}
+
+.phase-help-text {
+    color: #666;
+    margin-bottom: 20px;
+    font-size: 0.95em;
+}
+
+.phase-list {
+    margin: 20px 0;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.phase-item {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e0e0e0;
+    background: white;
+    transition: background 0.2s;
+}
+
+.phase-item:last-child {
+    border-bottom: none;
+}
+
+.phase-item:hover {
+    background: #f9f9f9;
+}
+
+.phase-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 50%;
+    font-weight: bold;
+    margin-right: 16px;
+}
+
+.phase-name {
+    flex: 1;
+    font-size: 1.1em;
+    font-weight: 500;
+    color: #333;
+}
+
+.phase-type {
+    padding: 4px 12px;
+    background: #e8eaf6;
+    color: #5c6bc0;
+    border-radius: 12px;
+    font-size: 0.85em;
+    text-transform: capitalize;
+    margin-right: 12px;
+}
+
+.phase-type::before {
+    content: '🏷️ ';
+}
+
+.phase-item-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.phase-item-actions button {
+    padding: 6px 12px;
+    border: none;
+    background: #f5f5f5;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 1em;
+}
+
+.phase-item-actions button:hover {
+    background: #e0e0e0;
+    transform: translateY(-2px);
+}
+
+.phase-actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 12px;
+}
+
+.phase-actions button {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.phase-actions button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* Navigation updates for phases */
+.top-nav {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.top-nav a {
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    text-decoration: none;
+    border-radius: 20px;
+    transition: all 0.2s;
+    backdrop-filter: blur(10px);
+}
+
+.top-nav a:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.top-nav a.active {
+    background: rgba(255, 255, 255, 0.4);
+    font-weight: 600;
 }

@@ -1,0 +1,20 @@
+[
+  {
+    "id": 0,
+    "name": "Communication Protocol",
+    "type": "base",
+    "route": "phase_0"
+  },
+  {
+    "id": 1,
+    "name": "Phase 1",
+    "type": "intermediate",
+    "route": "phase_1"
+  },
+  {
+    "id": "arc",
+    "name": "ARC Solving",
+    "type": "final",
+    "route": "arc"
+  }
+]

@@ -15,6 +15,7 @@ import re
 from collections import deque
 import tempfile
 import textwrap
+import torch
 
 # Use non-interactive backend for matplotlib
 try:
@@ -34,6 +35,14 @@ current_process = None
 current_config = {}
 training_log = []
 debug_info = []
+
+# Phase management
+PHASES_FILE = 'training_phases.json'
+DEFAULT_PHASES = [
+    {'id': 0, 'name': 'Communication Protocol', 'type': 'base', 'route': 'phase_0'},
+    {'id': 'arc', 'name': 'ARC Solving', 'type': 'final', 'route': 'arc'}
+]
+current_phases = []
 
 # Default configuration
 DEFAULT_CONFIG = {
@@ -57,7 +66,8 @@ DEFAULT_CONFIG = {
     'hidden_dim': 1024,
     'num_symbols': 100,
     'puzzle_symbols': 10,
-    'max_seq_length': 1,
+    'max_seq_length': 10,
+    'current_seq_length': 1,
     'output_dir': './outputs',
     # NEW: Optional human-readable title for this training run
     'run_title': ''
@@ -81,13 +91,67 @@ def log_debug(message):
     if len(debug_info) > 500:
         debug_info.pop(0)
 
+def load_phases():
+    """Load phases from file or return defaults"""
+    global current_phases
+    if os.path.exists(PHASES_FILE):
+        try:
+            with open(PHASES_FILE, 'r') as f:
+                current_phases = json.load(f)
+            log_debug(f"Loaded {len(current_phases)} phases from file")
+        except Exception as e:
+            log_debug(f"Error loading phases: {e}, using defaults")
+            current_phases = DEFAULT_PHASES.copy()
+    else:
+        current_phases = DEFAULT_PHASES.copy()
+    return current_phases
+
+def save_phases(phases):
+    """Save phases to file"""
+    global current_phases
+    current_phases = phases
+    try:
+        with open(PHASES_FILE, 'w') as f:
+            json.dump(phases, f, indent=2)
+        log_debug(f"Saved {len(phases)} phases to file")
+        return True
+    except Exception as e:
+        log_debug(f"Error saving phases: {e}")
+        return False
+
 @app.route('/')
 def index():
-    return render_template('index.html')
+    phases = load_phases()
+    return render_template('index.html', phases=phases)
+
+@app.route('/phase/<phase_id>')
+def phase_page(phase_id):
+    phases = load_phases()
+    # Find the phase
+    phase = None
+    phase_index = None
+    for i, p in enumerate(phases):
+        if str(p['id']) == str(phase_id):
+            phase = p
+            phase_index = i
+            break
+    
+    if not phase:
+        return "Phase not found", 404
+    
+    # Route to appropriate template
+    if phase['type'] == 'base' and phase['id'] == 0:
+        return render_template('index.html', phases=phases)
+    elif phase['type'] == 'final':
+        return render_template('arc.html', phases=phases)
+    else:
+        # Intermediate phase - use placeholder template
+        return render_template('phase_intermediate.html', phase=phase, phases=phases, phase_index=phase_index)
 
 @app.route('/arc')
 def arc_page():
-    return render_template('arc.html')
+    phases = load_phases()
+    return render_template('arc.html', phases=phases)
 
 @app.route('/api/config', methods=['GET'])
 def get_config():
@@ -280,6 +344,17 @@ def start_training():
             current_config = DEFAULT_CONFIG.copy()
             log_debug("Using default config")
         
+        # Allow overrides from request body
+        data = None
+        try:
+            data = request.get_json(silent=True)
+        except Exception:
+            data = None
+        if data and isinstance(data, dict):
+            # Optional override of current_seq_length or other config keys
+            for k in ['current_seq_length', 'max_seq_length', 'embedding_dim', 'hidden_dim', 'num_symbols', 'puzzle_symbols', 'learning_rate', 'run_title']:
+                if k in data:
+                    current_config[k] = data[k]
         with open('training_config.json', 'w') as f:
             json.dump(current_config, f, indent=2)
         log_debug("Config file written")
@@ -338,6 +413,51 @@ def start_training():
             '--web-mode',
             '--control-file', CONTROL_FILE
         ]
+
+        # Optional: resume-from snapshot (explicit or selected)
+        resume_path = None
+        if data and isinstance(data, dict):
+            # Direct path or filename
+            candidate = data.get('resume_from') or data.get('resume_filename')
+            if candidate:
+                # Resolve relative filename within snapshots dir
+                out_dir = current_config.get('output_dir', DEFAULT_CONFIG.get('output_dir', './outputs'))
+                snap_dir = os.path.join(out_dir, 'snapshots')
+                if os.path.isabs(candidate) and os.path.exists(candidate):
+                    resume_path = candidate
+                else:
+                    cand_path = os.path.join(snap_dir, os.path.basename(candidate))
+                    if os.path.exists(cand_path):
+                        resume_path = cand_path
+        # If still not provided, use selected_snapshot.json if present
+        if not resume_path:
+            try:
+                out_dir = current_config.get('output_dir', DEFAULT_CONFIG.get('output_dir', './outputs'))
+                snap_dir = os.path.join(out_dir, 'snapshots')
+                sel = os.path.join(snap_dir, 'selected_snapshot.json')
+                if os.path.exists(sel):
+                    with open(sel, 'r') as f:
+                        sel_data = json.load(f) or {}
+                    fname = sel_data.get('filename')
+                    if fname:
+                        cand = os.path.join(snap_dir, os.path.basename(fname))
+                        if os.path.exists(cand):
+                            resume_path = cand
+            except Exception as e:
+                log_debug(f"Error reading selected snapshot: {e}")
+
+        if resume_path:
+            cmd.extend(['--resume-from', resume_path])
+
+        # Optional: freeze positions for progressive training
+        if data and isinstance(data, dict) and data.get('freeze_positions'):
+            try:
+                fp = data.get('freeze_positions')
+                if isinstance(fp, list) and all(isinstance(x, int) for x in fp):
+                    arg = ','.join(str(x) for x in fp)
+                    cmd.extend(['--freeze-positions', arg])
+            except Exception:
+                pass
         
         log_debug(f"Command: {' '.join(cmd)}")
         log_debug(f"Working directory: {os.getcwd()}")
@@ -1073,6 +1193,29 @@ def list_snapshots():
         log_debug(f"Error listing snapshots: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/snapshot/upload', methods=['POST'])
+def upload_snapshot():
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        file = request.files['file']
+        if not file or not file.filename:
+            return jsonify({'error': 'Invalid file'}), 400
+        # Ensure .pt extension
+        filename = os.path.basename(file.filename)
+        if not filename.endswith('.pt'):
+            return jsonify({'error': 'Only .pt files are allowed'}), 400
+        out_dir = current_config.get('output_dir', DEFAULT_CONFIG.get('output_dir', './outputs')) if current_config else DEFAULT_CONFIG.get('output_dir', './outputs')
+        snap_dir = os.path.join(out_dir, 'snapshots')
+        os.makedirs(snap_dir, exist_ok=True)
+        save_path = os.path.join(snap_dir, filename)
+        file.save(save_path)
+        log_debug(f"Uploaded snapshot saved to {save_path}")
+        return jsonify({'status': 'ok', 'filename': filename})
+    except Exception as e:
+        log_debug(f"Error uploading snapshot: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/snapshot/select', methods=['POST'])
 def select_snapshot():
     """Select a snapshot filename to be used on the ARC page (store in a small state file)."""
@@ -1094,6 +1237,34 @@ def select_snapshot():
         return jsonify({'status': 'ok'})
     except Exception as e:
         log_debug(f"Error selecting snapshot: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# --- NEW: Snapshot inspection API ---
+@app.route('/api/snapshot/inspect', methods=['POST'])
+def inspect_snapshot():
+    """Extract architecture and training state from snapshot"""
+    try:
+        data = request.get_json(force=True) or {}
+        filename = data.get('filename', '')
+        if not filename or not isinstance(filename, str):
+            return jsonify({'error': 'filename is required'}), 400
+
+        out_dir = current_config.get('output_dir', DEFAULT_CONFIG.get('output_dir')) if current_config else DEFAULT_CONFIG.get('output_dir')
+        snap_dir = os.path.join(out_dir, 'snapshots')
+        snap_path = os.path.join(snap_dir, os.path.basename(filename))
+
+        if not os.path.exists(snap_path):
+            return jsonify({'error': 'Snapshot not found'}), 404
+
+        snapshot = torch.load(snap_path, map_location='cpu')
+
+        return jsonify({
+            'architecture': snapshot.get('architecture', {}),
+            'trainer_state': snapshot.get('trainer_state', {}),
+            'meta': snapshot.get('meta', {})
+        })
+    except Exception as e:
+        log_debug(f"Error inspecting snapshot: {e}")
         return jsonify({'error': str(e)}), 500
 
 # --- NEW: Scores API ---
@@ -1243,6 +1414,120 @@ def _read_all_lines(path, max_bytes=5*1024*1024, tail_fallback_lines=20000):
         return None
 
 
+@app.route('/api/phases', methods=['GET'])
+def get_phases():
+    """Get all phases"""
+    try:
+        phases = load_phases()
+        return jsonify({'phases': phases})
+    except Exception as e:
+        log_debug(f"Error getting phases: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/phases', methods=['POST'])
+def add_phase():
+    """Add a new intermediate phase"""
+    try:
+        data = request.get_json(force=True)
+        name = data.get('name', 'New Phase').strip()
+        insert_after = data.get('insert_after', None)  # ID of phase to insert after
+        
+        phases = load_phases()
+        
+        # Find the highest numeric ID to generate a new unique ID
+        max_id = 0
+        for p in phases:
+            if isinstance(p['id'], int):
+                max_id = max(max_id, p['id'])
+        new_id = max_id + 1
+        
+        new_phase = {
+            'id': new_id,
+            'name': name,
+            'type': 'intermediate',
+            'route': f'phase_{new_id}'
+        }
+        
+        # Insert at the right position
+        if insert_after is not None:
+            # Find position to insert after
+            insert_idx = len(phases) - 1  # Default: before last (ARC) phase
+            for i, p in enumerate(phases):
+                if p['id'] == insert_after:
+                    insert_idx = i + 1
+                    break
+            phases.insert(insert_idx, new_phase)
+        else:
+            # Insert before the last phase (ARC)
+            phases.insert(len(phases) - 1, new_phase)
+        
+        if save_phases(phases):
+            return jsonify({'status': 'ok', 'phase': new_phase, 'phases': phases})
+        else:
+            return jsonify({'error': 'Failed to save phases'}), 500
+    except Exception as e:
+        log_debug(f"Error adding phase: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/phases/<phase_id>', methods=['DELETE'])
+def delete_phase(phase_id):
+    """Delete a phase (only intermediate phases can be deleted)"""
+    try:
+        phases = load_phases()
+        
+        # Find and remove the phase
+        phase_to_remove = None
+        for i, p in enumerate(phases):
+            if str(p['id']) == str(phase_id):
+                if p['type'] == 'intermediate':
+                    phase_to_remove = i
+                    break
+                else:
+                    return jsonify({'error': 'Cannot delete base or final phases'}), 400
+        
+        if phase_to_remove is not None:
+            removed = phases.pop(phase_to_remove)
+            if save_phases(phases):
+                return jsonify({'status': 'ok', 'removed': removed, 'phases': phases})
+            else:
+                return jsonify({'error': 'Failed to save phases'}), 500
+        else:
+            return jsonify({'error': 'Phase not found'}), 404
+    except Exception as e:
+        log_debug(f"Error deleting phase: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/phases/<phase_id>', methods=['PUT'])
+def update_phase(phase_id):
+    """Update a phase name"""
+    try:
+        data = request.get_json(force=True)
+        new_name = data.get('name', '').strip()
+        
+        if not new_name:
+            return jsonify({'error': 'Name is required'}), 400
+        
+        phases = load_phases()
+        
+        # Find and update the phase
+        updated = False
+        for p in phases:
+            if str(p['id']) == str(phase_id):
+                p['name'] = new_name
+                updated = True
+                break
+        
+        if updated:
+            if save_phases(phases):
+                return jsonify({'status': 'ok', 'phases': phases})
+            else:
+                return jsonify({'error': 'Failed to save phases'}), 500
+        else:
+            return jsonify({'error': 'Phase not found'}), 404
+    except Exception as e:
+        log_debug(f"Error updating phase: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/scores', methods=['GET'])
 def get_scores():
     """Return latest parsed scores for unseen and novel tests, plus optional history."""
@@ -1314,6 +1599,9 @@ if __name__ == '__main__':
             current_config = json.load(f)
     else:
         current_config = DEFAULT_CONFIG.copy()
+    
+    # Initialize phases
+    load_phases()
     
     log_debug("Starting enhanced training web interface...")
     print("Starting enhanced training web interface...")

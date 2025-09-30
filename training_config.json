@@ -17,8 +17,10 @@
   "hidden_dim": 1024,
   "num_symbols": 100,
   "puzzle_symbols": 10,
-  "max_seq_length": 1,
+  "max_seq_length": 20,
   "output_dir": "./outputs",
   "early_stop_min_cycles": 5,
-  "consolidation_threshold": 0.3
+  "consolidation_threshold": 0.3,
+  "current_seq_length": 1,
+  "run_title": ""
 }
