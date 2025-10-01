@@ -152,6 +152,11 @@ def arc_page():
     phases = load_phases()
     return render_template('arc.html', phases=phases)
 
+@app.route('/arc-single-puzzle')
+def arc_single_puzzle_page():
+    phases = load_phases()
+    return render_template('arc_single_puzzle.html', phases=phases)
+
 @app.route('/api/config', methods=['GET'])
 def get_config():
     """Get current configuration"""
@@ -1554,6 +1559,197 @@ def get_scores():
         'novel_mtime': novel_mtime,
         'novel_history': novel_history
     })
+
+# --- NEW: Single-Puzzle ARC Training APIs ---
+@app.route('/api/arc/puzzles', methods=['GET'])
+def list_arc_puzzles():
+    """List all available ARC puzzles"""
+    try:
+        arc_file = 'arc-agi_test_challenges.json'
+        if not os.path.exists(arc_file):
+            arc_file = 'src/arc-agi_test_challenges.json'
+        
+        if not os.path.exists(arc_file):
+            return jsonify({'error': 'ARC dataset file not found'}), 404
+        
+        with open(arc_file, 'r') as f:
+            data = json.load(f)
+        
+        # Format puzzle info
+        puzzles = []
+        for puzzle_id, puzzle_data in data.items():
+            puzzles.append({
+                'id': puzzle_id,
+                'train_examples': len(puzzle_data.get('train', [])),
+                'test_examples': len(puzzle_data.get('test', []))
+            })
+        
+        # Sort by ID for consistent ordering
+        puzzles.sort(key=lambda p: p['id'])
+        
+        return jsonify({'puzzles': puzzles, 'count': len(puzzles)})
+    
+    except Exception as e:
+        log_debug(f"Error listing ARC puzzles: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/arc/puzzle/<puzzle_id>', methods=['GET'])
+def get_arc_puzzle(puzzle_id):
+    """Get details of a specific ARC puzzle"""
+    try:
+        arc_file = 'arc-agi_test_challenges.json'
+        if not os.path.exists(arc_file):
+            arc_file = 'src/arc-agi_test_challenges.json'
+        
+        if not os.path.exists(arc_file):
+            return jsonify({'error': 'ARC dataset file not found'}), 404
+        
+        with open(arc_file, 'r') as f:
+            data = json.load(f)
+        
+        if puzzle_id not in data:
+            return jsonify({'error': f'Puzzle {puzzle_id} not found'}), 404
+        
+        puzzle_data = data[puzzle_id]
+        
+        # Format response
+        result = {
+            'id': puzzle_id,
+            'train': puzzle_data.get('train', []),
+            'test': puzzle_data.get('test', [])
+        }
+        
+        return jsonify(result)
+    
+    except Exception as e:
+        log_debug(f"Error getting ARC puzzle {puzzle_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/arc/train', methods=['POST'])
+def start_single_puzzle_training():
+    """Start training on a single ARC puzzle"""
+    global current_process, training_log, current_config
+    
+    log_debug("=== STARTING SINGLE-PUZZLE ARC TRAINING ===")
+    
+    # Check if already running
+    if current_process and current_process.poll() is None:
+        log_debug("Training already running")
+        return jsonify({'status': 'error', 'message': 'Training already running'})
+    
+    try:
+        # Get puzzle ID from request
+        data = request.get_json(force=True) or {}
+        puzzle_id = data.get('puzzle_id')
+        cycles = data.get('cycles', 100)
+        
+        if not puzzle_id:
+            return jsonify({'status': 'error', 'message': 'puzzle_id is required'}), 400
+        
+        log_debug(f"Puzzle ID: {puzzle_id}, Cycles: {cycles}")
+        
+        # Clear previous logs
+        training_log = []
+        
+        # Find training script
+        training_script = 'src/train_single_puzzle.py'
+        if not os.path.exists(training_script):
+            error_msg = f'Training script not found at {training_script}'
+            log_debug(error_msg)
+            return jsonify({'status': 'error', 'message': error_msg})
+        
+        log_debug(f"Using training script: {training_script}")
+        
+        # Find ARC data file
+        arc_file = 'arc-agi_test_challenges.json'
+        if not os.path.exists(arc_file):
+            arc_file = 'src/arc-agi_test_challenges.json'
+            if not os.path.exists(arc_file):
+                error_msg = 'ARC dataset file not found'
+                log_debug(error_msg)
+                return jsonify({'status': 'error', 'message': error_msg})
+        
+        log_debug(f"Using ARC file: {arc_file}")
+        
+        # Prepare command
+        output_dir = current_config.get('output_dir', DEFAULT_CONFIG.get('output_dir', './outputs'))
+        cmd = [
+            sys.executable, training_script,
+            '--puzzle-id', puzzle_id,
+            '--cycles', str(cycles),
+            '--arc-file', arc_file,
+            '--output-dir', output_dir,
+            '--status-file', 'training_status.json'
+        ]
+        
+        log_debug(f"Command: {' '.join(cmd)}")
+        
+        # Start training process
+        current_process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=0,
+            universal_newlines=True,
+            env=os.environ.copy()
+        )
+        
+        log_debug(f"Process started with PID: {current_process.pid}")
+        
+        # Make stdout and stderr non-blocking
+        if hasattr(fcntl, 'fcntl'):
+            try:
+                fd_stdout = current_process.stdout.fileno()
+                fd_stderr = current_process.stderr.fileno()
+                flags_stdout = fcntl.fcntl(fd_stdout, fcntl.F_GETFL)
+                flags_stderr = fcntl.fcntl(fd_stderr, fcntl.F_GETFL)
+                fcntl.fcntl(fd_stdout, fcntl.F_SETFL, flags_stdout | os.O_NONBLOCK)
+                fcntl.fcntl(fd_stderr, fcntl.F_SETFL, flags_stderr | os.O_NONBLOCK)
+                log_debug("Set non-blocking I/O")
+            except Exception as e:
+                log_debug(f"Could not set non-blocking I/O: {e}")
+        
+        # Start log monitoring thread
+        log_thread = Thread(target=enhanced_monitor_logs, daemon=True)
+        log_thread.start()
+        log_debug("Started log monitoring thread")
+        
+        # Wait to check if process starts successfully
+        time.sleep(2)
+        poll_result = current_process.poll()
+        
+        if poll_result is not None:
+            stdout, stderr = current_process.communicate()
+            error_msg = f"Training script failed immediately (code {poll_result}).\nSTDOUT: {stdout}\nSTDERR: {stderr}"
+            log_debug(error_msg)
+            training_log.append({
+                'timestamp': time.time(),
+                'type': 'error',
+                'message': error_msg
+            })
+            current_process = None
+            return jsonify({'status': 'error', 'message': error_msg})
+        
+        log_debug("Process appears to be running successfully")
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Training started on puzzle {puzzle_id}',
+            'pid': current_process.pid,
+            'puzzle_id': puzzle_id,
+            'cycles': cycles
+        })
+        
+    except Exception as e:
+        error_msg = f"Failed to start training: {str(e)}"
+        log_debug(error_msg)
+        training_log.append({
+            'timestamp': time.time(),
+            'type': 'error',
+            'message': error_msg
+        })
+        return jsonify({'status': 'error', 'message': error_msg})
 
 if __name__ == '__main__':
     # Initialize config

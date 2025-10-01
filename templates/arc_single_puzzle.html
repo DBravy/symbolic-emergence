@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Single-Puzzle ARC Training</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .puzzle-grid {
+            display: grid;
+            gap: 5px;
+            margin: 10px 0;
+        }
+        .grid-cell {
+            width: 20px;
+            height: 20px;
+            border: 1px solid #ccc;
+        }
+        .puzzle-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 10px 0;
+            background: #f9f9f9;
+        }
+        .puzzle-card.selected {
+            border-color: #4CAF50;
+            background: #e8f5e9;
+        }
+        .puzzle-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        .puzzle-preview {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .example-pair {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            background: white;
+        }
+        .cycles-input {
+            width: 100px;
+            padding: 8px;
+            margin-left: 10px;
+        }
+        .status-box {
+            padding: 16px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #ddd;
+        }
+        .status-box.training {
+            background: #fff3cd;
+            border-color: #ffc107;
+        }
+        .status-box.complete {
+            background: #d4edda;
+            border-color: #28a745;
+        }
+        .status-box.error {
+            background: #f8d7da;
+            border-color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Single-Puzzle ARC Training</h1>
+            <nav class="top-nav" id="phase-nav">
+                <!-- Navigation will be populated by JavaScript -->
+            </nav>
+        </header>
+
+        <div class="main-content">
+            <section>
+                <h2>Select ARC Puzzle</h2>
+                <p>Choose a puzzle to train agents to communicate about. The agents will learn to abstract the pattern by communicating the example pairs using only one symbol.</p>
+                
+                <div class="button-group">
+                    <button onclick="loadPuzzles()">Load Puzzles</button>
+                    <span style="margin-left: 20px;">
+                        Training Cycles: <input type="number" id="cycles-input" class="cycles-input" value="100" min="10" max="1000">
+                    </span>
+                </div>
+                
+                <div id="puzzle-list" class="puzzle-list" style="display: none;">
+                    <!-- Puzzles will be loaded here -->
+                </div>
+            </section>
+
+            <section id="puzzle-preview-section" style="display: none;">
+                <h2>Puzzle Preview</h2>
+                <div id="puzzle-preview">
+                    <!-- Preview will be shown here -->
+                </div>
+                
+                <div class="button-group">
+                    <button onclick="startTraining()" id="train-button">Start Training</button>
+                </div>
+            </section>
+
+            <section id="training-status-section" style="display: none;">
+                <h2>Training Status</h2>
+                <div id="training-status" class="status-box">
+                    <!-- Status will be shown here -->
+                </div>
+                
+                <div class="button-group">
+                    <button onclick="stopTraining()">Stop Training</button>
+                </div>
+            </section>
+
+            <section id="reconstruction-section" style="display: none;">
+                <h2>Reconstruction Results</h2>
+                <div class="puzzle-preview" id="reconstruction-results">
+                    <!-- Reconstruction results will be shown here -->
+                </div>
+            </section>
+
+            <section>
+                <h2>Training Logs</h2>
+                <div class="log-box" id="log-box">
+                    <!-- Logs will appear here -->
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        // Populate navigation
+        const phases = {{ phases | tojson }};
+        const nav = document.getElementById('phase-nav');
+        phases.forEach((p, idx) => {
+            const a = document.createElement('a');
+            if (p.id === 0) {
+                a.href = '/';
+            } else if (p.type === 'final') {
+                a.href = '/arc';
+            } else {
+                a.href = `/phase/${p.id}`;
+            }
+            a.textContent = p.name;
+            nav.appendChild(a);
+        });
+        
+        // Add link to single-puzzle page
+        const singlePuzzleLink = document.createElement('a');
+        singlePuzzleLink.href = '/arc-single-puzzle';
+        singlePuzzleLink.textContent = 'Single Puzzle';
+        singlePuzzleLink.className = 'active';
+        nav.appendChild(singlePuzzleLink);
+
+        let selectedPuzzleId = null;
+        let trainingInterval = null;
+        
+        // ARC color palette (standard colors used in ARC)
+        const ARC_COLORS = [
+            '#000000', // 0 - black
+            '#0074D9', // 1 - blue
+            '#FF4136', // 2 - red
+            '#2ECC40', // 3 - green
+            '#FFDC00', // 4 - yellow
+            '#AAAAAA', // 5 - grey
+            '#F012BE', // 6 - magenta
+            '#FF851B', // 7 - orange
+            '#7FDBFF', // 8 - sky
+            '#870C25'  // 9 - maroon
+        ];
+
+        function renderGrid(grid) {
+            const rows = grid.length;
+            const cols = grid[0].length;
+            const html = [];
+            
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const color = ARC_COLORS[grid[r][c]];
+                    html.push(`<div class="grid-cell" style="background-color: ${color}"></div>`);
+                }
+            }
+            
+            return `<div class="puzzle-grid" style="grid-template-columns: repeat(${cols}, 20px)">${html.join('')}</div>`;
+        }
+
+        async function loadPuzzles() {
+            try {
+                const resp = await fetch('/api/arc/puzzles');
+                if (!resp.ok) {
+                    throw new Error('Failed to load puzzles');
+                }
+                const data = await resp.json();
+                
+                const listEl = document.getElementById('puzzle-list');
+                listEl.style.display = 'block';
+                listEl.innerHTML = '';
+                
+                data.puzzles.forEach(puzzle => {
+                    const card = document.createElement('div');
+                    card.className = 'puzzle-card';
+                    card.innerHTML = `
+                        <h3>${puzzle.id}</h3>
+                        <p>Training examples: ${puzzle.train_examples} | Test examples: ${puzzle.test_examples}</p>
+                    `;
+                    card.onclick = () => selectPuzzle(puzzle.id);
+                    card.dataset.puzzleId = puzzle.id;
+                    listEl.appendChild(card);
+                });
+            } catch (e) {
+                alert('Error loading puzzles: ' + e.message);
+            }
+        }
+
+        async function selectPuzzle(puzzleId) {
+            try {
+                // Update selection UI
+                document.querySelectorAll('.puzzle-card').forEach(card => {
+                    if (card.dataset.puzzleId === puzzleId) {
+                        card.classList.add('selected');
+                    } else {
+                        card.classList.remove('selected');
+                    }
+                });
+                
+                selectedPuzzleId = puzzleId;
+                
+                // Load puzzle details
+                const resp = await fetch(`/api/arc/puzzle/${puzzleId}`);
+                if (!resp.ok) {
+                    throw new Error('Failed to load puzzle details');
+                }
+                const puzzle = await resp.json();
+                
+                // Show preview
+                const previewSection = document.getElementById('puzzle-preview-section');
+                const previewEl = document.getElementById('puzzle-preview');
+                previewSection.style.display = 'block';
+                
+                let html = '<h3>Training Examples</h3><div class="puzzle-preview">';
+                
+                puzzle.train.forEach((ex, idx) => {
+                    html += `
+                        <div class="example-pair">
+                            <h4>Example ${idx + 1}</h4>
+                            <div><strong>Input:</strong></div>
+                            ${renderGrid(ex.input)}
+                            <div><strong>Output:</strong></div>
+                            ${renderGrid(ex.output)}
+                        </div>
+                    `;
+                });
+                
+                html += '</div><h3>Test Example</h3><div class="puzzle-preview">';
+                
+                puzzle.test.forEach((ex, idx) => {
+                    html += `
+                        <div class="example-pair">
+                            <h4>Test ${idx + 1}</h4>
+                            <div><strong>Input:</strong></div>
+                            ${renderGrid(ex.input)}
+                            ${ex.output ? `<div><strong>Expected Output:</strong></div>${renderGrid(ex.output)}` : ''}
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                previewEl.innerHTML = html;
+            } catch (e) {
+                alert('Error loading puzzle: ' + e.message);
+            }
+        }
+
+        async function startTraining() {
+            if (!selectedPuzzleId) {
+                alert('Please select a puzzle first');
+                return;
+            }
+            
+            const cycles = parseInt(document.getElementById('cycles-input').value);
+            if (isNaN(cycles) || cycles < 10) {
+                alert('Please enter a valid number of cycles (at least 10)');
+                return;
+            }
+            
+            try {
+                const resp = await fetch('/api/arc/train', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        puzzle_id: selectedPuzzleId,
+                        cycles: cycles
+                    })
+                });
+                
+                const result = await resp.json();
+                
+                if (result.status === 'success') {
+                    document.getElementById('training-status-section').style.display = 'block';
+                    startStatusPolling();
+                } else {
+                    alert('Error starting training: ' + result.message);
+                }
+            } catch (e) {
+                alert('Error starting training: ' + e.message);
+            }
+        }
+
+        async function stopTraining() {
+            try {
+                const resp = await fetch('/api/stop', {method: 'POST'});
+                const result = await resp.json();
+                alert(result.message || 'Training stopped');
+                if (trainingInterval) {
+                    clearInterval(trainingInterval);
+                    trainingInterval = null;
+                }
+            } catch (e) {
+                alert('Error stopping training: ' + e.message);
+            }
+        }
+
+        function startStatusPolling() {
+            if (trainingInterval) {
+                clearInterval(trainingInterval);
+            }
+            
+            updateStatus();
+            trainingInterval = setInterval(updateStatus, 2000);
+        }
+
+        async function updateStatus() {
+            try {
+                const [statusResp, logsResp] = await Promise.all([
+                    fetch('/api/status'),
+                    fetch('/api/logs')
+                ]);
+                
+                const status = await statusResp.json();
+                const logs = await logsResp.json();
+                
+                // Update status display
+                const statusEl = document.getElementById('training-status');
+                const statusInfo = status.status_info || {};
+
+                // Always render reconstruction if present (even if status flag isn't 'complete')
+                if (statusInfo && statusInfo.reconstruction) {
+                    try {
+                        displayReconstruction(statusInfo.reconstruction);
+                    } catch (e) {
+                        console.warn('Failed to render reconstruction:', e);
+                    }
+                }
+                
+                statusEl.className = 'status-box';
+                if (statusInfo.status === 'training') {
+                    statusEl.classList.add('training');
+                } else if (statusInfo.status === 'complete') {
+                    statusEl.classList.add('complete');
+                    if (trainingInterval) {
+                        clearInterval(trainingInterval);
+                        trainingInterval = null;
+                    }
+                    // Show reconstruction results if available
+                    if (statusInfo.reconstruction) {
+                        displayReconstruction(statusInfo.reconstruction);
+                    }
+                } else if (statusInfo.status === 'error') {
+                    statusEl.classList.add('error');
+                }
+                
+                statusEl.innerHTML = `
+                    <div><strong>Status:</strong> ${statusInfo.status || 'Unknown'}</div>
+                    <div><strong>Message:</strong> ${statusInfo.message || 'No message'}</div>
+                    <div><strong>Progress:</strong> ${statusInfo.progress || 0}%</div>
+                `;
+                
+                // Update logs
+                const logBox = document.getElementById('log-box');
+                if (logs.logs && logs.logs.length > 0) {
+                    const recentLogs = logs.logs.slice(-50);
+                    logBox.innerHTML = recentLogs.map(log => {
+                        const time = new Date(log.timestamp * 1000).toLocaleTimeString();
+                        return `<div class="log-entry ${log.type}">[${time}] ${log.message}</div>`;
+                    }).join('');
+                    logBox.scrollTop = logBox.scrollHeight;
+                }
+            } catch (e) {
+                console.error('Error updating status:', e);
+            }
+        }
+
+        function displayReconstruction(recon) {
+            const section = document.getElementById('reconstruction-section');
+            const resultsEl = document.getElementById('reconstruction-results');
+            
+            section.style.display = 'block';
+            
+            let html = '';
+            
+            // Test Input
+            if (recon.test_input) {
+                html += `
+                    <div class="example-pair">
+                        <h4>Test Input</h4>
+                        ${renderGrid(recon.test_input)}
+                    </div>
+                `;
+            }
+            
+            // Expected Output
+            if (recon.test_output) {
+                html += `
+                    <div class="example-pair">
+                        <h4>Expected Output</h4>
+                        ${renderGrid(recon.test_output)}
+                    </div>
+                `;
+            }
+            
+            // Reconstructed Output
+            if (recon.reconstructed) {
+                html += `
+                    <div class="example-pair">
+                        <h4>Reconstructed Output</h4>
+                        ${renderGrid(recon.reconstructed)}
+                        ${recon.accuracy !== null ? `<p><strong>Accuracy:</strong> ${(recon.accuracy * 100).toFixed(1)}%</p>` : ''}
+                    </div>
+                `;
+            }
+            
+            resultsEl.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
+
