@@ -674,27 +674,6 @@ class ProgressiveSelectionAgent(nn.Module):
         
         return selection_probs, selection_logits, debug_info
 
-    def freeze_positions(self, positions: List[int]):
-        """Freeze position_predictors and communication embeddings for specified positions"""
-        for pos in positions:
-            if hasattr(self.encoder, 'position_predictors') and pos < len(self.encoder.position_predictors):
-                for param in self.encoder.position_predictors[pos].parameters():
-                    param.requires_grad = False
-                try:
-                    print(f"[{self.agent_id}] Froze position {pos} predictor")
-                except Exception:
-                    pass
-
-    def get_frozen_positions(self) -> List[int]:
-        """Return list of frozen positions"""
-        frozen = []
-        if hasattr(self.encoder, 'position_predictors'):
-            for pos in range(len(self.encoder.position_predictors)):
-                params = list(self.encoder.position_predictors[pos].parameters())
-                if params and all((not p.requires_grad) for p in params):
-                    frozen.append(pos)
-        return frozen
-
     # Keep old decode_message_to_puzzle for backward compatibility
     def decode_message_to_puzzle(   
         self,

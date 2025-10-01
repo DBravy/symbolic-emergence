@@ -60,8 +60,6 @@ async function saveConfig() {
         'first_training_cycles', 'puzzles_per_addition', 'learning_rate', 'num_distractors',
         'distractor_strategy', 'phase_change_indicator', 'early_stop_min_cycles', 
         'consolidation_threshold', 'embedding_dim', 'hidden_dim', 'num_symbols', 'puzzle_symbols',
-        // NEW: sequence training controls
-        'max_seq_length', 'current_seq_length',
         // NEW: run title
         'run_title'
     ];
@@ -117,9 +115,7 @@ function resetConfig() {
             embedding_dim: 512,
             hidden_dim: 1024,
             num_symbols: 100,
-            puzzle_symbols: 10,
-            max_seq_length: 10,
-            current_seq_length: 1
+            puzzle_symbols: 10
         };
         
         for (const [key, value] of Object.entries(defaults)) {

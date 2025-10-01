@@ -49,74 +49,21 @@
         </header>
 
         <div class="main-content">
-            <!-- Phase Overview -->
-            <section class="controls-section">
-                <h2>Phase Setup: Train Next Sequence Position</h2>
+            <section class="placeholder">
+                <h2>🔧 Phase Placeholder</h2>
+                <p>This is a placeholder for <strong>{{ phase.name }}</strong>.</p>
+                <p>This phase is part of your multi-phase training pipeline but doesn't have a custom interface yet.</p>
+                
                 <div class="phase-info">
-                    <div><strong>Phase:</strong> {{ phase.name }} ({{ phase_index + 1 }} of {{ phases|length }})</div>
-                    <div><strong>Goal:</strong> Load snapshot from previous phase, freeze earlier positions, and train position {{ phase_index }}.</div>
+                    <strong>Phase ID:</strong> {{ phase.id }}<br>
+                    <strong>Phase Type:</strong> {{ phase.type }}<br>
+                    <strong>Phase Index:</strong> {{ phase_index + 1 }} of {{ phases|length }}
                 </div>
+                
+                <p style="margin-top: 24px; font-size: 14px; color: #888;">
+                    You can customize this page by creating a specific template or implementing training logic for this phase.
+                </p>
             </section>
-
-            <!-- Snapshot Selection / Upload -->
-            <section class="config-section">
-                <h3>Snapshot</h3>
-                <div class="form-group">
-                    <label for="snapshot-list">Existing Snapshots:</label>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-                        <select id="snapshot-list" style="min-width:260px">
-                            <option value="">-- select snapshot --</option>
-                        </select>
-                        <button id="refresh-snaps-btn">Refresh</button>
-                        <button id="inspect-snap-btn">Inspect</button>
-                        <span id="snapshot-meta" style="color:#666"></span>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="snapshot-file">Upload Snapshot (.pt):</label>
-                    <input type="file" id="snapshot-file" accept=".pt">
-                    <button id="upload-snap-btn">Upload</button>
-                    <span class="help-text">Uploads to outputs/snapshots/ and selects it.</span>
-                </div>
-                <div id="snap-arch" class="form-group" style="display:none"></div>
-            </section>
-
-            <!-- Phase Config -->
-            <section class="config-section">
-                <h3>Phase Configuration</h3>
-                <div class="form-group">
-                    <label for="phase_current_seq_length">Current Sequence Length (Active):</label>
-                    <input type="number" id="phase_current_seq_length" min="1" max="20" value="2">
-                    <span class="help-text">Set to previous length + 1 for the next position.</span>
-                </div>
-                <div class="form-group">
-                    <label for="freeze_positions">Freeze Positions:</label>
-                    <input type="text" id="freeze_positions" value="0" placeholder="e.g., 0 or 0,1">
-                    <span class="help-text">Comma-separated positions to freeze from previous phase.</span>
-                </div>
-                <div class="config-actions">
-                    <button id="start-phase-btn">Start Phase Training</button>
-                </div>
-            </section>
-
-            <!-- Logs and Status -->
-            <div class="bottom-panel">
-                <section class="status-section">
-                    <h3>Training Status</h3>
-                    <div id="detailed-status">
-                        <p><strong>Status:</strong> <span id="phase-status">Idle</span></p>
-                    </div>
-                </section>
-                <section class="logs-section">
-                    <h3>Logs</h3>
-                    <div class="log-controls">
-                        <button onclick="phaseClearLogs()">Clear</button>
-                    </div>
-                    <div id="phase-log-container">
-                        <div id="phase-log-output"></div>
-                    </div>
-                </section>
-            </div>
         </div>
     </div>
 
@@ -140,95 +87,6 @@
                 a.className = 'active';
             }
             nav.appendChild(a);
-        });
-        // Helpers
-        function el(id){ return document.getElementById(id); }
-
-        async function listSnapshots() {
-            try {
-                const resp = await fetch('/api/snapshot/list');
-                const data = await resp.json();
-                const sel = el('snapshot-list');
-                sel.innerHTML = '<option value="">-- select snapshot --</option>';
-                (data.snapshots || []).forEach(fn => {
-                    const opt = document.createElement('option');
-                    opt.value = fn; opt.textContent = fn; sel.appendChild(opt);
-                });
-            } catch (e) {}
-        }
-
-        async function inspectSelectedSnapshot() {
-            const sel = el('snapshot-list');
-            const fn = sel.value;
-            if (!fn) return;
-            try {
-                const resp = await fetch('/api/snapshot/inspect', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ filename: fn })
-                });
-                if (!resp.ok) return;
-                const data = await resp.json();
-                const arch = data.architecture || {};
-                const trainer = data.trainer_state || {};
-                const div = el('snap-arch');
-                div.style.display = 'block';
-                div.innerHTML = `<div class="phase-info"><strong>Architecture</strong>: seq=${arch.max_seq_length ?? '-'}, emb=${arch.embedding_dim ?? '-'}, hidden=${arch.hidden_dim ?? '-'}, symbols=${arch.num_symbols ?? '-'} | <strong>Trainer</strong>: current_seq=${trainer.current_seq_length ?? '-'}, frozen=${(trainer.frozen_positions||[]).join(',') || '-'}</div>`;
-                el('snapshot-meta').textContent = data.meta && data.meta.created_at ? `Saved at ${data.meta.created_at}` : '';
-            } catch (e) {}
-        }
-
-        async function uploadSnapshot() {
-            const fileInput = el('snapshot-file');
-            const file = fileInput.files && fileInput.files[0];
-            if (!file) return;
-            try {
-                const form = new FormData();
-                form.append('file', file);
-                const resp = await fetch('/api/snapshot/upload', { method: 'POST', body: form });
-                const data = await resp.json();
-                if (!resp.ok) { alert(data.error || 'Upload failed'); return; }
-                await listSnapshots();
-                const sel = el('snapshot-list');
-                sel.value = data.filename || '';
-                await inspectSelectedSnapshot();
-            } catch (e) { alert('Upload error'); }
-        }
-
-        function phaseClearLogs() {
-            el('phase-log-output').innerHTML = '';
-        }
-
-        async function startPhase() {
-            const sel = el('snapshot-list');
-            const freezeStr = el('freeze_positions').value.trim();
-            const currentSeq = parseInt(el('phase_current_seq_length').value || '2', 10);
-            const resume_filename = sel.value || '';
-            const payload = {
-                resume_filename,
-                current_seq_length: currentSeq,
-                freeze_positions: freezeStr ? freezeStr.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !Number.isNaN(n)) : []
-            };
-            try {
-                const resp = await fetch('/api/start', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const data = await resp.json();
-                if (data.status !== 'success') {
-                    alert(data.message || 'Failed to start');
-                    return;
-                }
-                el('phase-status').textContent = 'Running';
-            } catch (e) { alert('Error starting phase'); }
-        }
-
-        // Wire up UI
-        document.addEventListener('DOMContentLoaded', async function() {
-            el('refresh-snaps-btn').addEventListener('click', listSnapshots);
-            el('inspect-snap-btn').addEventListener('click', inspectSelectedSnapshot);
-            el('upload-snap-btn').addEventListener('click', uploadSnapshot);
-            el('start-phase-btn').addEventListener('click', startPhase);
-            await listSnapshots();
         });
     </script>
 </body>
