@@ -14,7 +14,7 @@
   "phase_change_indicator": "ges",
   "learning_rate": 7e-07,
   "embedding_dim": 512,
-  "hidden_dim": 512,
+  "hidden_dim": 1024,
   "num_symbols": 100,
   "puzzle_symbols": 10,
   "max_seq_length": 5,

@@ -58,6 +58,22 @@
             <!-- Configuration Panel -->
             <section class="config-section">
                 <h2>Configuration</h2>
+                
+                <!-- Snapshot Selection -->
+                <div class="snapshot-selection" style="margin-bottom: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px;">
+                    <div class="form-group" style="margin: 0;">
+                        <label for="resume_snapshot" style="font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                            📦 Resume from Snapshot
+                            <button onclick="refreshSnapshots()" style="font-size: 12px; padding: 2px 8px;" title="Refresh snapshot list">🔄</button>
+                        </label>
+                        <select id="resume_snapshot" onchange="onSnapshotSelected()">
+                            <option value="">No snapshot (start fresh)</option>
+                        </select>
+                        <div id="snapshot-info" style="margin-top: 8px; font-size: 13px; color: #666;"></div>
+                        <span class="help-text">Select a snapshot to continue training with frozen positions and symbols from a previous run.</span>
+                    </div>
+                </div>
+                
                 <div class="config-tabs">
                     <button class="tab-btn active" onclick="showTab('basic')">Basic</button>
                     <button class="tab-btn" onclick="showTab('advanced')">Advanced</button>
@@ -163,6 +179,18 @@
                     <div class="form-group">
                         <label for="puzzle_symbols">Puzzle Symbols:</label>
                         <input type="number" id="puzzle_symbols" min="5" max="50" value="10">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="max_seq_length">Max Sequence Length (Architecture):</label>
+                        <input type="number" id="max_seq_length" min="1" max="20" value="10">
+                        <span class="help-text">Maximum positions the model can support (fixed across phases)</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="current_seq_length">Current Sequence Length (Active):</label>
+                        <input type="number" id="current_seq_length" min="1" max="20" value="1">
+                        <span class="help-text">Number of positions to train in this phase</span>
                     </div>
                 </div>
 

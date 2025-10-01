@@ -65,7 +65,8 @@ DEFAULT_CONFIG = {
     'hidden_dim': 1024,
     'num_symbols': 100,
     'puzzle_symbols': 10,
-    'max_seq_length': 1,
+    'max_seq_length': 10,      # Maximum architecture capacity
+    'current_seq_length': 1,   # Active positions for this phase
     'output_dir': './outputs',
     # NEW: Optional human-readable title for this training run
     'run_title': ''
@@ -392,6 +393,25 @@ def start_training():
         
         log_debug(f"Using ARC file: {arc_file}")
         
+        # Check if resuming from snapshot
+        resume_from = None
+        try:
+            request_data = request.get_json(force=True) or {}
+            resume_from = request_data.get('resume_from')
+            if resume_from:
+                # Build full path to snapshot
+                snap_dir = os.path.join(output_dir, 'snapshots')
+                snapshot_path = os.path.join(snap_dir, resume_from)
+                
+                if not os.path.exists(snapshot_path):
+                    error_msg = f'Selected snapshot not found: {snapshot_path}'
+                    log_debug(error_msg)
+                    return jsonify({'status': 'error', 'message': error_msg})
+                
+                log_debug(f"Resuming from snapshot: {snapshot_path}")
+        except Exception as e:
+            log_debug(f"Error processing resume_from: {e}")
+        
         # Prepare command
         cmd = [
             sys.executable, training_script,
@@ -400,6 +420,13 @@ def start_training():
             '--web-mode',
             '--control-file', CONTROL_FILE
         ]
+        
+        # Add resume-from if snapshot selected
+        if resume_from:
+            snap_dir = os.path.join(output_dir, 'snapshots')
+            snapshot_path = os.path.join(snap_dir, resume_from)
+            cmd.extend(['--resume-from', snapshot_path])
+            log_debug(f"Added --resume-from {snapshot_path} to command")
         
         log_debug(f"Command: {' '.join(cmd)}")
         log_debug(f"Working directory: {os.getcwd()}")
@@ -1156,6 +1183,33 @@ def select_snapshot():
         return jsonify({'status': 'ok'})
     except Exception as e:
         log_debug(f"Error selecting snapshot: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/snapshot/inspect', methods=['POST'])
+def inspect_snapshot():
+    """Extract architecture and training state from snapshot"""
+    try:
+        import torch
+        
+        data = request.get_json(force=True) or {}
+        filename = data.get('filename', '')
+        
+        out_dir = current_config.get('output_dir', DEFAULT_CONFIG.get('output_dir', './outputs')) if current_config else DEFAULT_CONFIG.get('output_dir', './outputs')
+        snap_dir = os.path.join(out_dir, 'snapshots')
+        snap_path = os.path.join(snap_dir, os.path.basename(filename))
+        
+        if not os.path.exists(snap_path):
+            return jsonify({'error': 'Snapshot not found'}), 404
+        
+        snapshot = torch.load(snap_path, map_location='cpu')
+        
+        return jsonify({
+            'architecture': snapshot.get('architecture', {}),
+            'trainer_state': snapshot.get('trainer_state', {}),
+            'meta': snapshot.get('meta', {})
+        })
+    except Exception as e:
+        log_debug(f"Error inspecting snapshot: {e}")
         return jsonify({'error': str(e)}), 500
 
 # --- NEW: Scores API ---

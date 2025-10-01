@@ -13,6 +13,7 @@ let scoresInterval;
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
     loadConfig();
+    loadSnapshots();  // Load available snapshots
     startStatusUpdates();
     startLogUpdates();
     // Keep manual refresh around but start live updates automatically
@@ -60,6 +61,7 @@ async function saveConfig() {
         'first_training_cycles', 'puzzles_per_addition', 'learning_rate', 'num_distractors',
         'distractor_strategy', 'phase_change_indicator', 'early_stop_min_cycles', 
         'consolidation_threshold', 'embedding_dim', 'hidden_dim', 'num_symbols', 'puzzle_symbols',
+        'max_seq_length', 'current_seq_length',
         // NEW: run title
         'run_title'
     ];
@@ -94,6 +96,106 @@ async function saveConfig() {
     } catch (error) {
         console.error('Error saving config:', error);
         showNotification('Error saving configuration', 'error');
+    }
+}
+
+// Snapshot Management
+let currentSnapshots = [];
+let selectedSnapshot = null;
+
+async function loadSnapshots() {
+    try {
+        const response = await fetch('/api/snapshot/list');
+        if (response.ok) {
+            const data = await response.json();
+            currentSnapshots = data.snapshots || [];
+            populateSnapshotDropdown();
+        }
+    } catch (error) {
+        console.error('Error loading snapshots:', error);
+    }
+}
+
+function populateSnapshotDropdown() {
+    const select = document.getElementById('resume_snapshot');
+    
+    // Clear existing options except the first (default)
+    while (select.options.length > 1) {
+        select.remove(1);
+    }
+    
+    // Add snapshot options (newest first)
+    currentSnapshots.forEach(snapshot => {
+        const option = document.createElement('option');
+        option.value = snapshot;
+        option.textContent = snapshot;
+        select.appendChild(option);
+    });
+    
+    // Restore previously selected snapshot if it still exists
+    if (selectedSnapshot && currentSnapshots.includes(selectedSnapshot)) {
+        select.value = selectedSnapshot;
+        onSnapshotSelected();
+    }
+}
+
+async function refreshSnapshots() {
+    await loadSnapshots();
+    showNotification('Snapshot list refreshed', 'success');
+}
+
+async function onSnapshotSelected() {
+    const select = document.getElementById('resume_snapshot');
+    selectedSnapshot = select.value || null;
+    const infoDiv = document.getElementById('snapshot-info');
+    
+    if (!selectedSnapshot) {
+        infoDiv.innerHTML = '';
+        return;
+    }
+    
+    // Show loading state
+    infoDiv.innerHTML = '<em>Loading snapshot info...</em>';
+    
+    try {
+        // Inspect the snapshot to show metadata
+        const response = await fetch('/api/snapshot/inspect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: selectedSnapshot })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            const arch = data.architecture || {};
+            const state = data.trainer_state || {};
+            const meta = data.meta || {};
+            
+            let info = `<strong>Snapshot Info:</strong><br>`;
+            if (meta.created_at) {
+                info += `📅 Created: ${meta.created_at}<br>`;
+            }
+            if (meta.name) {
+                info += `🏷️ Name: ${meta.name}<br>`;
+            }
+            info += `🔧 Architecture: ${arch.embedding_dim || '?'}d embed, ${arch.max_seq_length || '?'} max seq<br>`;
+            info += `📊 Training State: seq_len=${state.current_seq_length || '?'}, `;
+            info += `comm_symbols=${state.current_comm_symbols_a1 || '?'}<br>`;
+            
+            if (state.frozen_positions && state.frozen_positions.length > 0) {
+                info += `🔒 Frozen positions: ${state.frozen_positions.join(', ')}<br>`;
+            }
+            if (state.frozen_comm_symbols > 0) {
+                info += `🔒 Frozen comm symbols: ${state.frozen_comm_symbols}<br>`;
+            }
+            
+            infoDiv.innerHTML = info;
+        } else {
+            infoDiv.innerHTML = '<em style="color: #c33;">Error loading snapshot info</em>';
+        }
+    } catch (error) {
+        console.error('Error inspecting snapshot:', error);
+        infoDiv.innerHTML = '<em style="color: #c33;">Error: ' + error.message + '</em>';
     }
 }
 
@@ -138,8 +240,15 @@ async function startTraining() {
     await saveConfig();
     
     try {
+        // Include selected snapshot if any
+        const requestBody = {
+            resume_from: selectedSnapshot || null
+        };
+        
         const response = await fetch('/api/start', {
-            method: 'POST'
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
         });
         
         const result = await response.json();
@@ -372,6 +481,11 @@ async function saveSnapshot() {
             return;
         }
         showNotification('Snapshot requested. It will be saved shortly.', 'success');
+        
+        // Refresh snapshot list after a short delay (to allow snapshot to be written)
+        setTimeout(async () => {
+            await loadSnapshots();
+        }, 2000);
     } catch (e) {
         console.error('saveSnapshot error', e);
         showNotification('Error requesting snapshot', 'error');
@@ -802,8 +916,30 @@ function renderSelectedSymbol() {
     const recon = sample.reconstruction || [];
     const target = sample.target || [];
     const dir = sample.direction || '';
-    const symLocal = (sample.message_symbol_local != null) ? sample.message_symbol_local : '-';
-    const symAbs = (sample.message_symbol_abs != null) ? sample.message_symbol_abs : '-';
+    
+    // Check if we have sequence data (multi-position messages)
+    const hasSequence = sample.message_symbols_abs && Array.isArray(sample.message_symbols_abs);
+    let symbolDisplay = '';
+    
+    if (hasSequence) {
+        const seqLen = sample.sequence_length || sample.message_symbols_abs.length;
+        const localSyms = sample.message_symbols_local || [];
+        const absSyms = sample.message_symbols_abs || [];
+        
+        // Build display showing all positions
+        const positions = [];
+        for (let i = 0; i < seqLen; i++) {
+            const loc = localSyms[i] != null ? localSyms[i] : '?';
+            const abs = absSyms[i] != null ? absSyms[i] : '?';
+            positions.push(`Pos ${i}: ${loc}/${abs}`);
+        }
+        symbolDisplay = `<span style="margin-left:8px;color:#666"><strong>Message</strong>: [${positions.join(', ')}]</span>`;
+    } else {
+        // Backward compatibility: single symbol
+        const symLocal = (sample.message_symbol_local != null) ? sample.message_symbol_local : '-';
+        const symAbs = (sample.message_symbol_abs != null) ? sample.message_symbol_abs : '-';
+        symbolDisplay = `<span style="margin-left:8px;color:#666"><strong>Local/Abs</strong>: ${symLocal}/${symAbs}</span>`;
+    }
     
     // Get sizes - use actual grid dimensions as fallback
     const targetSize = sample.target_size || [target.length, target[0]?.length || 0];
@@ -822,7 +958,7 @@ function renderSelectedSymbol() {
             <div class="recon-header">
                 <span><strong>Symbol</strong>: ${sid}</span>
                 <span style="margin-left:8px"><strong>Dir</strong>: ${dir}</span>
-                <span style="margin-left:8px;color:#666"><strong>Local/Abs</strong>: ${symLocal}/${symAbs}</span>
+                ${symbolDisplay}
                 ${sizeWarning}
             </div>
             <div class="recon-grids">
@@ -859,8 +995,30 @@ function renderReconSample(container, sample) {
     const target = sample.target || [];
     const recon = sample.reconstruction || [];
     const dir = sample.direction || '';
-    const symLocal = (sample.message_symbol_local != null) ? sample.message_symbol_local : '-';
-    const symAbs = (sample.message_symbol_abs != null) ? sample.message_symbol_abs : '-';
+    
+    // Check if we have sequence data (multi-position messages)
+    const hasSequence = sample.message_symbols_abs && Array.isArray(sample.message_symbols_abs);
+    let symbolDisplay = '';
+    
+    if (hasSequence) {
+        const seqLen = sample.sequence_length || sample.message_symbols_abs.length;
+        const localSyms = sample.message_symbols_local || [];
+        const absSyms = sample.message_symbols_abs || [];
+        
+        // Build display showing all positions
+        const positions = [];
+        for (let i = 0; i < seqLen; i++) {
+            const loc = localSyms[i] != null ? localSyms[i] : '?';
+            const abs = absSyms[i] != null ? absSyms[i] : '?';
+            positions.push(`Pos ${i}: ${loc}/${abs}`);
+        }
+        symbolDisplay = `<span style="margin-left:8px;color:#666"><strong>Message</strong>: [${positions.join(', ')}]</span>`;
+    } else {
+        // Backward compatibility: single symbol
+        const symLocal = (sample.message_symbol_local != null) ? sample.message_symbol_local : '-';
+        const symAbs = (sample.message_symbol_abs != null) ? sample.message_symbol_abs : '-';
+        symbolDisplay = `<span style="margin-left:8px;color:#666"><strong>Local/Abs</strong>: ${symLocal}/${symAbs}</span>`;
+    }
     
     // Get sizes - use actual grid dimensions as fallback
     const targetSize = sample.target_size || [target.length, target[0]?.length || 0];
@@ -877,7 +1035,7 @@ function renderReconSample(container, sample) {
         <div class="recon-display ${sizeClass}">
             <div class="recon-header">
                 <span><strong>Direction</strong>: ${dir}</span>
-                <span><strong>Symbol</strong>: local=${symLocal}, abs=${symAbs}</span>
+                ${symbolDisplay}
                 ${sizeWarning}
             </div>
             <div class="recon-grids">

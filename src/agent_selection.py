@@ -105,6 +105,10 @@ class ProgressiveSelectionAgent(nn.Module):
         self.communication_vocabulary = set(range(self.current_total_symbols))
         self.puzzle_vocabulary = set(range(puzzle_symbols))
         
+        # Position-specific vocabularies: maps position index to set of allowed symbol indices
+        # Example: {0: {10, 11, 12}, 1: {13, 14}, 2: {15, 16}}
+        self.position_vocabularies = {}
+        
         self.query_state_init = nn.Parameter(torch.randn(1, embedding_dim) * 0.02)
         self.query_refinement_layers = nn.ModuleList([
             QueryRefinementLayer(embedding_dim) for _ in range(3)  # Match decoder refinements
@@ -409,17 +413,48 @@ class ProgressiveSelectionAgent(nn.Module):
     def get_position_symbol_mask(self, position: int) -> torch.Tensor:
         """
         Get a mask for which symbols are allowed at a given sequence position.
-        Now allows all communication symbols at any position.
+        Uses position-specific vocabularies if set, otherwise allows all communication symbols.
         """
         device = next(self.parameters()).device
         
-        # Create mask for all possible symbols
+        # Create mask for all possible symbols (default: all False)
         mask = torch.zeros(self.max_num_symbols, dtype=torch.bool, device=device)
         
-        # Allow all communication symbols at any position
-        mask[self.puzzle_symbols:self.current_total_symbols] = True
+        # Check if we have position-specific vocabularies
+        if self.position_vocabularies and position in self.position_vocabularies:
+            # Use position-specific vocabulary
+            allowed_symbols = self.position_vocabularies[position]
+            for sym_idx in allowed_symbols:
+                if sym_idx < self.max_num_symbols:
+                    mask[sym_idx] = True
+        else:
+            # Fallback: allow all communication symbols at any position
+            mask[self.puzzle_symbols:self.current_total_symbols] = True
                 
         return mask
+
+    def set_position_vocabulary(self, position: int, symbol_indices: set):
+        """
+        Set which symbols are allowed at a specific sequence position.
+        
+        Args:
+            position: The sequence position (0-indexed)
+            symbol_indices: Set of symbol indices allowed at this position
+        """
+        self.position_vocabularies[position] = set(symbol_indices)
+    
+    def get_position_vocabularies(self) -> dict:
+        """
+        Get all position-specific vocabularies.
+        
+        Returns:
+            Dictionary mapping position index to set of allowed symbol indices
+        """
+        return self.position_vocabularies.copy()
+    
+    def clear_position_vocabularies(self):
+        """Clear all position-specific vocabularies (allows all symbols at all positions)."""
+        self.position_vocabularies = {}
 
     def get_id(self) -> str:
         return self.agent_id
@@ -770,11 +805,21 @@ class ProgressiveSelectionAgent(nn.Module):
         print(f"  Total communication symbols: {self.current_comm_symbols}")
         print(f"  Current sequence length: {self.current_seq_length}")
         
-        # For selection task, all communication symbols are available at all positions
-        comm_symbol_indices = list(range(self.puzzle_symbols, self.current_total_symbols))
-        
-        for pos in range(self.current_seq_length):
-            print(f"  Position {pos}: symbols {comm_symbol_indices} (all comm symbols available)")
+        # Check if we have position-specific vocabularies
+        if self.position_vocabularies:
+            print(f"  Position-specific vocabularies (Progressive Training):")
+            for pos in range(self.current_seq_length):
+                if pos in self.position_vocabularies:
+                    symbols = sorted(list(self.position_vocabularies[pos]))
+                    print(f"    Position {pos}: symbols {symbols}")
+                else:
+                    print(f"    Position {pos}: No vocabulary set (will use all comm symbols)")
+        else:
+            # Fallback: all communication symbols available at all positions
+            comm_symbol_indices = list(range(self.puzzle_symbols, self.current_total_symbols))
+            print(f"  No position-specific vocabularies (all comm symbols available at all positions)")
+            for pos in range(self.current_seq_length):
+                print(f"    Position {pos}: symbols {comm_symbol_indices}")
         
         print(f"  Note: Phase-based training with dynamic vocabulary management")
 
@@ -817,6 +862,98 @@ class ProgressiveSelectionAgent(nn.Module):
                 self.communication_embedding.weight[last_idx].copy_(emb)
                 # Keep counts unchanged
                 return last_idx
+
+    def freeze_positions(self, positions: List[int]):
+        """
+        Freeze position_predictors and communication embeddings for specified positions.
+        This is used for progressive sequence training where earlier positions are frozen
+        when training later positions.
+        
+        Args:
+            positions: List of position indices to freeze
+        """
+        for pos in positions:
+            if pos < len(self.encoder.position_predictors):
+                for param in self.encoder.position_predictors[pos].parameters():
+                    param.requires_grad = False
+                print(f"[{self.agent_id}] Froze position {pos} predictor")
+            else:
+                print(f"[{self.agent_id}] Warning: Position {pos} does not exist (max: {len(self.encoder.position_predictors)-1})")
+
+    def freeze_communication_symbols(self, num_symbols_to_freeze: int):
+        """
+        Freeze the embeddings for the first N communication symbols.
+        These symbols were learned in a previous phase and should not be modified.
+        
+        Args:
+            num_symbols_to_freeze: Number of communication symbols to freeze (starting from puzzle_symbols index)
+        """
+        if num_symbols_to_freeze <= 0:
+            return
+        
+        # Freeze the embedding weights for symbols [puzzle_symbols : puzzle_symbols + num_symbols_to_freeze]
+        start_idx = self.puzzle_symbols
+        end_idx = self.puzzle_symbols + num_symbols_to_freeze
+        
+        # Clamp to valid range
+        end_idx = min(end_idx, self.max_num_symbols)
+        
+        if start_idx >= end_idx:
+            return
+        
+        # Freeze these specific embedding rows
+        with torch.no_grad():
+            # We can't directly freeze specific rows of an embedding, so we'll register a hook
+            # that zeros out gradients for those rows
+            if not hasattr(self, '_frozen_symbol_indices'):
+                self._frozen_symbol_indices = set()
+            
+            for idx in range(start_idx, end_idx):
+                self._frozen_symbol_indices.add(idx)
+        
+        # Register gradient hook on communication embedding to zero frozen symbol gradients
+        if not hasattr(self.communication_embedding.weight, '_frozen_hook_registered'):
+            def freeze_hook(grad):
+                if hasattr(self, '_frozen_symbol_indices') and len(self._frozen_symbol_indices) > 0:
+                    frozen_mask = torch.zeros_like(grad, dtype=torch.bool)
+                    for idx in self._frozen_symbol_indices:
+                        frozen_mask[idx] = True
+                    grad = grad.clone()
+                    grad[frozen_mask] = 0.0
+                return grad
+            
+            self.communication_embedding.weight.register_hook(freeze_hook)
+            self.communication_embedding.weight._frozen_hook_registered = True
+        
+        print(f"[{self.agent_id}] Froze communication symbol embeddings for indices {start_idx} to {end_idx-1} ({num_symbols_to_freeze} symbols)")
+
+    def get_frozen_positions(self) -> List[int]:
+        """
+        Return list of frozen positions by checking which position predictors have frozen parameters.
+        
+        Returns:
+            List of position indices that are frozen
+        """
+        frozen = []
+        for pos in range(len(self.encoder.position_predictors)):
+            # Check if all params are frozen
+            params = list(self.encoder.position_predictors[pos].parameters())
+            if params and all(not p.requires_grad for p in params):
+                frozen.append(pos)
+        return frozen
+    
+    def get_frozen_communication_symbols(self) -> int:
+        """
+        Return the number of frozen communication symbols.
+        
+        Returns:
+            Number of communication symbols that are frozen
+        """
+        if hasattr(self, '_frozen_symbol_indices'):
+            # Count only symbols in the communication range
+            frozen_comm = [idx for idx in self._frozen_symbol_indices if idx >= self.puzzle_symbols]
+            return len(frozen_comm)
+        return 0
 
 
 # Create a factory function to replace the original Agent

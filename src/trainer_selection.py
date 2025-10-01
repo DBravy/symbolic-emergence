@@ -66,6 +66,10 @@ class ProgressiveSelectionTrainer:
         self.phase_cycle = 0
         self.global_phase_count = 0
         
+        # Position freezing for progressive sequence training
+        self.frozen_positions = []  # Track which positions are frozen
+        self.frozen_comm_symbols = 0  # Track how many communication symbols are frozen
+        
         # Synchronization parameters
         self.sync_frequency = sync_frequency
         self.last_sync_cycle = 0
@@ -191,11 +195,19 @@ class ProgressiveSelectionTrainer:
         # Get the randomly selected puzzles
         self.active_puzzles = [self.available_arc_puzzles[i] for i in selected_indices]
         
-        # Create symbol assignments starting from puzzle_symbols
+        # Create symbol assignments starting AFTER any frozen symbols
         self.puzzle_symbol_mapping = {}
         self.symbol_puzzle_mapping = {}
         
-        start_symbol = self.agent1.puzzle_symbols
+        # Account for frozen symbols from previous phases
+        # When resuming from snapshot, agents already have frozen_comm_symbols set
+        frozen_comm_symbols = self.agent1.current_comm_symbols if hasattr(self, 'frozen_comm_symbols') and self.frozen_comm_symbols > 0 else 0
+        start_symbol = self.agent1.puzzle_symbols + frozen_comm_symbols
+        
+        print(f"Starting symbol assignment at index {start_symbol}")
+        if frozen_comm_symbols > 0:
+            print(f"  (accounting for {frozen_comm_symbols} frozen symbols: {self.agent1.puzzle_symbols}-{self.agent1.puzzle_symbols + frozen_comm_symbols - 1})")
+        
         for i, puzzle in enumerate(self.active_puzzles):
             symbol_idx = start_symbol + i
             self.puzzle_symbol_mapping[i] = symbol_idx
@@ -203,18 +215,42 @@ class ProgressiveSelectionTrainer:
         
         self.next_available_symbol = start_symbol + len(self.active_puzzles)
         
-        # Update agent vocabularies to match actual puzzle count
-        actual_comm_symbols = len(self.active_puzzles)
-        self.agent1.current_comm_symbols = actual_comm_symbols
-        self.agent2.current_comm_symbols = actual_comm_symbols
-        self.agent1.current_total_symbols = self.agent1.puzzle_symbols + actual_comm_symbols
-        self.agent2.current_total_symbols = self.agent2.puzzle_symbols + actual_comm_symbols
+        # Update agent vocabularies: frozen symbols (already set) + new symbols
+        new_comm_symbols = len(self.active_puzzles)
+        total_comm_symbols = frozen_comm_symbols + new_comm_symbols
+        self.agent1.current_comm_symbols = total_comm_symbols
+        self.agent2.current_comm_symbols = total_comm_symbols
+        self.agent1.current_total_symbols = self.agent1.puzzle_symbols + total_comm_symbols
+        self.agent2.current_total_symbols = self.agent2.puzzle_symbols + total_comm_symbols
+        
+        # Assign symbols to the current unfrozen position
+        # Determine which position we're training based on frozen positions
+        frozen_positions = getattr(self, 'frozen_positions', [])
+        if frozen_positions:
+            # Next unfrozen position is after the highest frozen position
+            current_training_position = max(frozen_positions) + 1
+        else:
+            # No frozen positions, training position 0
+            current_training_position = 0
+        
+        # Get the symbol indices we just created
+        new_symbol_indices = set(self.puzzle_symbol_mapping.values())
+        
+        # Assign these symbols ONLY to the current training position
+        self.agent1.set_position_vocabulary(current_training_position, new_symbol_indices)
+        self.agent2.set_position_vocabulary(current_training_position, new_symbol_indices)
         
         print(f"Initialized with {len(self.active_puzzles)} RANDOMLY SELECTED puzzles")
         print(f"Selected puzzle indices: {selected_indices}")
         print(f"Symbol assignments: {self.puzzle_symbol_mapping}")
         print(f"Next available symbol: {self.next_available_symbol}")
-        print(f"Agent communication symbols updated to: {actual_comm_symbols}")
+        if frozen_comm_symbols > 0:
+            print(f"Frozen symbols: {frozen_comm_symbols} (indices {self.agent1.puzzle_symbols}-{self.agent1.puzzle_symbols + frozen_comm_symbols - 1})")
+            print(f"New symbols: {new_comm_symbols} (indices {start_symbol}-{start_symbol + new_comm_symbols - 1})")
+            print(f"Total communication symbols: {frozen_comm_symbols} + {new_comm_symbols} = {total_comm_symbols}")
+        else:
+            print(f"Communication symbols: {total_comm_symbols} (no frozen symbols)")
+        print(f"Assigned symbols {sorted(new_symbol_indices)} to position {current_training_position}")
 
     
     def should_synchronize(self) -> bool:
@@ -519,25 +555,40 @@ class ProgressiveSelectionTrainer:
         Modified to remove symbols with accuracy ≤ consolidation_threshold (configurable, default 30%).
         Shows visual debugging for poor performers, with robust fallbacks.
         Also writes all output to consolidation_analysis.txt.
+        
+        IMPORTANT: Frozen symbols (from previous training phases) are never removed.
         """
         recessive_symbols: Set[int] = set()
         poor_performers: List[int] = []  # Symbols with ≤ threshold accuracy (but >0%)
 
         consolidation_filename = 'consolidation_analysis.txt'
         threshold_percent = self.consolidation_threshold * 100
+        
+        # Determine frozen symbol range
+        frozen_start = self.agent1.puzzle_symbols
+        frozen_end = frozen_start + getattr(self, 'frozen_comm_symbols', 0)
 
         if not self.web_mode:
             header = f"{'='*50}\nANALYZING SYMBOL PERFORMANCE (10 tests per symbol)\nThreshold: {threshold_percent:.0f}%\n{'='*50}"
             print(header)
+            if frozen_end > frozen_start:
+                print(f"Protected frozen symbols: {frozen_start}-{frozen_end-1} (will not be removed)")
         else:
             header = f"Analyzing symbol performance (threshold: {threshold_percent:.0f}%)..."
             print(header)
         
         with open(consolidation_filename, 'a') as log_file:
             log_file.write(f"\n{header}\n")
+            if frozen_end > frozen_start:
+                log_file.write(f"Protected frozen symbols: {frozen_start}-{frozen_end-1}\n")
 
         # --- Compute per-symbol accuracy and categorize ---
         for symbol, predictions in confusion_data.items():
+            # Skip frozen symbols - they should never be removed
+            if frozen_start <= symbol < frozen_end:
+                if not self.web_mode:
+                    print(f"Symbol {symbol}: FROZEN (skipping consolidation analysis)")
+                continue
             total_tests = len(predictions)
             correct_predictions = sum(1 for pred in predictions if pred == symbol)
             accuracy = (correct_predictions / total_tests) if total_tests > 0 else 0.0
@@ -961,6 +1012,33 @@ class ProgressiveSelectionTrainer:
         self.agent1.current_total_symbols = self.agent1.puzzle_symbols + len(self.puzzle_symbol_mapping)
         self.agent2.current_total_symbols = self.agent2.puzzle_symbols + len(self.puzzle_symbol_mapping)
         
+        # Assign new symbols to the current unfrozen position
+        # Determine which position we're training based on frozen positions
+        frozen_positions = getattr(self, 'frozen_positions', [])
+        if frozen_positions:
+            # Next unfrozen position is after the highest frozen position
+            current_training_position = max(frozen_positions) + 1
+        else:
+            # No frozen positions, training position 0
+            current_training_position = 0
+        
+        # Get ONLY the newly added symbol indices
+        new_symbol_indices = set()
+        for active_idx in range(len(self.active_puzzles) - len(new_puzzles), len(self.active_puzzles)):
+            if active_idx in self.puzzle_symbol_mapping:
+                new_symbol_indices.add(self.puzzle_symbol_mapping[active_idx])
+        
+        # Add these new symbols to the current position's vocabulary
+        if new_symbol_indices:
+            existing_vocab_1 = self.agent1.position_vocabularies.get(current_training_position, set())
+            existing_vocab_2 = self.agent2.position_vocabularies.get(current_training_position, set())
+            
+            self.agent1.set_position_vocabulary(current_training_position, existing_vocab_1 | new_symbol_indices)
+            self.agent2.set_position_vocabulary(current_training_position, existing_vocab_2 | new_symbol_indices)
+            
+            if not self.web_mode:
+                print(f"Added symbols {sorted(new_symbol_indices)} to position {current_training_position}")
+        
         if not self.web_mode:
             print(f"Total active puzzles: {len(self.active_puzzles)}")
             print(f"Selected new puzzle indices from dataset: {selected_new_indices}")
@@ -1186,9 +1264,20 @@ class ProgressiveSelectionTrainer:
                 if self._recon_step_counter % max(1, int(self.recon_sample_interval)) == 0:
                     with torch.no_grad():
                         target_tensor = puzzle
-                        # Top-1 symbol from Agent1's message
-                        local_sym1 = int(symbols1[0, 0].argmax().item()) if symbols1.dim() == 3 else 0
-                        abs_sym1 = int(self.agent1.puzzle_symbols + local_sym1)
+                        # Extract all symbols from Agent1's message (for multi-position messages)
+                        seq_len = symbols1.size(1) if symbols1.dim() == 3 else 1
+                        message_symbols_local = []
+                        message_symbols_abs = []
+                        
+                        for pos in range(seq_len):
+                            if symbols1.dim() == 3:
+                                local_sym = int(symbols1[0, pos].argmax().item())
+                            else:
+                                local_sym = 0
+                            abs_sym = int(self.agent1.puzzle_symbols + local_sym)
+                            message_symbols_local.append(local_sym)
+                            message_symbols_abs.append(abs_sym)
+                        
                         # Decode using Agent2's decoder
                         comm_emb_a2 = self.agent2.communication_embedding.weight[
                             self.agent2.puzzle_symbols:self.agent2.current_total_symbols
@@ -1202,8 +1291,12 @@ class ProgressiveSelectionTrainer:
                         pred_np = logits_sel[0].argmax(dim=-1).detach().cpu().long().numpy().tolist()
                         metrics['recon_sample'] = {
                             'direction': 'A1_to_A2',
-                            'message_symbol_local': local_sym1,
-                            'message_symbol_abs': abs_sym1,
+                            'message_symbols_local': message_symbols_local,
+                            'message_symbols_abs': message_symbols_abs,
+                            # Keep backward compatibility
+                            'message_symbol_local': message_symbols_local[0] if message_symbols_local else 0,
+                            'message_symbol_abs': message_symbols_abs[0] if message_symbols_abs else 0,
+                            'sequence_length': seq_len,
                             'target': tgt_np,
                             'reconstruction': pred_np,
                             'target_size': [Ht, Wt],
@@ -1282,10 +1375,24 @@ class ProgressiveSelectionTrainer:
         symbols1, _, _ = self.agent1.encode_puzzle_to_message(
             target_tensor, temperature=temperature, initial_phase=False
         )
-        # Message top-1 symbol (local and absolute indices)
+        # Extract all symbols from message (for multi-position messages)
         with torch.no_grad():
-            local_sym1 = int(symbols1[0, 0].argmax().item()) if symbols1.dim() == 3 else 0
-            abs_sym1 = int(self.agent1.puzzle_symbols + local_sym1)
+            seq_len = symbols1.size(1) if symbols1.dim() == 3 else 1
+            message_symbols_local = []
+            message_symbols_abs = []
+            
+            for pos in range(seq_len):
+                if symbols1.dim() == 3:
+                    local_sym = int(symbols1[0, pos].argmax().item())
+                else:
+                    local_sym = 0
+                abs_sym = int(self.agent1.puzzle_symbols + local_sym)
+                message_symbols_local.append(local_sym)
+                message_symbols_abs.append(abs_sym)
+            
+            # Keep backward compatibility variables
+            local_sym1 = message_symbols_local[0] if message_symbols_local else 0
+            abs_sym1 = message_symbols_abs[0] if message_symbols_abs else 0
         # Embed message with receiver's comm embeddings
         comm_emb_a2 = self.agent2.communication_embedding.weight[
             self.agent2.puzzle_symbols:self.agent2.current_total_symbols
@@ -1351,8 +1458,12 @@ class ProgressiveSelectionTrainer:
                 pred_np = logits1[0].argmax(dim=-1).detach().cpu().long().numpy().tolist()
                 recon_sample = {
                     'direction': 'A1_to_A2',
+                    'message_symbols_local': message_symbols_local,
+                    'message_symbols_abs': message_symbols_abs,
+                    # Keep backward compatibility
                     'message_symbol_local': local_sym1,
                     'message_symbol_abs': abs_sym1,
+                    'sequence_length': seq_len,
                     'target': tgt_np,
                     'reconstruction': pred_np,
                     'target_size': [Ht, Wt],
@@ -1911,6 +2022,11 @@ class ProgressiveSelectionTrainer:
 
     def save_snapshot(self, name: Optional[str] = None, directory: Optional[str] = None) -> str:
         """Save a full snapshot of both agents and relevant trainer state.
+        
+        For progressive sequence training:
+        - Saves current communication symbols (will be frozen in next phase)
+        - Saves current frozen positions and symbols
+        
         Returns the saved filepath.
         """
         # Determine directory
@@ -1923,11 +2039,24 @@ class ProgressiveSelectionTrainer:
         base = name.strip().replace(' ', '_') if name else f'comm_snapshot'
         filename = f"{base}_{timestamp}.pt"
         path = os.path.join(snap_dir, filename)
+        
+        # Update frozen_comm_symbols based on currently frozen count in agents
+        # (in case it wasn't set explicitly during snapshot)
+        if self.frozen_comm_symbols == 0 and hasattr(self.agent1, 'get_frozen_communication_symbols'):
+            self.frozen_comm_symbols = self.agent1.get_frozen_communication_symbols()
 
         # Collect states
         state = {
             'agent1_state_dict': self.agent1.state_dict(),
             'agent2_state_dict': self.agent2.state_dict(),
+            'architecture': {
+                'embedding_dim': self.agent1.embedding_system.embedding_dim,
+                'hidden_dim': getattr(self.agent1.encoder, 'hidden_dim', 1024),
+                'num_symbols': self.agent1.max_num_symbols,
+                'puzzle_symbols': self.agent1.puzzle_symbols,
+                'max_seq_length': self.agent1.max_seq_length,
+                'similarity_metric': self.agent1.similarity_metric,
+            },
             'trainer_state': {
                 'current_phase': self.current_phase,
                 'phase_cycle': self.phase_cycle,
@@ -1942,6 +2071,11 @@ class ProgressiveSelectionTrainer:
                 'current_comm_symbols_a2': getattr(self.agent2, 'current_comm_symbols', None),
                 'current_total_symbols_a1': getattr(self.agent1, 'current_total_symbols', None),
                 'current_total_symbols_a2': getattr(self.agent2, 'current_total_symbols', None),
+                'current_seq_length': self.agent1.current_seq_length,
+                'frozen_positions': getattr(self, 'frozen_positions', []),
+                'frozen_comm_symbols': getattr(self, 'frozen_comm_symbols', 0),
+                'position_vocabularies_a1': {int(k): list(v) for k, v in self.agent1.get_position_vocabularies().items()},
+                'position_vocabularies_a2': {int(k): list(v) for k, v in self.agent2.get_position_vocabularies().items()},
                 'initial_puzzle_count': self.initial_puzzle_count,
                 'initial_comm_symbols': self.initial_comm_symbols,
                 'repetition_per_puzzle': self.repetitions_per_puzzle,

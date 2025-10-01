@@ -6,12 +6,6 @@
     "route": "phase_0"
   },
   {
-    "id": 1,
-    "name": "New Phase",
-    "type": "intermediate",
-    "route": "phase_1"
-  },
-  {
     "id": "arc",
     "name": "ARC Solving",
     "type": "final",

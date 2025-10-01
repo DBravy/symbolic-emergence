@@ -459,6 +459,29 @@ class LiveGrapher:
                 
                 stats_text = f"Current Step: {steps[-1]}\n\n"
                 
+                # Progressive training info (passed via add_data_point metadata)
+                if hasattr(self, 'trainer_ref') and self.trainer_ref:
+                    try:
+                        trainer = self.trainer_ref()
+                        if trainer:
+                            stats_text += f"=== Progressive Training ===\n"
+                            stats_text += f"Seq Length: {trainer.agent1.current_seq_length}\n"
+                            frozen_comm = getattr(trainer, 'frozen_comm_symbols', 0)
+                            if frozen_comm > 0:
+                                stats_text += f"Frozen Symbols: {frozen_comm}\n"
+                            frozen_pos = getattr(trainer, 'frozen_positions', [])
+                            if frozen_pos:
+                                stats_text += f"Frozen Positions: {frozen_pos}\n"
+                            # Show position vocabularies
+                            if trainer.agent1.position_vocabularies:
+                                stats_text += f"Position Vocabs:\n"
+                                for pos in sorted(trainer.agent1.position_vocabularies.keys()):
+                                    vocab = trainer.agent1.position_vocabularies[pos]
+                                    stats_text += f"  Pos {pos}: {len(vocab)} syms\n"
+                            stats_text += f"\n"
+                    except Exception:
+                        pass
+                
                 if self.ma_data['loss'] and not np.isnan(self.ma_data['loss'][-1]):
                     stats_text += f"Loss (MA): {self.ma_data['loss'][-1]:.4f}\n"
                 if self.ma_data['acc1_selection'] and not np.isnan(self.ma_data['acc1_selection'][-1]):
@@ -470,7 +493,7 @@ class LiveGrapher:
                 if self.ma_data['ges2'] and not np.isnan(self.ma_data['ges2'][-1]):
                     stats_text += f"Agent2 GES (MA): {self.ma_data['ges2'][-1]:.2f}\n"
                 if recent_data['active_symbols']:
-                    stats_text += f"Active Symbols: {recent_data['active_symbols'][-1]}\n"
+                    stats_text += f"\nActive Symbols: {recent_data['active_symbols'][-1]}\n"
                 if recent_data.get('total_puzzles'):
                     stats_text += f"Total Puzzles: {int(recent_data['total_puzzles'][-1])}\n"
                 if recent_data.get('distractors'):
@@ -638,14 +661,26 @@ def run_pretraining_phase(trainer, target_puzzles=None, epochs=50):
     device = trainer.device
     
     # Filter target puzzles to only include those with symbol mappings
+    # AND exclude puzzles mapped to frozen symbols
     mapped_puzzles = []
     mapped_puzzle_indices = []
+    skipped_frozen = 0
+    
+    # Determine which symbols are frozen
+    frozen_symbol_start = agent1.puzzle_symbols  # e.g., 10
+    frozen_symbol_end = frozen_symbol_start + getattr(trainer, 'frozen_comm_symbols', 0)  # e.g., 10 + 3 = 13
     
     for i, puzzle in enumerate(target_puzzles):
         # Find this puzzle's index in active_puzzles
         try:
             active_idx = trainer.active_puzzles.index(puzzle)
             if active_idx in trainer.puzzle_symbol_mapping:
+                # Check if this puzzle is mapped to a frozen symbol
+                symbol_idx = trainer.puzzle_symbol_mapping[active_idx]
+                if frozen_symbol_start <= symbol_idx < frozen_symbol_end:
+                    # This puzzle is mapped to a frozen symbol - skip it
+                    skipped_frozen += 1
+                    continue
                 mapped_puzzles.append(puzzle)
                 mapped_puzzle_indices.append(active_idx)
         except ValueError:
@@ -654,6 +689,8 @@ def run_pretraining_phase(trainer, target_puzzles=None, epochs=50):
     
     print(f"Training on {len(mapped_puzzles)} puzzles with symbol mappings")
     print(f"Skipping {len(target_puzzles) - len(mapped_puzzles)} puzzles without mappings")
+    if skipped_frozen > 0:
+        print(f"Skipped {skipped_frozen} puzzles mapped to frozen symbols (symbols {frozen_symbol_start}-{frozen_symbol_end-1})")
     
     if len(mapped_puzzles) == 0:
         print("No puzzles with symbol mappings to train on!")
@@ -2109,6 +2146,8 @@ def parse_args():
                        help='Disable live plotting for web interface')
     parser.add_argument('--control-file', type=str, default='training_control.json',
                        help='Path to control file for runtime mode toggles')
+    parser.add_argument('--resume-from', type=str, default=None,
+                       help='Path to snapshot file to resume from (for progressive sequence training)')
     return parser.parse_args()
 
 def main():
@@ -2160,16 +2199,60 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
-    # Initialize live grapher only if not in web mode
+    # Initialize live grapher later after we know actual symbol count
     global live_grapher
-    if not args.web_mode:
-        live_grapher = LiveGrapher(initial_symbols=config['initial_comm_symbols'])
-        print("Live grapher ready! Training metrics will update in real-time.")
-    else:
-        live_grapher = None
-        print("Web mode enabled - live plotting disabled")
+    live_grapher = None  # Will be initialized after snapshot loading
     
-    # Create agents with config parameters
+    # If resuming from snapshot, load architecture parameters FIRST
+    snapshot_data = None
+    if args.resume_from:
+        print(f"\n{'='*60}")
+        print(f"Loading snapshot state from: {args.resume_from}")
+        print(f"{'='*60}")
+        try:
+            snapshot_data = torch.load(args.resume_from, map_location=device)
+            
+            # Extract architecture parameters from snapshot
+            if 'architecture' in snapshot_data:
+                arch = snapshot_data['architecture']
+                print("\nSnapshot Architecture:")
+                for key, value in arch.items():
+                    print(f"  {key}: {value}")
+                
+                # Override config with snapshot architecture parameters
+                # These MUST match for state_dict loading to work
+                print("\n⚠️  Overriding config with snapshot architecture parameters:")
+                arch_keys = ['embedding_dim', 'hidden_dim', 'num_symbols', 'puzzle_symbols', 'max_seq_length']
+                for key in arch_keys:
+                    if key in arch:
+                        old_val = config.get(key)
+                        new_val = arch[key]
+                        if old_val != new_val:
+                            print(f"  {key}: {old_val} → {new_val}")
+                            config[key] = new_val
+                        else:
+                            print(f"  {key}: {new_val} (unchanged)")
+                
+                print()
+            else:
+                print("\n⚠️  Warning: Snapshot does not contain architecture metadata")
+                print("Using config file architecture (may cause loading errors)\n")
+                
+        except Exception as e:
+            print(f"\n✗ Error loading snapshot architecture: {e}")
+            print(f"Continuing with config file architecture...")
+            print(f"{'='*60}\n")
+            snapshot_data = None
+    
+    # Create agents with config parameters (potentially overridden by snapshot)
+    print(f"Creating agents with:")
+    print(f"  embedding_dim: {config['embedding_dim']}")
+    print(f"  hidden_dim: {config['hidden_dim']}")
+    print(f"  num_symbols: {config['num_symbols']}")
+    print(f"  puzzle_symbols: {config['puzzle_symbols']}")
+    print(f"  max_seq_length: {config['max_seq_length']}")
+    print()
+    
     sender = Agent(
         agent_id="sender",
         embedding_dim=config['embedding_dim'],
@@ -2212,11 +2295,123 @@ def main():
         phase_change_indicator=config['phase_change_indicator'],
         web_mode=args.web_mode
     )
+    
     # Apply snapshot retention limit to trainer so save_snapshot enforces it
     try:
         trainer.max_snapshots = int(config.get('max_snapshots', globals().get('global_max_snapshots', 50)) or 50)
     except Exception:
         trainer.max_snapshots = 50
+    
+    # Now load the state dict and apply freezing if we have snapshot data
+    if snapshot_data is not None:
+        try:
+            print(f"{'='*60}")
+            print("Loading Weights and Applying Freezing")
+            print(f"{'='*60}\n")
+            
+            # Load agent state dicts
+            trainer.agent1.load_state_dict(snapshot_data['agent1_state_dict'])
+            trainer.agent2.load_state_dict(snapshot_data['agent2_state_dict'])
+            print("✓ Loaded agent state dictionaries")
+            
+            # Apply frozen positions from previous phase
+            trainer_state = snapshot_data.get('trainer_state', {})
+            frozen_positions = trainer_state.get('frozen_positions', [])
+            frozen_comm_symbols = trainer_state.get('frozen_comm_symbols', 0)
+            
+            # If not explicitly stored, infer from current_comm_symbols in snapshot
+            # (for backward compatibility with old snapshots)
+            if frozen_comm_symbols == 0:
+                frozen_comm_symbols = trainer_state.get('current_comm_symbols_a1', 0)
+            
+            print(f"\n{'─'*60}")
+            print("Applying Freezing from Snapshot:")
+            print(f"{'─'*60}")
+            
+            # Freeze position predictors
+            if frozen_positions:
+                print(f"  • Frozen positions: {frozen_positions}")
+                trainer.agent1.freeze_positions(frozen_positions)
+                trainer.agent2.freeze_positions(frozen_positions)
+                trainer.frozen_positions = frozen_positions
+            else:
+                print(f"  • No frozen positions (first phase)")
+            
+            # Freeze communication symbol embeddings
+            if frozen_comm_symbols > 0:
+                print(f"  • Frozen communication symbols: {frozen_comm_symbols}")
+                print(f"    (indices {trainer.agent1.puzzle_symbols} to {trainer.agent1.puzzle_symbols + frozen_comm_symbols - 1})")
+                trainer.agent1.freeze_communication_symbols(frozen_comm_symbols)
+                trainer.agent2.freeze_communication_symbols(frozen_comm_symbols)
+                trainer.frozen_comm_symbols = frozen_comm_symbols
+                
+                # Update agent vocabulary to reflect frozen symbols
+                # These symbols are already trained and should not be reused
+                print(f"  • Setting agent vocabulary to start AFTER frozen symbols")
+                trainer.agent1.current_comm_symbols = frozen_comm_symbols
+                trainer.agent1.current_total_symbols = trainer.agent1.puzzle_symbols + frozen_comm_symbols
+                trainer.agent1.communication_vocabulary = set(range(trainer.agent1.current_total_symbols))
+                
+                trainer.agent2.current_comm_symbols = frozen_comm_symbols
+                trainer.agent2.current_total_symbols = trainer.agent2.puzzle_symbols + frozen_comm_symbols
+                trainer.agent2.communication_vocabulary = set(range(trainer.agent2.current_total_symbols))
+                
+                print(f"  • Agents now have {frozen_comm_symbols} symbols (frozen, will not be modified)")
+                print(f"  • Next available symbol will be: {trainer.agent1.puzzle_symbols + frozen_comm_symbols}")
+                print(f"  • Fresh puzzles will be initialized and assigned to NEW symbols")
+            else:
+                print(f"  • No frozen communication symbols (first phase)")
+            
+            # Restore position vocabularies from snapshot
+            position_vocabs_a1 = trainer_state.get('position_vocabularies_a1', {})
+            position_vocabs_a2 = trainer_state.get('position_vocabularies_a2', {})
+            
+            if position_vocabs_a1 or position_vocabs_a2:
+                print(f"  • Restoring position-specific vocabularies:")
+                # Convert keys to int and values to sets
+                for pos_str, symbols_list in position_vocabs_a1.items():
+                    pos = int(pos_str)
+                    symbols_set = set(symbols_list)
+                    trainer.agent1.set_position_vocabulary(pos, symbols_set)
+                    print(f"    Position {pos}: {sorted(symbols_set)} (Agent1)")
+                
+                for pos_str, symbols_list in position_vocabs_a2.items():
+                    pos = int(pos_str)
+                    symbols_set = set(symbols_list)
+                    trainer.agent2.set_position_vocabulary(pos, symbols_set)
+                    # Only print for agent2 if different from agent1
+                    if pos_str not in position_vocabs_a1 or position_vocabs_a1[pos_str] != symbols_list:
+                        print(f"    Position {pos}: {sorted(symbols_set)} (Agent2)")
+            
+            print(f"{'─'*60}")
+            
+            # Update current sequence length if specified in config
+            # (allows increasing sequence length in new phase)
+            if 'current_seq_length' in config:
+                new_seq_len = config['current_seq_length']
+                old_seq_len = trainer.agent1.current_seq_length
+                if new_seq_len != old_seq_len:
+                    print(f"\n✓ Updating sequence length: {old_seq_len} → {new_seq_len}")
+                    trainer.agent1.current_seq_length = new_seq_len
+                    trainer.agent2.current_seq_length = new_seq_len
+                    
+                    # When expanding sequence length, freeze the previous positions
+                    # (the new position predictors remain trainable)
+                    if new_seq_len > old_seq_len and old_seq_len > 0:
+                        positions_to_freeze = list(range(old_seq_len))
+                        print(f"✓ Auto-freezing positions for previous sequence length: {positions_to_freeze}")
+                        trainer.agent1.freeze_positions(positions_to_freeze)
+                        trainer.agent2.freeze_positions(positions_to_freeze)
+                        trainer.frozen_positions = positions_to_freeze
+            
+            print(f"\n✓ Successfully loaded snapshot and applied freezing")
+            print(f"{'='*60}\n")
+            
+        except Exception as e:
+            print(f"\n✗ Error loading snapshot weights: {e}")
+            print(f"Continuing with fresh initialization...")
+            print(f"{'='*60}\n")
+    
     # QUICK TEST: force early-stop to run novel symbol induction immediately. Toggle False to restore normal behavior.
     trainer.early_stop_force = False
     # Set min cycles before GES triggers from config
@@ -2236,15 +2431,73 @@ def main():
     all_puzzles = load_arc_puzzles(arc_file_path)
     print(f"\nLoaded {len(all_puzzles)} total examples from ARC dataset")
     
-    # Set puzzle dataset and initialize first puzzles
+    # Set puzzle dataset
     trainer.set_puzzle_dataset(all_puzzles)
-    trainer.initialize_first_puzzles()  # NEW: No parameter needed, uses trainer's configuration
     
-    # Update live grapher with correct initial symbol count
-    if live_grapher:
-        initial_symbols = trainer.initial_comm_symbols
-        live_grapher.active_symbols_count = initial_symbols
-        print(f"Live grapher updated with initial symbols: {initial_symbols}")
+    # Initialize symbols based on sequence length
+    if trainer.agent1.current_seq_length == 1:
+        # Position 0: Create puzzle mappings for pretraining
+        print("Initializing puzzles for position 0 (with puzzle mappings)")
+        trainer.initialize_first_puzzles()
+    else:
+        # Position 1+: Load puzzles but DON'T create puzzle-symbol mappings
+        # We still need active_puzzles for training, just no mappings for pretraining
+        print(f"Initializing for position {trainer.agent1.current_seq_length - 1} (training without puzzle mappings)")
+        
+        # Select random puzzles for training (but don't map them to symbols)
+        if len(all_puzzles) < config['initial_puzzle_count']:
+            raise ValueError(f"Need at least {config['initial_puzzle_count']} puzzles")
+        
+        available_indices = list(range(len(all_puzzles)))
+        selected_indices = random.sample(available_indices, config['initial_puzzle_count'])
+        selected_indices.sort()
+        
+        trainer.used_puzzle_indices.update(selected_indices)
+        trainer.active_puzzles = [all_puzzles[i] for i in selected_indices]
+        
+        print(f"  Selected {len(trainer.active_puzzles)} puzzles for training: {selected_indices}")
+        
+        # Don't create puzzle_symbol_mapping - position 1+ symbols are not tied to specific puzzles
+        # The mappings will be empty, which is correct for position 1+
+        
+        # Determine frozen symbols and current position
+        frozen_comm_symbols = getattr(trainer, 'frozen_comm_symbols', 0)
+        frozen_positions = getattr(trainer, 'frozen_positions', [])
+        current_position = max(frozen_positions) + 1 if frozen_positions else 0
+        
+        # Create new communication symbols starting after frozen ones
+        start_symbol = trainer.agent1.puzzle_symbols + frozen_comm_symbols
+        num_new_symbols = config['initial_comm_symbols']
+        new_symbol_indices = set(range(start_symbol, start_symbol + num_new_symbols))
+        
+        print(f"  Creating {num_new_symbols} new symbols: {sorted(new_symbol_indices)}")
+        print(f"  Assigning to position {current_position}")
+        
+        # Update agent vocabularies
+        total_comm_symbols = frozen_comm_symbols + num_new_symbols
+        trainer.agent1.current_comm_symbols = total_comm_symbols
+        trainer.agent2.current_comm_symbols = total_comm_symbols
+        trainer.agent1.current_total_symbols = trainer.agent1.puzzle_symbols + total_comm_symbols
+        trainer.agent2.current_total_symbols = trainer.agent2.puzzle_symbols + total_comm_symbols
+        
+        # Assign to position vocabulary
+        trainer.agent1.set_position_vocabulary(current_position, new_symbol_indices)
+        trainer.agent2.set_position_vocabulary(current_position, new_symbol_indices)
+        
+        print(f"  Total communication symbols: {total_comm_symbols} (frozen: {frozen_comm_symbols}, new: {num_new_symbols})")
+        print(f"  Note: No puzzle-symbol mappings for position {current_position} (training only)")
+    
+    # NOW initialize live grapher with actual symbol count (after snapshot loading)
+    if not args.web_mode:
+        import weakref
+        current_symbols = trainer.agent1.current_comm_symbols
+        live_grapher = LiveGrapher(initial_symbols=current_symbols)
+        # Store weak reference to trainer for stats display
+        live_grapher.trainer_ref = weakref.ref(trainer)
+        print(f"Live grapher initialized with {current_symbols} symbols")
+        print("Live grapher ready! Training metrics will update in real-time.")
+    else:
+        print("Web mode enabled - live plotting disabled")
     
     # Show initial state
     print("\n" + "="*60)
@@ -2295,7 +2548,15 @@ def main():
             
             if current_phase == "pretraining":
                 # Pretraining phase - train encoder on newly added puzzles
-                if trainer.skip_pretraining_always or trainer.skip_next_pretraining:
+                # Skip entirely for seq_length > 1 (no puzzle mappings for position 1+)
+                if trainer.agent1.current_seq_length > 1:
+                    print(f"\n{'='*60}")
+                    print(f"SKIPPING PRETRAINING (seq_length={trainer.agent1.current_seq_length}, position 1+)")
+                    print(f"{'='*60}")
+                    log_file.write("Skipping pretraining for seq_length > 1\n")
+                    log_file.flush()
+                    trainer.advance_phase()
+                elif trainer.skip_pretraining_always or trainer.skip_next_pretraining:
                     reason = "permanent threshold state" if trainer.skip_pretraining_always else "recent GES threshold event"
                     print(f"Skipping pretraining due to {reason}.")
                     trainer.skip_next_pretraining = False  # consume one-time skip if set
@@ -2393,38 +2654,67 @@ def main():
                 
                 # --- MODIFIED: If early stop triggered, proceed immediately to consolidation → addition, then loop continues ---
                 if early_stop:
-                    # Unseen puzzle testing already executed inside run_training_phase
-                    # Proceed to consolidation
-                    confusion_data, removed_symbols = run_consolidation_phase(trainer)
-                    if live_grapher and removed_symbols:
-                        live_grapher.remove_symbols(len(removed_symbols))
-                    # Append consolidation placeholder for timeline
-                    all_metrics_history.append({
-                        'total_loss': np.nan,
-                        'agent1_selection_accuracy': np.nan,
-                        'agent2_selection_accuracy': np.nan,
-                        'active_symbols': len(trainer.puzzle_symbol_mapping),
-                        'num_distractors': trainer.num_distractors,
-                        'phase': 'consolidation'
-                    })
-                    for key in all_accuracies_history:
-                        all_accuracies_history[key].append(np.nan)
-                    
-                    # Addition with predicted embeddings (implemented in trainer.add_new_puzzles)
-                    new_puzzles = run_addition_phase(trainer)
-                    if live_grapher and new_puzzles:
-                        live_grapher.add_symbols(len(new_puzzles))
-                    # Append addition placeholder for timeline
-                    all_metrics_history.append({
-                        'total_loss': np.nan,
-                        'agent1_selection_accuracy': np.nan,
-                        'agent2_selection_accuracy': np.nan,
-                        'active_symbols': len(trainer.puzzle_symbol_mapping),
-                        'num_distractors': trainer.num_distractors,
-                        'phase': 'addition'
-                    })
-                    for key in all_accuracies_history:
-                        all_accuracies_history[key].append(np.nan)
+                    if trainer.agent1.current_seq_length > 1:
+                        # Position 1+: Skip consolidation, but ADD SYMBOLS
+                        print("Skipping consolidation (seq_length > 1), but adding symbols")
+                        
+                        frozen_comm_symbols = getattr(trainer, 'frozen_comm_symbols', 0)
+                        frozen_positions = getattr(trainer, 'frozen_positions', [])
+                        current_position = max(frozen_positions) + 1 if frozen_positions else 0
+                        
+                        # Add new symbols for current position
+                        start_symbol = trainer.agent1.current_total_symbols
+                        num_new_symbols = config['puzzles_per_addition']
+                        new_symbol_indices = set(range(start_symbol, start_symbol + num_new_symbols))
+                        
+                        trainer.agent1.current_comm_symbols += num_new_symbols
+                        trainer.agent2.current_comm_symbols += num_new_symbols
+                        trainer.agent1.current_total_symbols += num_new_symbols
+                        trainer.agent2.current_total_symbols += num_new_symbols
+                        
+                        existing_vocab_1 = trainer.agent1.position_vocabularies.get(current_position, set())
+                        existing_vocab_2 = trainer.agent2.position_vocabularies.get(current_position, set())
+                        trainer.agent1.set_position_vocabulary(current_position, existing_vocab_1 | new_symbol_indices)
+                        trainer.agent2.set_position_vocabulary(current_position, existing_vocab_2 | new_symbol_indices)
+                        
+                        if live_grapher:
+                            live_grapher.add_symbols(num_new_symbols)
+                        
+                        print(f"Added {num_new_symbols} symbols to position {current_position}: {sorted(new_symbol_indices)}")
+                    else:
+                        # Position 0: Original behavior - consolidation + addition
+                        # Unseen puzzle testing already executed inside run_training_phase
+                        # Proceed to consolidation
+                        confusion_data, removed_symbols = run_consolidation_phase(trainer)
+                        if live_grapher and removed_symbols:
+                            live_grapher.remove_symbols(len(removed_symbols))
+                        # Append consolidation placeholder for timeline
+                        all_metrics_history.append({
+                            'total_loss': np.nan,
+                            'agent1_selection_accuracy': np.nan,
+                            'agent2_selection_accuracy': np.nan,
+                            'active_symbols': len(trainer.puzzle_symbol_mapping),
+                            'num_distractors': trainer.num_distractors,
+                            'phase': 'consolidation'
+                        })
+                        for key in all_accuracies_history:
+                            all_accuracies_history[key].append(np.nan)
+                        
+                        # Addition with predicted embeddings (implemented in trainer.add_new_puzzles)
+                        new_puzzles = run_addition_phase(trainer)
+                        if live_grapher and new_puzzles:
+                            live_grapher.add_symbols(len(new_puzzles))
+                        # Append addition placeholder for timeline
+                        all_metrics_history.append({
+                            'total_loss': np.nan,
+                            'agent1_selection_accuracy': np.nan,
+                            'agent2_selection_accuracy': np.nan,
+                            'active_symbols': len(trainer.puzzle_symbol_mapping),
+                            'num_distractors': trainer.num_distractors,
+                            'phase': 'addition'
+                        })
+                        for key in all_accuracies_history:
+                            all_accuracies_history[key].append(np.nan)
                     
                     # After addition, skip pretraining (already flagged) and continue to training in next loop
                     # Advance phase to training directly
@@ -2493,6 +2783,16 @@ def main():
                 trainer.advance_phase()
             
             elif current_phase == "consolidation":
+                # Skip consolidation entirely for seq_length > 1 (no puzzle mappings)
+                if trainer.agent1.current_seq_length > 1:
+                    print(f"\n{'='*60}")
+                    print(f"SKIPPING CONSOLIDATION (seq_length={trainer.agent1.current_seq_length}, position 1+)")
+                    print(f"{'='*60}")
+                    log_file.write("Skipping consolidation for seq_length > 1\n")
+                    log_file.flush()
+                    trainer.advance_phase()
+                    continue
+                
                 # Skip consolidation if this would be the final global phase
                 if trainer.global_phase_count >= max_global_phases - 1:
                     log_file.write(f"Skipping consolidation phase for final global phase\n")
@@ -2564,8 +2864,48 @@ def main():
                     log_file.flush()
                     break
                 
-                # Addition phase - add new puzzles
-                new_puzzles = run_addition_phase(trainer)
+                # Addition phase - behavior depends on sequence length
+                if trainer.agent1.current_seq_length > 1:
+                    # Position 1+: Add NEW SYMBOLS (not puzzles) for current position
+                    print(f"\n{'='*60}")
+                    print(f"ADDITION PHASE - Adding symbols for position {trainer.agent1.current_seq_length - 1}")
+                    print(f"{'='*60}")
+                    
+                    frozen_comm_symbols = getattr(trainer, 'frozen_comm_symbols', 0)
+                    frozen_positions = getattr(trainer, 'frozen_positions', [])
+                    current_position = max(frozen_positions) + 1 if frozen_positions else 0
+                    
+                    # Create new symbols starting after current total
+                    start_symbol = trainer.agent1.current_total_symbols
+                    num_new_symbols = config['puzzles_per_addition']  # Reuse this config for number of symbols to add
+                    new_symbol_indices = set(range(start_symbol, start_symbol + num_new_symbols))
+                    
+                    print(f"Creating {num_new_symbols} new symbols: {sorted(new_symbol_indices)}")
+                    print(f"Assigning to position {current_position}")
+                    
+                    # Update agent vocabularies
+                    trainer.agent1.current_comm_symbols += num_new_symbols
+                    trainer.agent2.current_comm_symbols += num_new_symbols
+                    trainer.agent1.current_total_symbols += num_new_symbols
+                    trainer.agent2.current_total_symbols += num_new_symbols
+                    
+                    # Add to position vocabulary
+                    existing_vocab_1 = trainer.agent1.position_vocabularies.get(current_position, set())
+                    existing_vocab_2 = trainer.agent2.position_vocabularies.get(current_position, set())
+                    trainer.agent1.set_position_vocabulary(current_position, existing_vocab_1 | new_symbol_indices)
+                    trainer.agent2.set_position_vocabulary(current_position, existing_vocab_2 | new_symbol_indices)
+                    
+                    print(f"Total communication symbols: {trainer.agent1.current_comm_symbols}")
+                    print(f"Position {current_position} vocabulary: {sorted(trainer.agent1.position_vocabularies[current_position])}")
+                    
+                    # Update live grapher
+                    if live_grapher:
+                        live_grapher.add_symbols(num_new_symbols)
+                    
+                    new_puzzles = []  # No puzzle additions for position 1+
+                else:
+                    # Position 0: Add puzzles with mappings (original behavior)
+                    new_puzzles = run_addition_phase(trainer)
                 
                 # Update live grapher symbol count
                 if live_grapher and new_puzzles:
