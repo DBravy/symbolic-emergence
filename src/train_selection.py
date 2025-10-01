@@ -2081,7 +2081,8 @@ def load_config(config_file=None):
         'hidden_dim': 1024,
         'num_symbols': 100,
         'puzzle_symbols': 10,
-        'max_seq_length': 1,
+        'max_seq_length': 10,
+        'current_seq_length': 1,
         'output_dir': './outputs',
         # New: live plot cadence (cycles) and toggle
         'plot_update_interval_cycles': 1,
@@ -2109,6 +2110,7 @@ def parse_args():
                        help='Disable live plotting for web interface')
     parser.add_argument('--control-file', type=str, default='training_control.json',
                        help='Path to control file for runtime mode toggles')
+    parser.add_argument('--resume-from', type=str, default='', help='Path to snapshot to resume from')
     return parser.parse_args()
 
 def main():
@@ -2192,6 +2194,13 @@ def main():
         similarity_metric='cosine'
     ).to(device)
     
+    # Apply current_seq_length to agents before training
+    try:
+        sender.current_seq_length = int(config.get('current_seq_length', sender.current_seq_length))
+        receiver.current_seq_length = int(config.get('current_seq_length', receiver.current_seq_length))
+    except Exception:
+        pass
+
     # Create trainer with config parameters
     trainer = CommunicationTrainer(
         agent1=sender,
@@ -2239,12 +2248,41 @@ def main():
     # Set puzzle dataset and initialize first puzzles
     trainer.set_puzzle_dataset(all_puzzles)
     trainer.initialize_first_puzzles()  # NEW: No parameter needed, uses trainer's configuration
+
+    # If loading from snapshot, restore and freeze positions
+    if getattr(args, 'resume_from', ''):
+        try:
+            snap = torch.load(args.resume_from, map_location=device)
+            trainer.agent1.load_state_dict(snap['agent1_state_dict'])
+            trainer.agent2.load_state_dict(snap['agent2_state_dict'])
+            
+            # Restore frozen positions
+            frozen = (snap.get('trainer_state', {}) or {}).get('frozen_positions', [])
+            if frozen:
+                trainer.agent1.freeze_positions(frozen)
+                trainer.agent2.freeze_positions(frozen)
+                trainer.frozen_positions = list(frozen)
+                print(f"Loaded snapshot with frozen positions: {frozen}")
+            num_comm = snap['trainer_state'].get('current_comm_symbols_a1', 0)
+            puzzle_syms = snap['architecture'].get('puzzle_symbols', 10)
+            frozen_syms = set(range(puzzle_syms, puzzle_syms + num_comm))
+            trainer.freeze_symbols(frozen_syms)
+            print(f"Froze {len(frozen_syms)} symbols from snapshot: {sorted(frozen_syms)}")
+        except Exception as e:
+            print(f"Warning: failed to resume from snapshot: {e}")
     
     # Update live grapher with correct initial symbol count
     if live_grapher:
         initial_symbols = trainer.initial_comm_symbols
         live_grapher.active_symbols_count = initial_symbols
         print(f"Live grapher updated with initial symbols: {initial_symbols}")
+
+    # Ensure agents respect current_seq_length from config
+    try:
+        sender.current_seq_length = int(config.get('current_seq_length', sender.current_seq_length))
+        receiver.current_seq_length = int(config.get('current_seq_length', receiver.current_seq_length))
+    except Exception:
+        pass
     
     # Show initial state
     print("\n" + "="*60)

@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', function() {
     startReconSampleUpdates();
     initSymbolControls();
     startReconSymbolsUpdates();
+    initSnapshotLoader();
 });
 
 // Configuration Management
@@ -52,6 +53,155 @@ function populateConfigForm() {
     }
 }
 
+// --- Snapshot Loader ---
+async function initSnapshotLoader() {
+    await refreshSnapshotList();
+    const inspectBtn = document.getElementById('inspect-snapshot-btn');
+    const applyBtn = document.getElementById('apply-snapshot-btn');
+    const clearBtn = document.getElementById('clear-snapshot-btn');
+    if (inspectBtn) inspectBtn.addEventListener('click', inspectSelectedSnapshot);
+    if (applyBtn) applyBtn.addEventListener('click', applySelectedSnapshotToConfig);
+    if (clearBtn) clearBtn.addEventListener('click', clearSelectedSnapshot);
+}
+
+async function refreshSnapshotList() {
+    try {
+        const resp = await fetch('/api/snapshot/list');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const sel = document.getElementById('snapshot-selector');
+        const meta = document.getElementById('snapshot-meta');
+        if (!sel) return;
+        sel.innerHTML = '';
+        const files = (data.snapshots || []);
+        if (!files.length) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'No snapshots found';
+            sel.appendChild(opt);
+            if (meta) meta.textContent = '';
+            return;
+        }
+        files.forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f;
+            opt.textContent = f;
+            sel.appendChild(opt);
+        });
+        // Try to pre-select previously selected snapshot
+        try {
+            const outDir = currentConfig.output_dir || './outputs';
+            // No direct read; rely on server selection file only on apply
+        } catch (_) {}
+        if (meta) meta.textContent = `${files.length} snapshots`;
+    } catch (e) {
+        console.error('refreshSnapshotList error', e);
+    }
+}
+
+async function inspectSelectedSnapshot() {
+    const sel = document.getElementById('snapshot-selector');
+    const infoEl = document.getElementById('snapshot-inspect');
+    if (!sel || !sel.value) return;
+    try {
+        const resp = await fetch('/api/snapshot/inspect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: sel.value })
+        });
+        if (!resp.ok) {
+            showNotification('Failed to inspect snapshot', 'error');
+            return;
+        }
+        const data = await resp.json();
+        const arch = data.architecture || {};
+        const trainer = data.trainer_state || {};
+        infoEl.style.display = 'block';
+        infoEl.innerHTML = `
+            <div class="snapshot-inspect-grid">
+                <div><strong>Embedding Dim</strong>: ${arch.embedding_dim ?? '-'}</div>
+                <div><strong>Hidden Dim</strong>: ${arch.hidden_dim ?? '-'}</div>
+                <div><strong>Max Seq Len</strong>: ${arch.max_seq_length ?? '-'}</div>
+                <div><strong>Similarity</strong>: ${arch.similarity_metric ?? '-'}</div>
+                <div><strong>Num Symbols</strong>: ${arch.num_symbols ?? '-'}</div>
+                <div><strong>Puzzle Symbols</strong>: ${arch.puzzle_symbols ?? '-'}</div>
+                <div><strong>Current Seq Len</strong>: ${trainer.current_seq_length ?? '-'}</div>
+                <div><strong>Frozen Positions</strong>: ${(trainer.frozen_positions || []).join(', ')}</div>
+            </div>`;
+    } catch (e) {
+        console.error('inspectSelectedSnapshot error', e);
+    }
+}
+
+async function applySelectedSnapshotToConfig() {
+    const sel = document.getElementById('snapshot-selector');
+    if (!sel || !sel.value) {
+        showNotification('Select a snapshot first', 'warning');
+        return;
+    }
+    try {
+        // Inspect snapshot to retrieve metadata
+        const resp = await fetch('/api/snapshot/inspect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: sel.value })
+        });
+        if (!resp.ok) {
+            showNotification('Failed to inspect snapshot', 'error');
+            return;
+        }
+        const data = await resp.json();
+        const arch = data.architecture || {};
+        const trainer = data.trainer_state || {};
+
+        // Apply to form: set architecture and logical fields
+        setIfExists('embedding_dim', arch.embedding_dim);
+        setIfExists('hidden_dim', arch.hidden_dim);
+        setIfExists('num_symbols', arch.num_symbols);
+        setIfExists('puzzle_symbols', arch.puzzle_symbols);
+        setIfExists('max_seq_length', arch.max_seq_length);
+
+        // current_seq_length should be one more than snapshot's
+        const nextSeq = Math.min((arch.max_seq_length ?? 1), ((trainer.current_seq_length ?? 1) + 1));
+        setIfExists('current_seq_length', nextSeq);
+
+        // Persist selection on server for start
+        const selResp = await fetch('/api/snapshot/select', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: sel.value })
+        });
+        if (!selResp.ok) {
+            showNotification('Failed to select snapshot on server', 'error');
+            return;
+        }
+        showNotification('Snapshot applied. Config prepared for next phase.', 'success');
+    } catch (e) {
+        console.error('applySelectedSnapshotToConfig error', e);
+        showNotification('Error applying snapshot', 'error');
+    }
+}
+
+async function clearSelectedSnapshot() {
+    try {
+        const resp = await fetch('/api/snapshot/clear', { method: 'POST' });
+        if (!resp.ok) {
+            showNotification('Failed to clear selection', 'error');
+            return;
+        }
+        showNotification('Snapshot selection cleared', 'info');
+    } catch (e) {
+        // silent
+    }
+}
+
+function setIfExists(id, val) {
+    const el = document.getElementById(id);
+    if (el != null && val != null) {
+        el.value = val;
+    }
+}
+
 async function saveConfig() {
     // Collect form data
     const config = {};
@@ -60,6 +210,7 @@ async function saveConfig() {
         'first_training_cycles', 'puzzles_per_addition', 'learning_rate', 'num_distractors',
         'distractor_strategy', 'phase_change_indicator', 'early_stop_min_cycles', 
         'consolidation_threshold', 'embedding_dim', 'hidden_dim', 'num_symbols', 'puzzle_symbols',
+        'max_seq_length', 'current_seq_length',
         // NEW: run title
         'run_title'
     ];
@@ -115,7 +266,9 @@ function resetConfig() {
             embedding_dim: 512,
             hidden_dim: 1024,
             num_symbols: 100,
-            puzzle_symbols: 10
+            puzzle_symbols: 10,
+            max_seq_length: 10,
+            current_seq_length: 1
         };
         
         for (const [key, value] of Object.entries(defaults)) {

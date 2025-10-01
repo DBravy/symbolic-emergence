@@ -778,6 +778,26 @@ class ProgressiveSelectionAgent(nn.Module):
         
         print(f"  Note: Phase-based training with dynamic vocabulary management")
 
+    def freeze_positions(self, positions: List[int]):
+        """Freeze position_predictors and communication embeddings for specified positions"""
+        for pos in positions:
+            if pos < len(self.encoder.position_predictors):
+                for param in self.encoder.position_predictors[pos].parameters():
+                    param.requires_grad = False
+                try:
+                    print(f"[{self.agent_id}] Froze position {pos} predictor")
+                except Exception:
+                    pass
+
+    def get_frozen_positions(self) -> List[int]:
+        """Return list of frozen positions"""
+        frozen: List[int] = []
+        for pos in range(len(self.encoder.position_predictors)):
+            params = list(self.encoder.position_predictors[pos].parameters())
+            if params and all((not p.requires_grad) for p in params):
+                frozen.append(pos)
+        return frozen
+
     def freeze_all_parameters(self):
         """
         NEW: Freeze all trainable parameters in the agent.
