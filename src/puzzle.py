@@ -48,12 +48,16 @@ class Puzzle:
     
     @classmethod
     def from_single_example(cls, input_grid: np.ndarray, output_grid: np.ndarray):
-        """Create puzzle from single training example"""
-        return cls(
+        """Create puzzle from single training example (input-output pair)"""
+        puzzle = cls(
             train_inputs=[input_grid],
             train_outputs=[output_grid],
             test_input=input_grid.copy()
         )
+        # Store the output grid as test_output for input-output training
+        puzzle.test_output = output_grid.copy()
+        puzzle.test_outputs = [output_grid.copy()]
+        return puzzle
     
     @classmethod 
     def from_dict(cls, data: Dict[str, Any]):

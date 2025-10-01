@@ -384,7 +384,7 @@ class ProgressiveSelectionTrainer:
                 param.requires_grad = trainable
 
     def sample_distractors(self, target_puzzle: torch.Tensor, target_idx: int) -> List[torch.Tensor]:
-        """Modified to sample from ALL active puzzles, not just mapped ones"""
+        """Sample OUTPUT puzzles as distractors (for input-output training)"""
         if len(self.active_puzzles) < self.num_distractors + 1:
             raise ValueError(f"Need at least {self.num_distractors + 1} active puzzles for selection task")
         
@@ -395,12 +395,13 @@ class ProgressiveSelectionTrainer:
         if self.distractor_strategy == 'random':
             distractor_indices = random.sample(available_indices, self.num_distractors)
         elif self.distractor_strategy == 'similar_size':
-            # Similar size sampling
+            # Similar size sampling based on OUTPUT puzzle sizes
             target_height, target_width = target_puzzle.shape[1], target_puzzle.shape[2]
             size_diffs = []
             for idx in available_indices:
                 puzzle = self.active_puzzles[idx]
-                puzzle_tensor = torch.tensor(puzzle.test_input, dtype=torch.long)
+                # Use OUTPUT for size comparison
+                puzzle_tensor = torch.tensor(puzzle.test_output, dtype=torch.long)
                 h_diff = abs(puzzle_tensor.shape[0] - target_height)
                 w_diff = abs(puzzle_tensor.shape[1] - target_width)
                 size_diff = h_diff + w_diff
@@ -411,11 +412,11 @@ class ProgressiveSelectionTrainer:
         else:
             distractor_indices = random.sample(available_indices, self.num_distractors)
         
-        # Convert to tensors - include ALL puzzles as potential distractors
+        # Convert to OUTPUT tensors - these are what the receiver must select
         for idx in distractor_indices:
             puzzle = self.active_puzzles[idx]
             distractor_tensor = torch.tensor(
-                puzzle.test_input, 
+                puzzle.test_output,  # OUTPUT puzzle as distractor
                 dtype=torch.long, 
                 device=self.device
             ).unsqueeze(0)
@@ -460,7 +461,10 @@ class ProgressiveSelectionTrainer:
 
             for puzzle_idx in mapped_puzzle_indices:
                 puzzle = self.active_puzzles[puzzle_idx]
-                puzzle_tensor = torch.tensor(puzzle.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
+                # INPUT tensor for encoding
+                input_tensor = torch.tensor(puzzle.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
+                # OUTPUT tensor for selection
+                output_tensor = torch.tensor(puzzle.test_output, dtype=torch.long, device=self.device).unsqueeze(0)
 
                 symbol = self.puzzle_symbol_mapping[puzzle_idx]
                 if not self.web_mode:
@@ -468,16 +472,16 @@ class ProgressiveSelectionTrainer:
 
                 correct = 0
                 for test_num in range(10):
-                    # Sender encodes → message
+                    # Sender encodes INPUT → message
                     symbols, _, _ = self.agent1.encode_puzzle_to_message(
-                        puzzle_tensor, temperature=0.1, deterministic=True
+                        input_tensor, temperature=0.1, deterministic=True
                     )
 
-                    # Build candidates: target first, then distractors
-                    distractors = self.sample_distractors(puzzle_tensor, puzzle_idx)
-                    candidates = [puzzle_tensor] + distractors  # each [1, H, W]
+                    # Build OUTPUT candidates: target OUTPUT first, then distractor OUTPUTs
+                    distractors = self.sample_distractors(output_tensor, puzzle_idx)
+                    candidates = [output_tensor] + distractors  # each [1, H, W]
 
-                    # Receiver selects
+                    # Receiver selects from OUTPUT candidates
                     selection_probs, selection_logits, _ = self.agent2.select_from_candidates(
                         symbols, candidates, temperature=0.1
                     )
@@ -1052,7 +1056,7 @@ class ProgressiveSelectionTrainer:
     
     # --- NEW: Evaluation helpers for remedial training ---
     def evaluate_selection_accuracy(self, puzzle_indices: List[int] = None, tests: int = 10, temperature: float = 0.1) -> Dict[int, int]:
-        """Evaluate selection accuracy (Agent1 encodes → Agent2 selects) for given puzzles.
+        """Evaluate selection accuracy (Agent1 encodes INPUT → Agent2 selects OUTPUT) for given puzzles.
         Returns a dict of puzzle_idx -> number of correct selections out of `tests`.
         """
         self.agent1.eval()
@@ -1062,14 +1066,20 @@ class ProgressiveSelectionTrainer:
         with torch.no_grad():
             for puzzle_idx in indices:
                 puzzle = self.active_puzzles[puzzle_idx]
-                puzzle_tensor = torch.tensor(puzzle.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
+                # INPUT tensor for encoding
+                input_tensor = torch.tensor(puzzle.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
+                # OUTPUT tensor for selection
+                output_tensor = torch.tensor(puzzle.test_output, dtype=torch.long, device=self.device).unsqueeze(0)
                 correct = 0
                 for _ in range(tests):
+                    # Encode INPUT
                     symbols, _, _ = self.agent1.encode_puzzle_to_message(
-                        puzzle_tensor, temperature=temperature, deterministic=True
+                        input_tensor, temperature=temperature, deterministic=True
                     )
-                    distractors = self.sample_distractors(puzzle_tensor, puzzle_idx)
-                    candidates = [puzzle_tensor] + distractors
+                    # Build OUTPUT candidates
+                    distractors = self.sample_distractors(output_tensor, puzzle_idx)
+                    candidates = [output_tensor] + distractors
+                    # Select from OUTPUT candidates
                     _, selection_logits, _ = self.agent2.select_from_candidates(
                         symbols, candidates, temperature=temperature
                     )
@@ -1151,30 +1161,42 @@ class ProgressiveSelectionTrainer:
             self.opt1.zero_grad()
             self.opt2.zero_grad()
             
-            # Sample distractors for this exchange (from ALL active puzzles)
-            distractors = self.sample_distractors(puzzle, puzzle_idx)
+            # Get input and output tensors from puzzle
+            # puzzle parameter is the INPUT tensor (kept for backward compatibility)
+            input_tensor = puzzle
             
-            # Agent1 encodes, Agent2 selects
+            # Get the output tensor from the active puzzle object
+            puzzle_obj = self.active_puzzles[puzzle_idx]
+            output_tensor = torch.tensor(
+                puzzle_obj.test_output,
+                dtype=torch.long,
+                device=self.device
+            ).unsqueeze(0)
+            
+            # Sample distractors for this exchange (output puzzles)
+            distractors = self.sample_distractors(output_tensor, puzzle_idx)
+            
+            # Agent1 encodes INPUT, Agent2 selects OUTPUT
             symbols1, symbol_logits1, length_stats1 = self.agent1.encode_puzzle_to_message(
-                puzzle, temperature=temperature, initial_phase=initial_phase
+                input_tensor, temperature=temperature, initial_phase=initial_phase
             )
             
-            # Prepare candidates: target + distractors
-            candidates1 = [puzzle] + distractors  # each [1, H, W]
+            # Prepare candidates: target OUTPUT + distractor OUTPUTs
+            candidates1 = [output_tensor] + distractors  # each [1, H, W]
             
-            # Receiver selects from candidates
+            # Receiver selects from OUTPUT candidates
             selection_probs1, selection_logits1, debug_info1 = self.agent2.select_from_candidates(
                 symbols1, candidates1, temperature=temperature
             )
             
-            # Agent2 encodes, Agent1 selects (bidirectional)
+            # Agent2 encodes INPUT, Agent1 selects OUTPUT (bidirectional)
             symbols2, symbol_logits2, length_stats2 = self.agent2.encode_puzzle_to_message(
-                puzzle, temperature=temperature, initial_phase=initial_phase
+                input_tensor, temperature=temperature, initial_phase=initial_phase
             )
             
-            # Sample different distractors for reverse direction
-            distractors2 = self.sample_distractors(puzzle, puzzle_idx)
-            candidates2 = [puzzle] + distractors2
+            # Sample different distractors for reverse direction (output puzzles)
+            distractors2 = self.sample_distractors(output_tensor, puzzle_idx)
+            candidates2 = [output_tensor] + distractors2
             
             selection_probs2, selection_logits2, debug_info2 = self.agent1.select_from_candidates(
                 symbols2, candidates2, temperature=temperature
@@ -1263,7 +1285,8 @@ class ProgressiveSelectionTrainer:
             try:
                 if self._recon_step_counter % max(1, int(self.recon_sample_interval)) == 0:
                     with torch.no_grad():
-                        target_tensor = puzzle
+                        # Target is the OUTPUT tensor
+                        target_tensor = output_tensor
                         # Extract all symbols from Agent1's message (for multi-position messages)
                         seq_len = symbols1.size(1) if symbols1.dim() == 3 else 1
                         message_symbols_local = []
@@ -1278,7 +1301,7 @@ class ProgressiveSelectionTrainer:
                             message_symbols_local.append(local_sym)
                             message_symbols_abs.append(abs_sym)
                         
-                        # Decode using Agent2's decoder
+                        # Decode using Agent2's decoder (should reconstruct OUTPUT from message)
                         comm_emb_a2 = self.agent2.communication_embedding.weight[
                             self.agent2.puzzle_symbols:self.agent2.current_total_symbols
                         ]
@@ -1310,15 +1333,16 @@ class ProgressiveSelectionTrainer:
             # === NEW: If background decoder training is enabled, enqueue successful communications ===
             if self.decoder_background_enabled:
                 # For Agent1→Agent2 direction
+                # Enqueue (message, output_target) pairs for successful communications
                 if int(pred1.item()) == 0:
                     try:
-                        self.agent1.enqueue_successful_reconstruction(symbols1, puzzle)
+                        self.agent1.enqueue_successful_reconstruction(symbols1, output_tensor)
                     except Exception:
                         pass
                 # For Agent2→Agent1 direction
                 if int(pred2.item()) == 0:
                     try:
-                        self.agent2.enqueue_successful_reconstruction(symbols2, puzzle)
+                        self.agent2.enqueue_successful_reconstruction(symbols2, output_tensor)
                     except Exception:
                         pass
             
@@ -1350,8 +1374,8 @@ class ProgressiveSelectionTrainer:
     def _train_reconstruction_step(self, puzzle: torch.Tensor, puzzle_idx: int, temperature: float = 1.0) -> Dict[str, float]:
         """
         Train both directions on reconstruction objective:
-        Agent1 encodes → Agent2 decodes to reconstruct target.
-        Agent2 encodes → Agent1 decodes to reconstruct target.
+        Agent1 encodes INPUT → Agent2 decodes to reconstruct OUTPUT.
+        Agent2 encodes INPUT → Agent1 decodes to reconstruct OUTPUT.
         Optimizes encoders, communication embeddings, message pooling, and both decoders.
         """
         # Ensure decoders optimizer exists
@@ -1368,12 +1392,18 @@ class ProgressiveSelectionTrainer:
         self.opt2.zero_grad()
         self._opt_decoders.zero_grad()
 
-        # Common target tensor
-        target_tensor = puzzle  # [1, H, W]
+        # Get input and output tensors
+        input_tensor = puzzle  # INPUT [1, H, W]
+        puzzle_obj = self.active_puzzles[puzzle_idx]
+        output_tensor = torch.tensor(
+            puzzle_obj.test_output,
+            dtype=torch.long,
+            device=self.device
+        ).unsqueeze(0)  # OUTPUT [1, H, W]
 
-        # Direction A1 -> A2
+        # Direction A1 -> A2: encode INPUT, reconstruct OUTPUT
         symbols1, _, _ = self.agent1.encode_puzzle_to_message(
-            target_tensor, temperature=temperature, initial_phase=False
+            input_tensor, temperature=temperature, initial_phase=False
         )
         # Extract all symbols from message (for multi-position messages)
         with torch.no_grad():
@@ -1400,23 +1430,23 @@ class ProgressiveSelectionTrainer:
         embedded_msg1 = torch.matmul(symbols1, comm_emb_a2)
         logits1, _, _, (hlog1, wlog1) = self.agent2.decoder(embedded_msg1, temperature=1.0)
         B1, Hp1, Wp1, C1 = logits1.shape
-        Ht, Wt = int(target_tensor.shape[1]), int(target_tensor.shape[2])
+        Ht, Wt = int(output_tensor.shape[1]), int(output_tensor.shape[2])
         Hc1, Wc1 = min(Hp1, Ht), min(Wp1, Wt)
         recon_loss1 = F.cross_entropy(
             logits1[:, :Hc1, :Wc1, :].reshape(B1 * Hc1 * Wc1, C1),
-            target_tensor[:, :Hc1, :Wc1].reshape(B1 * Hc1 * Wc1)
+            output_tensor[:, :Hc1, :Wc1].reshape(B1 * Hc1 * Wc1)
         )
         # Reconstruction accuracy A1->A2
         with torch.no_grad():
             pred_grid1 = logits1[:, :Hc1, :Wc1, :].argmax(dim=-1)
-            recon_acc1 = (pred_grid1 == target_tensor[:, :Hc1, :Wc1]).float().mean().item()
+            recon_acc1 = (pred_grid1 == output_tensor[:, :Hc1, :Wc1]).float().mean().item()
         h_tgt_idx1 = torch.tensor([max(1, min(Ht, getattr(self.agent2.decoder, 'max_height', Ht))) - 1], device=self.device)
         w_tgt_idx1 = torch.tensor([max(1, min(Wt, getattr(self.agent2.decoder, 'max_width', Wt))) - 1], device=self.device)
         size_loss1 = F.cross_entropy(hlog1, h_tgt_idx1) + F.cross_entropy(wlog1, w_tgt_idx1)
 
-        # Direction A2 -> A1
+        # Direction A2 -> A1: encode INPUT, reconstruct OUTPUT
         symbols2, _, _ = self.agent2.encode_puzzle_to_message(
-            target_tensor, temperature=temperature, initial_phase=False
+            input_tensor, temperature=temperature, initial_phase=False
         )
         with torch.no_grad():
             local_sym2 = int(symbols2[0, 0].argmax().item()) if symbols2.dim() == 3 else 0
@@ -1430,12 +1460,12 @@ class ProgressiveSelectionTrainer:
         Hc2, Wc2 = min(Hp2, Ht), min(Wp2, Wt)
         recon_loss2 = F.cross_entropy(
             logits2[:, :Hc2, :Wc2, :].reshape(B2 * Hc2 * Wc2, C2),
-            target_tensor[:, :Hc2, :Wc2].reshape(B2 * Hc2 * Wc2)
+            output_tensor[:, :Hc2, :Wc2].reshape(B2 * Hc2 * Wc2)
         )
         # Reconstruction accuracy A2->A1
         with torch.no_grad():
             pred_grid2 = logits2[:, :Hc2, :Wc2, :].argmax(dim=-1)
-            recon_acc2 = (pred_grid2 == target_tensor[:, :Hc2, :Wc2]).float().mean().item()
+            recon_acc2 = (pred_grid2 == output_tensor[:, :Hc2, :Wc2]).float().mean().item()
         h_tgt_idx2 = torch.tensor([max(1, min(Ht, getattr(self.agent1.decoder, 'max_height', Ht))) - 1], device=self.device)
         w_tgt_idx2 = torch.tensor([max(1, min(Wt, getattr(self.agent1.decoder, 'max_width', Wt))) - 1], device=self.device)
         size_loss2 = F.cross_entropy(hlog2, h_tgt_idx2) + F.cross_entropy(wlog2, w_tgt_idx2)
@@ -1454,7 +1484,8 @@ class ProgressiveSelectionTrainer:
         try:
             if self._recon_step_counter % max(1, int(self.recon_sample_interval)) == 0:
                 # FIXED: Show full grids at their actual sizes, not cropped
-                tgt_np = target_tensor[0].detach().cpu().long().numpy().tolist()
+                # Display OUTPUT as target (what should be reconstructed)
+                tgt_np = output_tensor[0].detach().cpu().long().numpy().tolist()
                 pred_np = logits1[0].argmax(dim=-1).detach().cpu().long().numpy().tolist()
                 recon_sample = {
                     'direction': 'A1_to_A2',
@@ -1566,9 +1597,12 @@ class ProgressiveSelectionTrainer:
         
         with torch.no_grad():
             for t_idx, dataset_idx in enumerate(target_dataset_indices, start=1):
-                # Build target tensor
+                # Build target puzzle (input-output pair)
                 target_puzzle = self.available_arc_puzzles[dataset_idx]
-                target_tensor = torch.tensor(target_puzzle.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
+                # INPUT tensor for encoding
+                input_tensor = torch.tensor(target_puzzle.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
+                # OUTPUT tensor for selection
+                output_tensor = torch.tensor(target_puzzle.test_output, dtype=torch.long, device=self.device).unsqueeze(0)
                 
                 # Build distractors: prefer unseen (excluding target), then fallback to all
                 candidate_distractors_pool = list(set(unseen_indices) - {dataset_idx})
@@ -1581,17 +1615,18 @@ class ProgressiveSelectionTrainer:
                 else:
                     distractor_dataset_indices = random.sample(candidate_distractors_pool, fixed_distractors)
                 
-                # Convert candidates to tensors
-                candidates = [target_tensor]
+                # Convert candidates to OUTPUT tensors (what receiver must select)
+                candidates = [output_tensor]  # Target OUTPUT
                 for d_idx in distractor_dataset_indices:
                     dp = self.available_arc_puzzles[d_idx]
-                    cand_tensor = torch.tensor(dp.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
+                    # Use OUTPUT puzzle as candidate
+                    cand_tensor = torch.tensor(dp.test_output, dtype=torch.long, device=self.device).unsqueeze(0)
                     candidates.append(cand_tensor)
                 candidate_indices = [dataset_idx] + distractor_dataset_indices
                 
-                # Sender encodes → Receiver selects
+                # Sender encodes INPUT → Receiver selects OUTPUT
                 symbols, _, _ = self.agent1.encode_puzzle_to_message(
-                    target_tensor, temperature=temperature, deterministic=True
+                    input_tensor, temperature=temperature, deterministic=True
                 )
                 selection_probs, selection_logits, _ = self.agent2.select_from_candidates(
                     symbols, candidates, temperature=temperature
@@ -1625,9 +1660,9 @@ class ProgressiveSelectionTrainer:
 
                 # Optional reverse direction
                 if bidirectional:
-                    # Receiver becomes sender → Agent1 selects
+                    # Receiver becomes sender: encodes INPUT → Agent1 selects OUTPUT
                     symbols_rev, _, _ = self.agent2.encode_puzzle_to_message(
-                        target_tensor, temperature=temperature, deterministic=True
+                        input_tensor, temperature=temperature, deterministic=True
                     )
                     selection_probs_rev, selection_logits_rev, _ = self.agent1.select_from_candidates(
                         symbols_rev, candidates, temperature=temperature
@@ -1830,9 +1865,13 @@ class ProgressiveSelectionTrainer:
         
         with torch.no_grad():
             for t_idx, dataset_idx in enumerate(target_dataset_indices, start=1):
-                # Build target and candidates
+                # Build target puzzle (input-output pair)
                 target_puzzle = self.available_arc_puzzles[dataset_idx]
-                target_tensor = torch.tensor(target_puzzle.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
+                # INPUT for encoding
+                input_tensor = torch.tensor(target_puzzle.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
+                # OUTPUT for selection
+                output_tensor = torch.tensor(target_puzzle.test_output, dtype=torch.long, device=self.device).unsqueeze(0)
+                
                 # Prefer unseen for distractors if possible
                 candidate_distractors_pool = list(set(unseen_indices) - {dataset_idx})
                 if len(candidate_distractors_pool) < fixed_distractors:
@@ -1842,15 +1881,18 @@ class ProgressiveSelectionTrainer:
                     distractor_dataset_indices = [random.choice(candidate_distractors_pool) for _ in range(fixed_distractors)]
                 else:
                     distractor_dataset_indices = random.sample(candidate_distractors_pool, fixed_distractors)
-                candidates = [target_tensor]
+                
+                # Build OUTPUT candidates for selection
+                candidates = [output_tensor]  # Target OUTPUT
                 for d_idx in distractor_dataset_indices:
                     dp = self.available_arc_puzzles[d_idx]
-                    cand_tensor = torch.tensor(dp.test_input, dtype=torch.long, device=self.device).unsqueeze(0)
+                    # Use OUTPUT puzzle as candidate
+                    cand_tensor = torch.tensor(dp.test_output, dtype=torch.long, device=self.device).unsqueeze(0)
                     candidates.append(cand_tensor)
                 
-                # 1) Predict embedding for this new puzzle using sender's encoder
+                # 1) Predict embedding for INPUT puzzle using sender's encoder
                 #    Create sequence embedding first
-                seq_emb = self.agent1.embedding_system.embed_puzzle(target_tensor)  # [1, L, D]
+                seq_emb = self.agent1.embedding_system.embed_puzzle(input_tensor)  # [1, L, D]
                 pred_emb = self.agent1.encoder.predict_symbol_embedding(seq_emb, position=0)  # [1, D]
                 pred_emb = F.normalize(pred_emb, p=2, dim=-1)  # normalize for stability
                 
@@ -1904,8 +1946,8 @@ class ProgressiveSelectionTrainer:
 
                 # Optional reverse direction
                 if bidirectional:
-                    # Predict embedding using receiver's encoder (now acting as sender)
-                    seq_emb_rev = self.agent2.embedding_system.embed_puzzle(target_tensor)
+                    # Predict embedding using receiver's encoder (now acting as sender) on INPUT
+                    seq_emb_rev = self.agent2.embedding_system.embed_puzzle(input_tensor)
                     pred_emb_rev = self.agent2.encoder.predict_symbol_embedding(seq_emb_rev, position=0)
                     pred_emb_rev = F.normalize(pred_emb_rev, p=2, dim=-1)
                     new_sym_idx_2 = self.agent2.add_new_symbol_with_embedding(pred_emb_rev)

@@ -595,14 +595,14 @@ class MovingAverage:
 
 # Existing functions from train.py (unchanged)
 def load_arc_puzzles(file_path):
-    """Load all examples from ARC puzzles JSON file."""
+    """Load all examples from ARC puzzles JSON file as input-output pairs."""
     with open(file_path, 'r') as f:
         data = json.load(f)
     
     all_examples = []
     for puzzle_id, puzzle_data in data.items():
         try:
-            # Extract all training examples
+            # Extract all training examples as input-output pairs
             for train_example in puzzle_data['train']:
                 all_examples.append(
                     Puzzle.from_single_example(
@@ -610,28 +610,13 @@ def load_arc_puzzles(file_path):
                         np.array(train_example['output'])
                     )
                 )
-                
-                # Also use the output as an input example since we're testing communication
-                all_examples.append(
-                    Puzzle.from_single_example(
-                        np.array(train_example['output']),
-                        np.array(train_example['output'])
-                    )
-                )
             
-            # Extract test examples
+            # Extract test examples as input-output pairs
             for test_example in puzzle_data['test']:
-                all_examples.append(
-                    Puzzle.from_single_example(
-                        np.array(test_example['input']),
-                        np.array(test_example['input'])
-                    )
-                )
-                
                 if 'output' in test_example:
                     all_examples.append(
                         Puzzle.from_single_example(
-                            np.array(test_example['output']),
+                            np.array(test_example['input']),
                             np.array(test_example['output'])
                         )
                     )
@@ -640,7 +625,7 @@ def load_arc_puzzles(file_path):
             print(f"Skipping puzzle {puzzle_id} due to error: {e}")
             continue
             
-    print(f"Extracted {len(all_examples)} total examples from {len(data)} puzzles")
+    print(f"Extracted {len(all_examples)} total input-output pairs from {len(data)} puzzles")
     return all_examples
 
 def run_pretraining_phase(trainer, target_puzzles=None, epochs=50):
@@ -716,8 +701,9 @@ def run_pretraining_phase(trainer, target_puzzles=None, epochs=50):
     
     print(f"\nPuzzle-Symbol Assignments for Pretraining:")
     for local_pos, (puzzle, global_idx) in enumerate(zip(mapped_puzzles, mapped_puzzle_indices)):
+        # Use INPUT grid for encoding (sender sees input, learns to map to symbol that represents output)
         puzzle_tensor = torch.tensor(
-            puzzle.test_input, 
+            puzzle.test_input,  # INPUT puzzle
             dtype=torch.long, 
             device=device
         ).unsqueeze(0)
@@ -732,7 +718,8 @@ def run_pretraining_phase(trainer, target_puzzles=None, epochs=50):
         targets[global_idx] = comm_symbol_idx
         
         print(f"  Global Puzzle {global_idx}: Symbol {target_symbol} (Comm #{comm_symbol_idx})")
-        print(f"    Grid shape: {puzzle_tensor.shape[1:]} - {puzzle_tensor[0].cpu().numpy()[:3, :3]}...")
+        print(f"    Input shape: {puzzle_tensor.shape[1:]} - {puzzle_tensor[0].cpu().numpy()[:3, :3]}...")
+        print(f"    Output shape: {puzzle.test_output.shape} (target for reconstruction)")
     
     print(f"\nSymbol Assignment Summary:")
     print(f"  Puzzles with symbol mappings: {len(mapped_puzzles)}")
@@ -2022,9 +2009,9 @@ def plot_phase_training_metrics(metrics_history, accuracies_history, phase_info,
         plt.close()
 
 def print_selection_debug(puzzle_tensor, sender, receiver, trainer):
-    """Debug function for selection task - updated for phase training"""
-    print("\n  Phase-Based Selection Debug:")
-    print_grid(puzzle_tensor[0], "Target Puzzle")
+    """Debug function for selection task - updated for input-output training"""
+    print("\n  Phase-Based Selection Debug (Input-Output Training):")
+    print_grid(puzzle_tensor[0], "Input Puzzle")
     
     # Show phase and vocabulary status
     phase_info = trainer.get_phase_status()
@@ -2039,22 +2026,28 @@ def print_selection_debug(puzzle_tensor, sender, receiver, trainer):
     for puzzle_idx, symbol_idx in trainer.puzzle_symbol_mapping.items():
         print(f"  Puzzle {puzzle_idx} → Symbol {symbol_idx}")
     
-    # Sender encodes message
-    print(f"\nSender → Receiver Selection:")
+    # Sender encodes INPUT message
+    print(f"\nSender encodes INPUT → Receiver selects OUTPUT:")
     symbols, symbol_logits, stats = sender.encode_puzzle_to_message(puzzle_tensor, temperature=0.1)
     print_message_details(symbols, "Sender")
     
-    # Create selection candidates from active puzzles
+    # Create OUTPUT selection candidates from active puzzles
     candidates = []
-    for puzzle in trainer.active_puzzles[:min(4, len(trainer.active_puzzles))]:  # Limit for display
+    print(f"\nBuilding OUTPUT candidates:")
+    for i, puzzle in enumerate(trainer.active_puzzles[:min(4, len(trainer.active_puzzles))]):  # Limit for display
+        # Use OUTPUT puzzle as candidate
         candidate_tensor = torch.tensor(
-            puzzle.test_input, 
+            puzzle.test_output, 
             dtype=torch.long, 
             device=puzzle_tensor.device
         ).unsqueeze(0)
         candidates.append(candidate_tensor)
+        if i == 0:
+            print_grid(candidate_tensor[0], "  Target OUTPUT")
+        else:
+            print_grid(candidate_tensor[0], f"  Distractor {i} OUTPUT")
     
-    # Receiver selects
+    # Receiver selects from OUTPUT candidates
     selection_probs, selection_logits, debug_info = receiver.select_from_candidates(
         symbols, candidates, temperature=0.1
     )
@@ -2064,14 +2057,14 @@ def print_selection_debug(puzzle_tensor, sender, receiver, trainer):
     target_confidence = selection_probs[0, 0].item()
     
     print(f"\nReceiver Selection Results:")
-    print(f"  Number of candidates: {len(candidates)}")
-    print(f"  Predicted choice: {predicted_idx} (target is 0)")
+    print(f"  Number of OUTPUT candidates: {len(candidates)}")
+    print(f"  Predicted choice: {predicted_idx} (target OUTPUT is 0)")
     print(f"  Selection correct: {'✓' if predicted_idx == 0 else '✗'}")
-    print(f"  Confidence in target: {target_confidence:.4f}")
+    print(f"  Confidence in target OUTPUT: {target_confidence:.4f}")
     
     print(f"\nAll selection probabilities:")
     for i, prob in enumerate(selection_probs[0]):
-        marker = " ← target" if i == 0 else f" ← candidate {i}"
+        marker = " ← target OUTPUT" if i == 0 else f" ← distractor OUTPUT {i}"
         symbol = "✓" if i == predicted_idx else " "
         print(f"    {symbol} Candidate {i}: {prob.item():.4f}{marker}")
 
