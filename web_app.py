@@ -15,7 +15,6 @@ import re
 from collections import deque
 import tempfile
 import textwrap
-import torch
 
 # Use non-interactive backend for matplotlib
 try:
@@ -66,8 +65,7 @@ DEFAULT_CONFIG = {
     'hidden_dim': 1024,
     'num_symbols': 100,
     'puzzle_symbols': 10,
-    'max_seq_length': 10,
-    'current_seq_length': 1,
+    'max_seq_length': 1,
     'output_dir': './outputs',
     # NEW: Optional human-readable title for this training run
     'run_title': ''
@@ -402,23 +400,6 @@ def start_training():
             '--web-mode',
             '--control-file', CONTROL_FILE
         ]
-
-        # If a snapshot has been selected, pass it to the training script
-        try:
-            out_dir = current_config.get('output_dir', DEFAULT_CONFIG.get('output_dir', './outputs'))
-            snap_dir = os.path.join(out_dir, 'snapshots')
-            selection_path = os.path.join(snap_dir, 'selected_snapshot.json')
-            if os.path.exists(selection_path):
-                with open(selection_path, 'r') as f:
-                    selection = json.load(f) or {}
-                filename = selection.get('filename')
-                if filename:
-                    snap_path = os.path.join(snap_dir, os.path.basename(filename))
-                    if os.path.exists(snap_path):
-                        cmd.extend(['--resume-from', snap_path])
-                        log_debug(f"Resuming from snapshot: {snap_path}")
-        except Exception as e:
-            log_debug(f"Error applying resume-from: {e}")
         
         log_debug(f"Command: {' '.join(cmd)}")
         log_debug(f"Working directory: {os.getcwd()}")
@@ -1175,48 +1156,6 @@ def select_snapshot():
         return jsonify({'status': 'ok'})
     except Exception as e:
         log_debug(f"Error selecting snapshot: {e}")
-        return jsonify({'error': str(e)}), 500
-
-# NEW: clear selected snapshot
-@app.route('/api/snapshot/clear', methods=['POST'])
-def clear_snapshot_selection():
-    try:
-        out_dir = current_config.get('output_dir', DEFAULT_CONFIG.get('output_dir', './outputs')) if current_config else DEFAULT_CONFIG.get('output_dir', './outputs')
-        snap_dir = os.path.join(out_dir, 'snapshots')
-        selection_path = os.path.join(snap_dir, 'selected_snapshot.json')
-        if os.path.exists(selection_path):
-            os.remove(selection_path)
-        return jsonify({'status': 'ok'})
-    except Exception as e:
-        log_debug(f"Error clearing snapshot selection: {e}")
-        return jsonify({'error': str(e)}), 500
-
-# --- NEW: Snapshot inspection API ---
-@app.route('/api/snapshot/inspect', methods=['POST'])
-def inspect_snapshot():
-    """Extract architecture and training state from snapshot"""
-    try:
-        data = request.get_json(force=True) or {}
-        filename = data.get('filename', '')
-        if not filename or not isinstance(filename, str):
-            return jsonify({'error': 'filename is required'}), 400
-
-        out_dir = current_config.get('output_dir', DEFAULT_CONFIG.get('output_dir')) if current_config else DEFAULT_CONFIG.get('output_dir')
-        snap_dir = os.path.join(out_dir, 'snapshots')
-        snap_path = os.path.join(snap_dir, os.path.basename(filename))
-
-        if not os.path.exists(snap_path):
-            return jsonify({'error': 'Snapshot not found'}), 404
-
-        snapshot = torch.load(snap_path, map_location='cpu')
-
-        return jsonify({
-            'architecture': snapshot.get('architecture', {}),
-            'trainer_state': snapshot.get('trainer_state', {}),
-            'meta': snapshot.get('meta', {})
-        })
-    except Exception as e:
-        log_debug(f"Error inspecting snapshot: {e}")
         return jsonify({'error': str(e)}), 500
 
 # --- NEW: Scores API ---

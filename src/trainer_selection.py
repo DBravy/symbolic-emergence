@@ -65,8 +65,6 @@ class ProgressiveSelectionTrainer:
         self.current_phase = "pretraining"
         self.phase_cycle = 0
         self.global_phase_count = 0
-        # Track which positions are frozen
-        self.frozen_positions: List[int] = []
         
         # Synchronization parameters
         self.sync_frequency = sync_frequency
@@ -80,15 +78,7 @@ class ProgressiveSelectionTrainer:
         self.last_training_phase_distractors = num_distractors
 
         self.used_puzzle_indices = set()
-        self.frozen_symbol_indices = set()
-        
-        # Register hooks to zero out gradients for frozen symbols
-        self.agent1.communication_embedding.weight.register_hook(
-            self._freeze_symbol_gradients_hook
-        )
-        self.agent2.communication_embedding.weight.register_hook(
-            self._freeze_symbol_gradients_hook
-        )
+
         # Copy Agent 1's puzzle symbol embeddings to Agent 2
         with torch.no_grad():
             puzzle_embeddings = agent1.embedding_system.symbol_embedding.weight[:agent1.puzzle_symbols].clone()
@@ -176,16 +166,6 @@ class ProgressiveSelectionTrainer:
         # Reconstruction sample logging cadence
         self._recon_step_counter = 0
         self.recon_sample_interval = 10
-    
-    def _freeze_symbol_gradients_hook(self, grad):
-        """Zero out gradients for frozen symbol indices."""
-        if grad is None or not self.frozen_symbol_indices:
-            return grad
-        
-        grad = grad.clone()
-        for sym_idx in self.frozen_symbol_indices:
-            grad[sym_idx] = 0.0
-        return grad
 
     def set_puzzle_dataset(self, puzzles: List[Puzzle]):
         """Set the full ARC puzzle dataset"""
@@ -768,14 +748,8 @@ class ProgressiveSelectionTrainer:
         with open(consolidation_filename, 'a') as log_file:
             log_file.write(f"\n{'='*70}\nCONSOLIDATION ANALYSIS COMPLETE\n{'='*70}\n\n")
 
-        # Filter out frozen symbols
-        recessive_symbols = {s for s in recessive_symbols 
-                            if s not in self.frozen_symbol_indices}
-        
-        if removed_frozen := (original_recessive & self.frozen_symbol_indices):
-            print(f"Protected frozen symbols from removal: {sorted(removed_frozen)}")
-        
         return recessive_symbols
+
 
     def write_puzzle_grid_to_file(self, log_file, grid: np.ndarray, title: str = "Grid", indent: str = "    "):
         """
@@ -1954,14 +1928,6 @@ class ProgressiveSelectionTrainer:
         state = {
             'agent1_state_dict': self.agent1.state_dict(),
             'agent2_state_dict': self.agent2.state_dict(),
-            'architecture': {
-                'embedding_dim': getattr(self.agent1, 'embedding_system', None).symbol_embedding.weight.shape[1] if hasattr(self.agent1, 'embedding_system') else None,
-                'hidden_dim': getattr(self.agent1, 'encoder', None).encoder[0].self_attn.embed_dim if hasattr(self.agent1, 'encoder') else None,
-                'num_symbols': getattr(self.agent1, 'max_num_symbols', None),
-                'puzzle_symbols': getattr(self.agent1, 'puzzle_symbols', None),
-                'max_seq_length': getattr(self.agent1, 'max_seq_length', None),
-                'similarity_metric': getattr(self.agent1, 'similarity_metric', None),
-            },
             'trainer_state': {
                 'current_phase': self.current_phase,
                 'phase_cycle': self.phase_cycle,
@@ -1976,14 +1942,11 @@ class ProgressiveSelectionTrainer:
                 'current_comm_symbols_a2': getattr(self.agent2, 'current_comm_symbols', None),
                 'current_total_symbols_a1': getattr(self.agent1, 'current_total_symbols', None),
                 'current_total_symbols_a2': getattr(self.agent2, 'current_total_symbols', None),
-                'current_seq_length': getattr(self.agent1, 'current_seq_length', None),
-                'frozen_positions': getattr(self, 'frozen_positions', []),
                 'initial_puzzle_count': self.initial_puzzle_count,
                 'initial_comm_symbols': self.initial_comm_symbols,
                 'repetition_per_puzzle': self.repetitions_per_puzzle,
                 'learning_rate': self.learning_rate,
                 'web_mode': self.web_mode,
-                'frozen_symbol_indices': list(self.frozen_symbol_indices),
             },
             'meta': {
                 'created_at': timestamp,
