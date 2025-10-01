@@ -786,6 +786,24 @@ def get_recon_sample():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/selection-sample', methods=['GET'])
+def get_selection_sample():
+    """Return the most recent selection sample (input-output task)."""
+    try:
+        sample = None
+        if os.path.exists('training_status.json'):
+            try:
+                with open('training_status.json', 'r') as f:
+                    st = json.load(f)
+                sample = st.get('last_selection_sample')
+            except Exception:
+                sample = None
+        return jsonify({'sample': sample})
+    except Exception as e:
+        log_debug(f"Error retrieving selection sample: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 # --- NEW: Latest reconstruction per symbol ---
 @app.route('/api/recon-symbols', methods=['GET'])
 def get_recon_symbols():

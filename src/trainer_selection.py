@@ -170,6 +170,10 @@ class ProgressiveSelectionTrainer:
         # Reconstruction sample logging cadence
         self._recon_step_counter = 0
         self.recon_sample_interval = 10
+        # Selection sample logging cadence (for input-output display)
+        self._selection_step_counter = 0
+        self.selection_sample_interval = 10
+        self.last_selection_sample = None
 
     def set_puzzle_dataset(self, puzzles: List[Puzzle]):
         """Set the full ARC puzzle dataset"""
@@ -1325,6 +1329,61 @@ class ProgressiveSelectionTrainer:
                             'target_size': [Ht, Wt],
                             'predicted_size': [Hp, Wp]
                         }
+            except Exception:
+                pass
+            
+            # Emit selection sample intermittently to show input-output task
+            self._selection_step_counter += 1
+            try:
+                if self._selection_step_counter % max(1, int(self.selection_sample_interval)) == 0:
+                    with torch.no_grad():
+                        # Extract message symbols
+                        seq_len = symbols1.size(1) if symbols1.dim() == 3 else 1
+                        message_symbols_local = []
+                        message_symbols_abs = []
+                        
+                        for pos in range(seq_len):
+                            if symbols1.dim() == 3:
+                                local_sym = int(symbols1[0, pos].argmax().item())
+                            else:
+                                local_sym = 0
+                            abs_sym = int(self.agent1.puzzle_symbols + local_sym)
+                            message_symbols_local.append(local_sym)
+                            message_symbols_abs.append(abs_sym)
+                        
+                        # Get the input and output grids
+                        input_np = input_tensor[0].detach().cpu().long().numpy().tolist()
+                        output_np = output_tensor[0].detach().cpu().long().numpy().tolist()
+                        
+                        # Store selection sample
+                        self.last_selection_sample = {
+                            'direction': 'A1_to_A2',
+                            'message_symbols_local': message_symbols_local,
+                            'message_symbols_abs': message_symbols_abs,
+                            'message_symbol_local': message_symbols_local[0] if message_symbols_local else 0,
+                            'message_symbol_abs': message_symbols_abs[0] if message_symbols_abs else 0,
+                            'sequence_length': seq_len,
+                            'input_puzzle': input_np,
+                            'output_puzzle': output_np,
+                            'input_size': [input_tensor.shape[1], input_tensor.shape[2]],
+                            'output_size': [output_tensor.shape[1], output_tensor.shape[2]],
+                            'selection_correct': (pred1 == target_idx[0]).item(),
+                            'confidence': correct_confidence1
+                        }
+                        
+                        # Write to status file for web interface
+                        try:
+                            import os
+                            status_path = globals().get('global_status_file_path', 'training_status.json')
+                            if os.path.exists(status_path):
+                                cur = {}
+                                with open(status_path, 'r') as f:
+                                    cur = json.load(f)
+                                cur['last_selection_sample'] = self.last_selection_sample
+                                with open(status_path, 'w') as f:
+                                    json.dump(cur, f)
+                        except Exception:
+                            pass
             except Exception:
                 pass
             
