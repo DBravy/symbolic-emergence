@@ -319,8 +319,19 @@ class ProgressiveAgent(nn.Module):
         message: torch.Tensor,
         target_size: Optional[Tuple[int, int]] = None,
         temperature: float = 1.0,
-        hard: bool = True
+        hard: bool = True,
+        input_grid: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor, torch.Tensor, List[torch.Tensor], List[torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]:
+        """
+        Decode message to reconstruct puzzle grid.
+        
+        Args:
+            message: Message tensor
+            target_size: Optional target size for output
+            temperature: Sampling temperature
+            hard: Whether to use hard sampling
+            input_grid: Optional input grid tensor [B, H, W] to initialize decoder
+        """
         if target_size is None:
             target_size = self.max_grid_size
                 
@@ -347,10 +358,11 @@ class ProgressiveAgent(nn.Module):
         embedded_message = torch.matmul(flat_message, current_comm_embeddings)
         embedded_message = embedded_message.reshape(message.size(0), message.size(1), -1)
         
-        # Get decoder outputs
+        # Get decoder outputs (pass input_grid if provided)
         decoder_output = self.decoder(
             embedded_message,
-            temperature=temperature
+            temperature=temperature,
+            input_grid=input_grid
         )
         
         grid_logits, intermediate_logits, confidence_scores, size_logits = decoder_output

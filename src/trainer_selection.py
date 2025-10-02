@@ -1310,7 +1310,8 @@ class ProgressiveSelectionTrainer:
                             self.agent2.puzzle_symbols:self.agent2.current_total_symbols
                         ]
                         embedded_msg1 = torch.matmul(symbols1, comm_emb_a2)
-                        logits_sel, _, _, _ = self.agent2.decoder(embedded_msg1, temperature=1.0)
+                        # Pass input_tensor to decoder so it can start from the input grid
+                        logits_sel, _, _, _ = self.agent2.decoder(embedded_msg1, temperature=1.0, input_grid=input_tensor)
                         Bp, Hp, Wp, Cp = logits_sel.shape
                         Ht, Wt = int(target_tensor.shape[1]), int(target_tensor.shape[2])
                         # Don't crop - show full grids at their actual sizes
@@ -1487,7 +1488,8 @@ class ProgressiveSelectionTrainer:
             self.agent2.puzzle_symbols:self.agent2.current_total_symbols
         ]
         embedded_msg1 = torch.matmul(symbols1, comm_emb_a2)
-        logits1, _, _, (hlog1, wlog1) = self.agent2.decoder(embedded_msg1, temperature=1.0)
+        # Pass input_tensor to decoder so it can start from the input grid
+        logits1, _, _, (hlog1, wlog1) = self.agent2.decoder(embedded_msg1, temperature=1.0, input_grid=input_tensor)
         B1, Hp1, Wp1, C1 = logits1.shape
         Ht, Wt = int(output_tensor.shape[1]), int(output_tensor.shape[2])
         Hc1, Wc1 = min(Hp1, Ht), min(Wp1, Wt)
@@ -1514,7 +1516,8 @@ class ProgressiveSelectionTrainer:
             self.agent1.puzzle_symbols:self.agent1.current_total_symbols
         ]
         embedded_msg2 = torch.matmul(symbols2, comm_emb_a1)
-        logits2, _, _, (hlog2, wlog2) = self.agent1.decoder(embedded_msg2, temperature=1.0)
+        # Pass input_tensor to decoder so it can start from the input grid
+        logits2, _, _, (hlog2, wlog2) = self.agent1.decoder(embedded_msg2, temperature=1.0, input_grid=input_tensor)
         B2, Hp2, Wp2, C2 = logits2.shape
         Hc2, Wc2 = min(Hp2, Ht), min(Wp2, Wt)
         recon_loss2 = F.cross_entropy(

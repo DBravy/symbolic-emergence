@@ -203,13 +203,12 @@ def train_single_puzzle(
             ).unsqueeze(0)
             
             # Bidirectional reconstruction training
-            # Direction 1: Agent1 encodes input -> Agent2 decodes to reconstruct output
             agent1.train()
             agent2.train()
             trainer.opt1.zero_grad()
             trainer.opt2.zero_grad()
             
-            # A1 -> A2
+            # Direction 1: Agent1 encodes input -> Agent2 decodes to reconstruct output
             symbols1, _, _ = agent1.encode_puzzle_to_message(input_tensor, temperature=1.0, initial_phase=False)
             
             # Convert symbols to embeddings for decoder
@@ -218,15 +217,28 @@ def train_single_puzzle(
             ]
             embedded_msg = torch.matmul(symbols1, current_comm_embeddings)
             
-            # Decode to reconstruct output
-            target_size = (output_tensor.shape[1], output_tensor.shape[2])
-            decoded_logits, _, _, _ = agent2.decoder(embedded_msg, temperature=1.0, force_target_size=target_size)
-            
-            # Compute reconstruction loss
-            loss1 = nn.functional.cross_entropy(
-                decoded_logits.reshape(-1, config['puzzle_symbols']),
-                output_tensor.reshape(-1)
+            # Decode WITHOUT forcing size - let decoder learn to predict it
+            decoded_logits, _, _, (height_logits, width_logits) = agent2.decoder(
+                embedded_msg, temperature=1.0, input_grid=input_tensor
             )
+            
+            # Compute reconstruction loss on overlapping region
+            B, Hp, Wp, C = decoded_logits.shape
+            Ht, Wt = output_tensor.shape[1], output_tensor.shape[2]
+            Hc, Wc = min(Hp, Ht), min(Wp, Wt)
+            
+            recon_loss1 = nn.functional.cross_entropy(
+                decoded_logits[:, :Hc, :Wc, :].reshape(B * Hc * Wc, C),
+                output_tensor[:, :Hc, :Wc].reshape(B * Hc * Wc)
+            )
+            
+            # Add size prediction loss
+            height_target = torch.tensor([max(1, min(Ht, agent2.decoder.max_height)) - 1], device=device)
+            width_target = torch.tensor([max(1, min(Wt, agent2.decoder.max_width)) - 1], device=device)
+            size_loss1 = nn.functional.cross_entropy(height_logits, height_target) + \
+                            nn.functional.cross_entropy(width_logits, width_target)
+            
+            loss1 = recon_loss1 + 0.1 * size_loss1
             
             # Direction 2: Agent2 encodes input -> Agent1 decodes to reconstruct output
             symbols2, _, _ = agent2.encode_puzzle_to_message(input_tensor, temperature=1.0, initial_phase=False)
@@ -234,14 +246,27 @@ def train_single_puzzle(
             current_comm_embeddings = agent1.communication_embedding.weight[
                 config['puzzle_symbols']:config['puzzle_symbols'] + 1
             ]
-            embedded_msg = torch.matmul(symbols2, current_comm_embeddings)
+            embedded_msg2 = torch.matmul(symbols2, current_comm_embeddings)
             
-            decoded_logits2, _, _, _ = agent1.decoder(embedded_msg, temperature=1.0, force_target_size=target_size)
-            
-            loss2 = nn.functional.cross_entropy(
-                decoded_logits2.reshape(-1, config['puzzle_symbols']),
-                output_tensor.reshape(-1)
+            # Decode WITHOUT forcing size
+            decoded_logits2, _, _, (height_logits2, width_logits2) = agent1.decoder(
+                embedded_msg2, temperature=1.0, input_grid=input_tensor
             )
+            
+            # Compute reconstruction loss on overlapping region
+            B2, Hp2, Wp2, C2 = decoded_logits2.shape
+            Hc2, Wc2 = min(Hp2, Ht), min(Wp2, Wt)
+            
+            recon_loss2 = nn.functional.cross_entropy(
+                decoded_logits2[:, :Hc2, :Wc2, :].reshape(B2 * Hc2 * Wc2, C2),
+                output_tensor[:, :Hc2, :Wc2].reshape(B2 * Hc2 * Wc2)
+            )
+            
+            # Add size prediction loss
+            size_loss2 = nn.functional.cross_entropy(height_logits2, height_target) + \
+                            nn.functional.cross_entropy(width_logits2, width_target)
+            
+            loss2 = recon_loss2 + 0.1 * size_loss2
             
             # Total loss
             total_loss = loss1 + loss2
@@ -252,12 +277,12 @@ def train_single_puzzle(
             
             cycle_losses.append(total_loss.item())
             
-            # Compute reconstruction accuracy
+            # Compute reconstruction accuracy on overlapping regions
             with torch.no_grad():
-                pred1 = decoded_logits.argmax(dim=-1)
-                pred2 = decoded_logits2.argmax(dim=-1)
-                acc1 = (pred1 == output_tensor).float().mean().item()
-                acc2 = (pred2 == output_tensor).float().mean().item()
+                pred1 = decoded_logits[:, :Hc, :Wc, :].argmax(dim=-1)
+                pred2 = decoded_logits2[:, :Hc2, :Wc2, :].argmax(dim=-1)
+                acc1 = (pred1 == output_tensor[:, :Hc, :Wc]).float().mean().item()
+                acc2 = (pred2 == output_tensor[:, :Hc2, :Wc2]).float().mean().item()
                 cycle_recon_accs.append((acc1 + acc2) / 2)
         
         # Log progress
@@ -269,6 +294,7 @@ def train_single_puzzle(
     update_status('testing', 'Evaluating on test example...', 95)
     
     # Test on the test input
+# Test on the test input
     print(f"\n{'='*60}")
     print(f"Testing on test example with reconstruction...")
     print(f"{'='*60}")
@@ -292,30 +318,35 @@ def train_single_puzzle(
         ]
         embedded_msg = torch.matmul(symbols, current_comm_embeddings)
         
-        # Determine target size
-        if test_output is not None:
-            target_size = (test_output.shape[0], test_output.shape[1])
-        else:
-            target_size = (test_input.shape[0], test_input.shape[1])
+        # Decode WITHOUT forcing size - let decoder predict naturally
+        decoded_logits, _, _, (height_logits, width_logits) = agent2.decoder(
+            embedded_msg, temperature=0.1, input_grid=test_tensor
+        )
         
-        # Decode
-        decoded_logits, _, _, _ = agent2.decoder(embedded_msg, temperature=0.1, force_target_size=target_size)
+        # Get predicted size
+        pred_height = height_logits.argmax(dim=-1).item() + 1
+        pred_width = width_logits.argmax(dim=-1).item() + 1
+        
         reconstructed_output = decoded_logits.argmax(dim=-1).squeeze(0).cpu().numpy()
         
         print(f"Agent 2 reconstructed output with shape: {reconstructed_output.shape}")
+        print(f"Decoder predicted size: {pred_height}x{pred_width}")
+        if test_output is not None:
+            print(f"Expected output size: {test_output.shape[0]}x{test_output.shape[1]}")
         
         # Compute accuracy if we have the expected output
         if test_output is not None:
             test_output_tensor = torch.tensor(test_output, dtype=torch.long, device=device)
             reconstructed_tensor = torch.tensor(reconstructed_output, dtype=torch.long, device=device)
             
-            # Handle size mismatches
+            # Handle size mismatches - compare overlapping region
             min_h = min(reconstructed_tensor.shape[0], test_output_tensor.shape[0])
             min_w = min(reconstructed_tensor.shape[1], test_output_tensor.shape[1])
             
             accuracy = (reconstructed_tensor[:min_h, :min_w] == test_output_tensor[:min_h, :min_w]).float().mean().item()
-            print(f"Reconstruction accuracy: {accuracy:.3f}")
+            print(f"Reconstruction accuracy (overlapping region): {accuracy:.3f}")
             print(f"Correct pixels: {int(accuracy * min_h * min_w)}/{min_h * min_w}")
+            print(f"Overlapping region: {min_h}x{min_w}")
     
     # Update status with reconstruction result (this must be the FINAL status write)
     final_status = {

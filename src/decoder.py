@@ -173,6 +173,8 @@ class ProgressiveDecoder(nn.Module):
         
         # CONTENT REFINEMENT: After size is determined
         self.grid_embedding = nn.Parameter(torch.randn(1, 1, 1, hidden_dim) * 0.02)
+        # NEW: Input grid embedding layer to convert input grid symbols to hidden dimension
+        self.input_grid_embedding = nn.Embedding(puzzle_symbols, hidden_dim)
         self.pos_encoder = GridPositionalEncoding(hidden_dim, max_height, max_width)
         self.refinement_layers = nn.ModuleList([
             RefinementLayer(hidden_dim) for _ in range(num_refinements)
@@ -180,7 +182,19 @@ class ProgressiveDecoder(nn.Module):
         
         self.output = nn.Linear(hidden_dim, puzzle_symbols)
 
-    def forward(self, message, temperature=1.0, force_target_size=None):
+    def forward(self, message, temperature=1.0, force_target_size=None, input_grid=None):
+        """
+        Decode a message to reconstruct the output grid.
+        
+        Args:
+            message: Message tensor [B, seq_len, embedding_dim]
+            temperature: Sampling temperature
+            force_target_size: Optional (height, width) tuple to force output size
+            input_grid: Optional input grid tensor [B, H_in, W_in] to initialize decoder state
+        
+        Returns:
+            final_logits, intermediate_outputs, confidence_scores, (height_logits, width_logits)
+        """
         batch_size = message.size(0)
         message = self.input_projection(message)  # [B, seq_len, hidden_dim]
         
@@ -216,8 +230,29 @@ class ProgressiveDecoder(nn.Module):
             width = width_logits.argmax(dim=-1) + 1
         
         # PHASE 2: Iteratively refine content with ALL tokens
-        grid = self.grid_embedding.expand(batch_size, height.item(), width.item(), self.hidden_dim)
-        grid = self.pos_encoder(grid)
+        # NEW: Initialize grid with input grid if provided, otherwise use random embedding
+        if input_grid is not None:
+            # Embed the input grid symbols: [B, H_in, W_in] -> [B, H_in, W_in, hidden_dim]
+            embedded_input = self.input_grid_embedding(input_grid)
+            
+            # Resize/pad the embedded input to match the target output size
+            B, H_in, W_in, D = embedded_input.shape
+            H_out, W_out = height.item(), width.item()
+            
+            # Create output grid initialized with zeros
+            grid = torch.zeros(B, H_out, W_out, D, device=embedded_input.device, dtype=embedded_input.dtype)
+            
+            # Copy the input grid into the top-left corner
+            H_copy = min(H_in, H_out)
+            W_copy = min(W_in, W_out)
+            grid[:, :H_copy, :W_copy, :] = embedded_input[:, :H_copy, :W_copy, :]
+            
+            # Add positional encoding on top
+            grid = self.pos_encoder(grid)
+        else:
+            # Original behavior: start from random embedding
+            grid = self.grid_embedding.expand(batch_size, height.item(), width.item(), self.hidden_dim)
+            grid = self.pos_encoder(grid)
         
         intermediate_outputs = []
         confidence_scores = []
