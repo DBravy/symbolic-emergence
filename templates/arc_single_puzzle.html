@@ -162,6 +162,12 @@
         let selectedPuzzleId = null;
         let trainingInterval = null;
         
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', async () => {
+            console.log('Initializing page...');
+            await checkExistingState();
+        });
+        
         // ARC color palette (standard colors used in ARC)
         const ARC_COLORS = [
             '#000000', // 0 - black
@@ -437,6 +443,54 @@
             }
             
             resultsEl.innerHTML = html;
+        }
+        
+        async function checkExistingState() {
+            try {
+                // Check if there's any existing training status or results
+                const statusResp = await fetch('/api/status');
+                if (!statusResp.ok) {
+                    console.log('No existing status found');
+                    return;
+                }
+                
+                const status = await statusResp.json();
+                const statusInfo = status.status_info || {};
+                
+                console.log('Found existing status:', statusInfo.status);
+                
+                // If there's reconstruction data, display it
+                if (statusInfo.reconstruction) {
+                    console.log('Found reconstruction data, displaying...');
+                    displayReconstruction(statusInfo.reconstruction);
+                }
+                
+                // If training is active, show the training section and start polling
+                if (statusInfo.status === 'training') {
+                    console.log('Training is active, starting status polling...');
+                    const trainingSection = document.getElementById('training-status-section');
+                    trainingSection.style.display = 'block';
+                    startStatusPolling();
+                }
+                
+                // If training is complete, show the status
+                if (statusInfo.status === 'complete') {
+                    console.log('Training complete, displaying final status...');
+                    const trainingSection = document.getElementById('training-status-section');
+                    trainingSection.style.display = 'block';
+                    
+                    const statusEl = document.getElementById('training-status');
+                    statusEl.className = 'status-box complete';
+                    statusEl.innerHTML = `
+                        <div><strong>Status:</strong> ${statusInfo.status || 'Unknown'}</div>
+                        <div><strong>Message:</strong> ${statusInfo.message || 'No message'}</div>
+                        <div><strong>Progress:</strong> ${statusInfo.progress || 0}%</div>
+                    `;
+                }
+                
+            } catch (e) {
+                console.log('No existing state to restore:', e);
+            }
         }
     </script>
 </body>
