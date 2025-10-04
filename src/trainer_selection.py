@@ -388,40 +388,22 @@ class ProgressiveSelectionTrainer:
                 param.requires_grad = trainable
 
     def sample_distractors(self, target_puzzle: torch.Tensor, target_idx: int) -> List[torch.Tensor]:
-        """Sample OUTPUT puzzles as distractors (for input-output training)"""
-        if len(self.active_puzzles) < self.num_distractors + 1:
-            raise ValueError(f"Need at least {self.num_distractors + 1} active puzzles for selection task")
-        
+        """Generate random noise grids as distractors"""
         distractors = []
-        available_indices = list(range(len(self.active_puzzles)))
-        available_indices.remove(target_idx)
         
-        if self.distractor_strategy == 'random':
-            distractor_indices = random.sample(available_indices, self.num_distractors)
-        elif self.distractor_strategy == 'similar_size':
-            # Similar size sampling based on OUTPUT puzzle sizes
-            target_height, target_width = target_puzzle.shape[1], target_puzzle.shape[2]
-            size_diffs = []
-            for idx in available_indices:
-                puzzle = self.active_puzzles[idx]
-                # Use OUTPUT for size comparison
-                puzzle_tensor = torch.tensor(puzzle.test_output, dtype=torch.long)
-                h_diff = abs(puzzle_tensor.shape[0] - target_height)
-                w_diff = abs(puzzle_tensor.shape[1] - target_width)
-                size_diff = h_diff + w_diff
-                size_diffs.append((size_diff, idx))
+        # Generate num_distractors random noise grids
+        for _ in range(self.num_distractors):
+            # Random grid size between 1x1 and 30x30
+            height = random.randint(1, 30)
+            width = random.randint(1, 30)
             
-            size_diffs.sort(key=lambda x: x[0])
-            distractor_indices = [idx for _, idx in size_diffs[:self.num_distractors]]
-        else:
-            distractor_indices = random.sample(available_indices, self.num_distractors)
-        
-        # Convert to OUTPUT tensors - these are what the receiver must select
-        for idx in distractor_indices:
-            puzzle = self.active_puzzles[idx]
+            # Fill with random puzzle symbols (0-9)
+            random_grid = np.random.randint(0, 10, size=(height, width))
+            
+            # Convert to tensor with shape [1, H, W]
             distractor_tensor = torch.tensor(
-                puzzle.test_output,  # OUTPUT puzzle as distractor
-                dtype=torch.long, 
+                random_grid,
+                dtype=torch.long,
                 device=self.device
             ).unsqueeze(0)
             distractors.append(distractor_tensor)
