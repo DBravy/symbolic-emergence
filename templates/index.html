@@ -110,6 +110,16 @@
                         <span class="help-text">Cycles for the very first training phase</span>
                     </div>
                     <div class="form-group">
+                        <label for="first_pretrain_epochs">First Pretrain Epochs:</label>
+                        <input type="number" id="first_pretrain_epochs" min="0" max="1000" value="100">
+                        <span class="help-text">Pretraining epochs for the first phase</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="pretrain_epochs">Pretrain Epochs:</label>
+                        <input type="number" id="pretrain_epochs" min="0" max="1000" value="100">
+                        <span class="help-text">Pretraining epochs for subsequent phases</span>
+                    </div>
+                    <div class="form-group">
                         <label for="puzzles_per_addition">Puzzles per Addition:</label>
                         <input type="number" id="puzzles_per_addition" min="1" max="10" value="3">
                         <span class="help-text">New puzzles added each cycle</span>

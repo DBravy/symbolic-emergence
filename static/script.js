@@ -58,7 +58,8 @@ async function saveConfig() {
     const config = {};
     const formElements = [
         'max_global_phases', 'initial_puzzle_count', 'training_cycles', 
-        'first_training_cycles', 'puzzles_per_addition', 'learning_rate', 'num_distractors',
+        'first_training_cycles', 'first_pretrain_epochs', 'pretrain_epochs',
+        'puzzles_per_addition', 'learning_rate', 'num_distractors',
         'distractor_strategy', 'phase_change_indicator', 'early_stop_min_cycles', 
         'consolidation_threshold', 'embedding_dim', 'hidden_dim', 'num_symbols', 'puzzle_symbols',
         'max_seq_length', 'current_seq_length',
